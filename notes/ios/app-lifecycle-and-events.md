@@ -46,6 +46,23 @@ didFinishLaunchingWithOptions 返回、makeKeyAndVisible() 返回，都不能单
 
 参考：[缩短启动时间与首帧度量](https://developer.apple.com/documentation/xcode/reducing-your-app-s-launch-time)
 
+### 进程创建时间与启动计时起点
+
+进程创建时间是系统记录的进程开始存在的时刻。进入 `main()` 的时间是程序执行到入口的时刻，两者不同。对于新创建的 App 进程，进程创建发生在进入 `main()` 之前，因此只从 `main()` 开始记录当前时间，会遗漏这之前的启动阶段。
+
+`sysctl` 是 Darwin 系统提供的 C 接口，用于查询系统信息，也允许具有相应权限的调用方修改部分系统信息。PID 是操作系统分配给进程的编号。查询当前进程信息时，调用方提供当前 PID，系统将允许查询的结果写入调用方提供的缓冲区。
+
+1. 获取当前进程的 PID。
+2. 通过 `sysctl` 的 `CTL_KERN → KERN_PROC → KERN_PROC_PID → PID` 查询路径请求进程信息。
+3. 查询成功并获得有效结果后，从 `kinfo_proc` 结构中的 `kp_proc.p_un.__p_starttime` 读取进程启动时间。
+4. 将秒数 `tv_sec` 与微秒数 `tv_usec` 合并：时间戳（秒）= `tv_sec + tv_usec / 1_000_000.0`。时间戳表示相对于约定时间原点的时间值，不是耗时。
+
+查询时间与被查询的事件时间需要分开。例如：10:00:00.000 创建进程，10:00:00.200 进入 `main()`，10:00:00.300 查询进程创建时间；查询得到的仍是 10:00:00.000，而不是调用查询接口时的时间。
+
+参考：[Apple：sysctl 接口](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/sysctl.3.html)；[Apple XNU：进程启动时间字段](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/proc.h)。
+
+统计前应明确起点和终点的含义。以进程创建时间为起点，可以覆盖 `main()` 之前的启动阶段，但进程创建时间不等于用户点击图标的时间。系统预热是系统在用户主动打开 App 前提前执行部分启动工作；存在预热时，需要区分预热阶段与用户实际等待阶段。用于相减的时间值还需要采用一致的时钟基准和单位。
+
 ## UIApplication 的使用场景：打开应用设置
 
 用户拒绝照片访问后，应用可以提供“去设置”按钮。按钮被点击后，业务代码使用 UIApplication.openSettingsURLString 构造 URL，再通过 UIApplication.shared.open(...) 请求系统打开本应用的设置页面。

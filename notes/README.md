@@ -2,9 +2,21 @@
 
 [返回 Study](../README.md)
 
-按 7 个主题整理的 15 篇学习笔记。每篇文档保留概念说明、工作机制、代码示例和参考资料；通过篇内目录与文档间链接查阅相关内容。
+按 7 个主题整理的 16 篇学习笔记。每篇文档保留概念说明、工作机制、代码示例和参考资料；通过篇内目录与文档间链接查阅相关内容。
 
 整理日期：2026-10-09。
+
+## 分类目录
+
+| 分类 | 文档数 |
+| --- | --- |
+| [语言与运行时](language/) | 2 |
+| [iOS 界面、事件与调度](ios/) | 6 |
+| [跨平台与宿主通信](cross-platform/) | 2 |
+| [软件设计与工程工具](engineering/) | 2 |
+| [网络与存储](network-and-storage/) | 2 |
+| [实验与统计](statistics/) | 1 |
+| [AI 辅助开发](ai/) | 1 |
 
 ## 语言与运行时
 
@@ -15,6 +27,8 @@
 
 ## iOS 界面、事件与调度
 
+[Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md)：Darwin 与 XNU 的关系、基础系统组件、应用框架、系统服务及通知协作示例。
+
 | 文档 | 内容范围 |
 | --- | --- |
 | [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、启动到首帧、UIWindow、触摸分发与键盘输入 |
@@ -22,6 +36,8 @@
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度 |
 | [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、线程安全、锁、RunLoop、Timer 与 CADisplayLink |
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
+
+相关专题：[内核、逻辑 CPU 与线程并发](ios/threads-and-scheduling.md#内核的职责与进程信息)；[进程创建时间与启动计时起点](ios/app-lifecycle-and-events.md#进程创建时间与启动计时起点)。
 
 ## 跨平台与宿主通信
 

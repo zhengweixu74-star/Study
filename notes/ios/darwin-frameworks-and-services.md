@@ -1,0 +1,73 @@
+# Darwin、应用框架与系统服务
+
+[返回笔记目录](../README.md)
+
+## 本文目录
+
+- [Darwin、XNU 与 iOS 的关系](#darwinxnu-与-ios-的关系)
+- [Darwin 中的基础系统组件](#darwin-中的基础系统组件)
+- [应用框架](#应用框架)
+- [系统服务](#系统服务)
+- [框架与系统服务如何协作](#框架与系统服务如何协作)
+
+本文从 iOS 开发的角度说明操作系统基础、应用框架和系统服务。Darwin 是共享的系统基础，但不同苹果平台提供的框架、服务和工具并不完全相同。
+
+## Darwin、XNU 与 iOS 的关系
+
+Darwin 是苹果的开源操作系统基础，包含内核以及基础系统库、工具等组件。iOS 和 macOS 建立在这套基础之上，并提供各自的应用框架、图形界面和系统能力。
+
+| 名称 | 含义 | 与其他部分的关系 |
+| --- | --- | --- |
+| XNU | 苹果使用的内核，负责线程调度、内存管理等核心工作 | XNU 是 Darwin 的一部分 |
+| Darwin | 包含 XNU 内核及其他基础系统组件的操作系统基础 | Darwin 的范围大于内核 |
+| iOS / macOS | 面向用户和开发者的完整操作系统产品 | 在 Darwin 基础上提供各自的框架、界面与系统能力 |
+
+内核是软件。CPU 和内存是内核管理的硬件资源。Darwin 既包含内核，也包含在普通进程中执行的系统代码；不能把 Darwin 中所有组件都理解为内核代码。
+
+参考：[Apple：Darwin 与系统架构](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/KernelProgramming/Architecture/Architecture.html)；[Apple：XNU](https://github.com/apple-oss-distributions/xnu)。
+
+## Darwin 中的基础系统组件
+
+库是供其他程序调用的代码集合，工具是可以独立运行的程序。以下是内核之外的基础组件示例：
+
+| 组件 | 作用 | 具体例子 |
+| --- | --- | --- |
+| C 标准库 Libc | 提供输入输出、字符串处理等基础函数 | printf() 输出文字；strlen() 计算 C 字符串中终止空字符之前的字节数 |
+| 动态加载器 dyld | 加载程序依赖的动态库，并完成必要的链接工作 | App 启动时，dyld 让程序能够使用依赖库中的函数 |
+| 文件命令工具 | 提供查看和操作文件的独立程序 | 在 macOS 终端使用 ls 列出目录内容，使用 cp 复制文件 |
+
+以复制文件为例，cp 负责组织复制流程，内核负责提供受权限控制的文件读写等能力。cp 不是内核的一部分。命令行工具示例以 macOS 为背景，不表示普通 iOS App 中具备相同的命令行环境。
+
+sysctl 属于系统基础 C 接口。App 通过这个接口请求系统信息，内核提供允许查询的数据；查询接口与保存数据的内核需要区分。
+
+参考：[Apple：Libc](https://github.com/apple-oss-distributions/Libc)；[Apple：dyld](https://github.com/apple-oss-distributions/dyld)；[Apple：文件命令工具](https://github.com/apple-oss-distributions/file_cmds)。
+
+## 应用框架
+
+应用框架是供开发者构建 App 的一套接口、代码实现和组织规则。开发者调用框架提供的类型和方法，也按框架规定实现回调。框架既提供可调用的功能，也规定部分代码在何时被调用。
+
+UIKit 是应用框架。UIKit 提供界面和事件处理的基础能力，开发者在这些能力上编写业务逻辑。
+
+- 使用 UIButton 创建按钮。
+- 使用 UIViewController 管理页面。
+- 实现 viewDidLoad()，让 UIKit 在视图加载完成后调用自定义代码。
+
+参考：[Apple：UIKit](https://developer.apple.com/documentation/uikit)。
+
+## 系统服务
+
+系统服务是由操作系统管理、为应用或其他系统组件提供公共能力的运行组件。很多系统服务由独立的系统进程承载，其运行不依赖某一个 App 持续执行。通知调度与投递就是系统提供的服务能力。
+
+系统服务按职责定义，并不是一个固定的软件层级。不能把所有系统服务都归到 Darwin 之外，也不能把某个框架直接等同于独立运行的系统服务。
+
+## 框架与系统服务如何协作
+
+以“十分钟后提醒”的本地通知为例。本地通知是由 App 在设备上安排触发条件、由系统负责投递的通知。
+
+1. App 通过 UserNotifications 框架创建通知内容和时间触发条件。
+2. App 提交通知请求，系统接收并安排后续调度。
+3. 满足触发条件、通知授权和相关设置时，系统投递通知。即使 App 已不在运行，系统仍能完成投递。
+
+这里的 UserNotifications 是框架，提供 App 使用通知能力的接口与配套实现；系统服务负责后续通知调度和投递。框架中也有直接在 App 进程内完成的逻辑，并不是所有框架操作都需要交给独立的系统服务。
+
+参考：[Apple：安排与处理本地通知](https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/SchedulingandHandlingLocalNotifications.html)。
