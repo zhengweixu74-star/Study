@@ -1,0 +1,171 @@
+# iOS 线程与任务调度
+
+[返回笔记目录](../README.md)
+
+## 本文目录
+
+- [进程与线程](#进程与线程)
+- [GCD 的任务、队列与提交方式](#gcd-的任务队列与提交方式)
+- [i++ 的执行过程与线程安全](#i-的执行过程与线程安全)
+- [CAS 的机制、重试与 ABA](#cas-的机制重试与-aba)
+- [常见锁与分类维度](#常见锁与分类维度)
+- [RunLoop 与运行模式](#runloop-与运行模式)
+- [Timer 的调度与重复触发](#timer-的调度与重复触发)
+- [CADisplayLink 的原理与适用场景](#cadisplaylink-的原理与适用场景)
+
+## 进程与线程
+
+同一进程中的线程共享进程地址空间和资源。每条线程有自己的栈与执行上下文；线程切换需要保存和恢复相应状态，不能把保存的上下文等同于永久独占一组物理寄存器。
+
+## GCD 的任务、队列与提交方式
+
+GCD 的任务、队列和线程是不同概念。串行或并发描述队列如何组织任务；同步或异步描述提交方是否等待。`async` 不等于切换后台线程，主队列 async 也不保证下一轮 RunLoop 才执行。
+
+## i++ 的执行过程与线程安全
+
+本节用 `i++` 表示普通整数自增的伪代码。多个线程操作同一个共享变量时，普通自增不能默认视为原子操作。原子操作是相对于其他并发访问不可分割的操作。
+
+自增的逻辑过程是“读取旧值 → 计算旧值加 1 → 写回新值”。以显式加载和存储的 CPU 执行方式为例，CPU 把变量读入寄存器，完成加法，再写回对应地址。寄存器是 CPU 内部供指令直接使用的存储位置。读取可能命中 CPU 缓存，写入也可能先更新缓存，不代表每次都立即访问或写回物理内存。
+
+三个逻辑步骤不等于固定三条机器指令。CPU 架构和编译优化会影响具体指令，变量也可能暂存在寄存器中。即使某条指令能够完成内存自增，也不能仅凭“只有一条指令”认定具有跨线程原子性。
+
+**丢失更新示例：**初始值为 0。线程 A 和 B 都读取 0，分别计算得到 1，然后各自写回 1，最终只体现一次增量。这个交错示意用于说明风险；具体语言对数据竞争的后果还有自己的规定，不能把实际结果限定为 1 或 2。
+
+| 线程安全方式 | 保证条件 |
+|-|-|
+| 互斥锁 | 同一把锁保护完整的读取、计算、写回过程；其他可能并发的读写也遵守同一保护约定 |
+| 原子自增 | 使用语言或库提供的原子读改写操作；分别执行原子读取和原子写入，不能保证整个自增原子化 |
+| 串行队列 | 把相关访问统一提交到同一个串行队列，不能在队列外直接并发读写同一变量 |
+
+独立计数可以使用原子自增；需要同时保持多个关联字段的一致性时，锁或串行隔离更容易表达整体约束。检查最终计数前，还需要等待两个自增任务完成。线程安全与任务已经完成是两个不同条件。
+
+## CAS 的机制、重试与 ABA
+
+CAS 是原子地比较并按条件更新共享值的操作。调用方提供目标位置、期望值和新值。当前值等于期望值时，CAS 写入新值并报告成功；不相等时，不写入新值并报告失败。比较与条件写入作为一个不可分割的操作完成。
+
+例如，A、B 都通过原子读取获得 0。A 用 CAS 把 0 更新为 1 并成功；B 仍以 0 为期望值时失败。B 重新获得当前值 1，计算新值 2，再尝试 CAS；期间若发生其他竞争，仍可能失败，需要按算法继续重试。
+
+CAS 只负责一次比较与更新，重试循环由调用方算法实现。普通 `if 当前值 == 期望值` 再赋值不是 CAS，因为检查与赋值之间可能插入其他线程的修改。应使用语言或库提供的原子 API。
+
+**ABA 问题：**值从 A 变成 B，再变回 A，CAS 只比较当前值，无法发现中间变化。如果算法关心变化历史，可以把版本号与值一起参与同一次原子比较更新，并处理版本号回绕等适用边界。竞争激烈时，重复失败和重试会消耗 CPU；是否无锁还取决于原子 API 的实现与整体算法。
+
+## 常见锁与分类维度
+
+锁的名称可能描述不同维度。互斥描述同一时刻允许谁访问；自旋描述竞争时如何等待；可重入描述同一线程能否再次获取自己已经持有的锁。
+
+| 类型 | 行为 | 条件与代价 |
+|-|-|-|
+| 互斥锁 | 同一时刻只允许一个持有者访问受保护区域 | 适合共享可变状态；具体实现可能先短暂自旋，再阻塞等待 |
+| 自旋锁 | 获取失败时持续尝试，等待期间占用 CPU | 等待极短时可能减少休眠与唤醒开销；长时间等待会浪费 CPU |
+| 读写锁 | 多个读者可同时持有读锁，写锁与其他读写锁互斥 | 读多写少时可能受益，实际效果取决于锁开销与竞争程度 |
+| 递归锁／可重入锁 | 同一线程可以重复获取自己持有的锁 | 每次成功获取都需要对应释放，计数归零才完全解锁 |
+
+自旋锁和递归锁都可以提供互斥访问。乐观与悲观主要描述并发控制策略：悲观策略通常先加锁再访问受保护数据；乐观策略先读取和计算，提交更新时检查冲突，再根据结果重试或失败。CAS 可用于实现乐观并发控制，但 CAS 本身不是一套完整的乐观锁方案。
+
+## RunLoop 与运行模式
+
+RunLoop 是在线程上等待并分发事件的循环。UIKit 应用由框架配置并运行主线程 RunLoop；工作线程是否启动 RunLoop，取决于该线程是否需要接收相应事件。RunLoop 在需要等待未来事件时可以让线程休眠；当前模式没有可处理的输入源或 Timer、达到运行期限或收到停止请求时，RunLoop 的本次运行可以结束。耗时回调会占用所属线程，延迟后续事件。
+
+`default` 是一个具体运行模式。`common` 是向一组被标记为 common 的模式注册任务的标记，不是一个独立运行模式，也不代表同时运行多个 mode。RunLoop 的某次运行使用一个具体 mode，处理该 mode 中符合条件的 source、timer 等。
+
+主线程滚动跟踪通常涉及 tracking mode。任务只注册 default 时，在 tracking 期间可能暂停回调；注册 common 可以让它在属于 common 集合的相关模式中被处理。common 不是所有模式，也不会切到其他线程，更不能保证主线程繁忙时准时回调。参考：[RunLoop common](https://developer.apple.com/documentation/foundation/runloop/mode/common)。
+
+### Source0 与 Source1：事件来源、数量与回调
+
+输入源（source）是加入 RunLoop 的事件处理对象。输入源关联事件就绪机制与处理回调。Source0 和 Source1 是 CFRunLoopSource 的两种版本；数字不表示优先级，也不表示先后执行顺序。
+
+| 比较项 | Source0 | Source1（Apple 平台的 Mach 端口源） |
+|-|-|-|
+| 创建时的版本 | version = 0 | version = 1 |
+| 事件就绪方式 | 调用方或框架手动标记 source | 对应 Mach 端口收到消息 |
+| 等待中的线程如何被唤醒 | Signal 本身不唤醒；需要及时处理时，再唤醒目标 RunLoop | 端口消息使内核中相关的等待满足唤醒条件 |
+| 回调由谁执行 | 正在运行且当前模式包含该 source 的 RunLoop，在所属线程执行 | RunLoop 收到对应端口消息后，在所属线程执行 source 的回调 |
+| CFRunLoopSourceSignal 的效果 | 标记指定的 Source0 为待处理 | 不用于触发 Source1，对 Source1 无效 |
+
+一个 RunLoop 可以注册多个 Source0 和多个 Source1，也可以没有某一类 source。API 没有规定统一的固定数量，实际受内存、端口等资源限制。一个运行模式可以包含多个 source；同一个 source 可以加入多个模式，在同一模式重复添加同一个 source 不会增加一个副本。
+
+CFRunLoopSourceSignal(refreshSource) 只标记 refreshSource，不会标记该 RunLoop 的其他 Source0。source 必须有效，并且加入当前运行模式，RunLoop 才能按条件处理它。Timer 是另一类 RunLoop 对象，不属于 Source0 或 Source1。
+
+回调在创建输入源时配置。Source0 的 CFRunLoopSourceContext 中，version 为 0，perform 保存处理回调。Source1 使用 CFRunLoopSourceContext1，其中 getPort 提供端口，perform 处理收到的消息。通过 CFMachPort 创建 source 时，框架负责内部转发，再调用创建 CFMachPort 时注册的回调。
+
+发送事件时不需要把回调函数随消息重新发送。发送方提供就绪信号或消息；RunLoop 查找已注册的 source，再调用 source 对应的处理函数。回调运行在哪条线程，取决于负责处理事件的 RunLoop 所在线程。
+
+参考：[Apple：RunLoop 与输入源](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/RunLoopManagement/RunLoopManagement.html)；[CFRunLoopSourceSignal](https://developer.apple.com/documentation/corefoundation/cfrunloopsourcesignal(_:))；[CFMachPort](https://developer.apple.com/documentation/corefoundation/cfmachport)。
+
+### Source0 示例：后台压缩完成后刷新预览
+
+示例目标：后台线程压缩图片，完成后通知主线程刷新预览。主线程预先创建 refreshSource，把刷新逻辑配置为 perform 回调，并把 refreshSource 加入主线程 RunLoop 的相关模式。以下只展示触发端，省略 source 创建、图片数据保存与同步、销毁清理；不是完整可运行程序。
+
+`// 后台任务已完成，refreshSource 已注册到主线程 RunLoop``
+``CFRunLoopSourceSignal(refreshSource)``
+``CFRunLoopWakeUp(CFRunLoopGetMain())`
+
+1. 后台线程先安全保存压缩结果，再调用 CFRunLoopSourceSignal(refreshSource)，把这个 Source0 标记为待处理。
+2. 后台线程调用 CFRunLoopWakeUp(CFRunLoopGetMain())。主线程若正在等待，可以恢复运行；主线程若正在执行其他代码，这个调用不会打断当前回调。
+3. 主线程 RunLoop 到达处理 Source0 的阶段，且当前模式包含 refreshSource 时，调用已注册的 perform 回调。
+4. perform 回调读取压缩结果，并在主线程刷新预览。
+
+Signal 不会立即执行 perform，也不会自动把业务数据送到回调。Source0 的就绪标记不是消息计数器：处理前连续多次 Signal，不能假设得到相同次数的回调。需要保留每项任务时，应另行保存任务数据，并对跨线程访问进行同步。
+
+Swift 可以显式调用这些 C 接口。这里包括 Core Foundation 提供的 CFRunLoopSourceSignal 和 CFRunLoopWakeUp。通用原理见[Swift 与 C 接口互操作](../language/swift-basics.md#swift-与-c-接口互操作)。只有应用自行管理自定义 Source0 时，才需要在相应触发代码中显式标记；使用已经封装好的框架能力时，框架可能负责标记和唤醒。CFRunLoopWakeUp 应针对负责处理该 source 的目标 RunLoop，不能不加区分地唤醒发送线程自己的 RunLoop。
+
+### Source1 示例：通过 Mach 端口接收完成消息
+
+Mach 端口是内核管理的消息通信端点。发送方持有相应发送权限，接收方持有接收权限；内核把发送到端口的消息交给接收方。这里的端口不是 TCP/UDP 端口号。消息包含头部和消息体，头部记录接收目标、消息编号等信息。
+
+沿用“后台压缩完成后刷新预览”的场景。主线程创建 CFMachPort，并注册接收回调；再通过 CFMachPortCreateRunLoopSource 创建与该端口关联的 Source1，加入主线程 RunLoop。以下描述事件链路，用于说明机制，不是完整 Mach 通信实现。
+
+1. 主线程 RunLoop 在相关模式中等待消息。
+2. 后台线程完成压缩，按双方约定向端口发送 Mach 消息，例如把 msgh_id 设置为 1001，表示压缩完成。
+3. 消息到达端口后，内核使等待相关端口消息的线程满足唤醒条件。主线程实际何时继续运行，还取决于线程调度。
+4. 主线程 RunLoop 根据收到消息的端口定位 Source1，再调用对应回调。回调解释消息编号及数据，最后刷新预览。
+
+此链路不通过 CFRunLoopSourceSignal 触发 Source1，也不要求发送方再手动调用 CFRunLoopWakeUp。内核负责消息传递与唤醒条件；业务回调由主线程上的 RunLoop 执行。如果主线程繁忙或当前模式不包含该 source，回调仍可能延迟。
+
+消息编号属于消息头，不属于 Source1。每条 Mach 消息的 mach_msg_header_t 都有 msgh_id 字段；1001 只是本例约定，不是系统统一编号，也不是每个 Source1 独有的编号。其含义由发送方与接收方的协议决定，消息传输机制不解释其业务含义。
+
+例如，同一端口、同一个 Source1 可以接收 1001（压缩完成）、1002（保存完成）和 1003（任务取消）。这些编号仅为示例。RunLoop 先根据接收端口找到 source；回调再根据消息编号选择业务分支。不要把“按端口分发 source”与“按消息编号分支处理”混为一件事。
+
+参考：[Apple XNU：Mach 消息头与 msgh_id](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/mach/message.h)。
+
+## Timer 的调度与重复触发
+
+Timer 保存到期计划和回调，RunLoop 组织执行，系统内核定时设施提供到期通知；不是为每个 Timer 创建一条线程持续计数，也不是 RunLoop 忙轮询一秒是否已过。
+
+1. scheduledTimer 加入当前线程 RunLoop 的 Default Mode，记录首次触发时间、重复间隔和回调。
+2. 以 Apple 公开 Core Foundation 的 Mach timer 实现路径为例，内部使用基于 mach_absolute_time 的时钟计数表示截止时间，并通过 mk_timer_arm 设置底层定时通知。
+3. RunLoop 无事可做时，通过 mach_msg 等等待机制让线程阻塞。内核到期发送相关消息，等待线程获得恢复运行条件；通知到期、线程获得 CPU 和业务回调开始是不同时间。
+4. 线程恢复后，RunLoop 检查有效且到期的 Timer，在该线程执行回调。主线程繁忙或 Mode 不匹配都会延迟它。
+5. 重复 Timer 沿原计划时间轴安排下一次。原定 1、2、3 秒，第一次延迟到 1.3 秒且很快结束，下次仍计划在 2 秒；若延迟跨过多个触发点，不会逐次补齐所有遗漏回调，而是执行一次并安排未来的下一个计划点。
+
+tolerance 为系统合并唤醒、节能提供空间，但不保证严格准时。上述私有函数来自公开历史实现，只用于解释机制，不保证所有当前 iOS 版本使用相同私有调用链。
+
+## CADisplayLink 的原理与适用场景
+
+直观理解：
+
+可以把它理解成向系统登记一个“按显示刷新节奏调用我”的任务。创建时指定 target 和 selector，加入 RunLoop 后安排执行。显示系统掌握刷新时序，Core Animation 按这套节奏调度，注册的 RunLoop 所在线程执行回调。回调里由业务计算滚动位置并修改 contentOffset，系统再准备后续画面。
+
+```text
+显示刷新时序（VSync）
+    → 系统安排 CADisplayLink 回调
+    → 注册的 RunLoop 所在线程执行方法
+    → 更新动画／滚动状态
+    → 为后续画面准备内容
+```
+
+- 显示系统提供节奏，RunLoop 执行任务；CADisplayLink 自己不负责业务滚动。
+- 普通 Timer 的时间间隔不保证与显示时序对齐；CADisplayLink 接入显示调度。
+- 回调不保证每次刷新准时执行；线程忙、模式不匹配和帧率策略都会影响它。不能写死 16.67ms，也不能说运行一轮 RunLoop 就刷新一次。
+- 根据实际经过时间计算动画进度，避免靠“回调次数 × 固定位移”导致速度随帧率变化；这不能消除掉帧造成的视觉跳跃。
+- 不扩写成未经核实的私有 Source1／Mach 消息细节；下一帧的期望显示时间可参考 targetTimestamp，剩余预算还需结合当前时间。
+
+**用途与取舍：**
+
+已讨论自定义物理／碰撞动画、波浪与动态曲线、音频频谱或音量波形展示、GIF／序列帧／自定义视频呈现，以及合并高频输入后按显示节奏更新 UI。音频采集、解码等有自己的处理节奏，不应都塞进显示回调。GIF 可以每次检查播放时间，但不一定每次更换图片；FLAnimatedImage 是使用 CADisplayLink 并按帧间隔调整回调频率的公开例子。
+
+判断依据：画面是否持续变化、是否需要业务代码持续计算、现有框架是否已提供刷新循环。普通位移、透明度和系统弹簧动画可由系统插值；MTKView 已提供绘制循环时，通常不再叠加一个 CADisplayLink。
+
+回调频率的统计方法及与真实上屏的区别见[FPS 与卡顿监测](rendering-and-performance.md#回调-fps-与卡顿监测)。逐帧变化不等于必须自己写逐帧回调，更不等于必须跑满 120 FPS。依据时间戳计算进度，内容停止变化或不可见时暂停，结束使用时 invalidate。
+
+**昂贵工作：** CADisplayLink 不会让解码大图、复杂布局自动变快或自动转到后台。每帧只保留轻量进度计算和必要 UI 更新；可后台处理的解码／纯计算提前完成，布局与视图操作遵守 UIKit 主线程要求，并通过缓存、下采样与减少重复工作控制成本。
