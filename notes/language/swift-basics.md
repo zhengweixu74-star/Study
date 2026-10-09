@@ -1,0 +1,409 @@
+# Swift 语言基础
+
+[返回笔记目录](../README.md)
+
+## 本文目录
+
+- [基础语义与内存管理](#基础语义与内存管理)
+- [类型安全、值语义与动态能力](#类型安全值语义与动态能力)
+- [类型、实例与对象引用](#类型实例与对象引用)
+- [符号引用与对象引用](#符号引用与对象引用)
+- [声明、定义、实现与引用](#声明定义实现与引用)
+- [Swift 与 C 接口互操作](#swift-与-c-接口互操作)
+- [存储属性、计算属性与访问器](#存储属性计算属性与访问器)
+- [扩展中的类型属性与实例存储限制](#扩展中的类型属性与实例存储限制)
+- [协议存在类型与泛型约束](#协议存在类型与泛型约束)
+- [逃逸闭包与执行时机](#逃逸闭包与执行时机)
+- [闭包参数、捕获列表与可选回调](#闭包参数捕获列表与可选回调)
+- [多行字符串与脚本执行](#多行字符串与脚本执行)
+- [map、KeyPath、Sequence、Collection 与 Set](#mapkeypathsequencecollection-与-set)
+- [元组、字典与空元组 Void](#元组字典与空元组-void)
+- [相等规则与对象身份](#相等规则与对象身份)
+
+## 基础语义与内存管理
+
+**ARC 与引用关系。** ARC 根据强引用关系管理对象生命周期。编译器插入相应引用计数操作；强引用计数归零后对象可被释放，weak 不维持对象存活。分析闭包时需要检查真实的强引用环；捕获 self 也可能只是延长生命周期。ARC 不等于垃圾回收机制 GC。
+
+**协议与继承。** 协议定义能力要求，class、struct、enum 可遵循多个协议。类采用单继承，并通过继承复用实现。协议要求与 extension 中的默认实现需要分别理解。
+
+**可选绑定。**`if let` 解包后的值用于成功分支。`guard let` 失败分支必须退出当前作用域，成功后可在后续代码使用解包值。退出方式取决于作用域，不是所有情况都只能使用 return。
+
+**实例 lazy。** 普通实例的 lazy 存储属性在首次读取时执行初始化并保存结果，后续读取已有值。它适合初始化有成本且未必使用的属性，不能直接套用 `static let` 的单次初始化保证。
+
+**错误处理。**`throws` 表示函数可能抛错；`try` 本身不捕获错误，应使用 `do-catch` 捕获或向外传播。`try?` 在抛错时得到 nil 并丢弃具体错误；`try!` 遇到抛错会触发运行时错误，不等于强制解包返回的 Optional。
+
+**闭包与 Delegate。** 闭包携带可调用的代码，Delegate 通过协议定义接收事件的对象与接口。应根据事件组织方式和对象关系选型，不能仅按事件是否高频决定。
+
+## 类型安全、值语义与动态能力
+
+- **类型安全：** 值和操作受到类型规则约束，例如不能把 String 直接赋给 Int 变量；Optional 要先处理有值／无值的情况，才能作为非可选值使用。它减少一类错误，不表示所有错误都会在编译期被发现。
+- **值语义：** struct、enum 以及 Array、String 等常见值类型，在赋值和传参时表现为值的复制，修改一份普通值不应改变另一份。底层可用写时复制等方式共享存储，不要求每次赋值立即深拷贝；值中含 class 成员时，两份值仍可能引用同一对象。
+- **编译期约束：** 编译器提前检查参数、返回值、协议遵循、泛型约束等。例如 T: Speaker 使函数内部能够依赖 speak() 的要求。
+- **动态能力：** 部分决定留到运行时，例如类多态调用、协议要求调用、动态类型转换，以及 Apple 平台上的 Objective-C 消息派发。Swift 同时支持 class 引用语义，不能概括为“Swift 全是值类型、OC 才有对象”。
+
+## 类型、实例与对象引用
+
+Person 是一个具体类型名；class 是声明类类型的关键字，struct、enum 是其他类型的声明方式。“引用类型”是一类类型的分类；“引用”本身通常说的是指向对象的值，不能把这些层次混为一谈。
+
+```swift
+class Person {}
+let person = Person()
+```
+
+Person 是类型，Person() 创建该类的一个实例，person 变量保存指向这个实例的引用。struct 和 enum 同样有实例，例如 `Point(x: 1, y: 2)` 和 `Direction.left` 都是相应类型的具体值。
+
+Swift 语境中的“对象”通常指 class 实例；“实例”也包括 struct 和 enum 的具体值。
+
+## 符号引用与对象引用
+
+**在代码搜索语境中，符号（symbol）是编译器或 IDE 用来表示代码实体的标识。** 类型、变量、属性、方法和类型别名都可以对应符号。符号不只有名称，还关联所属作用域、类型、声明位置等信息。两个类分别声明同名的 `actionHandler`，对应的是两个不同的属性符号；名称相同不等于同一个符号。
+
+**符号引用（reference）是源码中使用某个已声明符号的位置。** 方法调用属于符号引用，但引用不一定执行方法：
+
+```swift
+class ViewModel {
+    func reload() {
+        // 方法实现
+    }
+}
+
+let vm = ViewModel()
+vm.reload()             // 引用 reload，同时调用方法
+let handler = vm.reload // 引用 reload，保存为函数值，此时不执行方法体
+```
+
+`func reload() { ... }` 是定义位置；下面两处对 `reload` 的使用是引用位置。属性读取和写入也属于符号引用。注释和普通字符串内容中的同名文字不构成对该符号的引用。
+
+**符号引用与引用类型中的对象引用是不同概念：**
+
+| 概念 | 描述的关系 |
+|-|-|
+| 符号引用 | 源码中的某处使用了哪个声明，可用于查找使用位置与代码导航 |
+| 对象引用 | 运行时的一个值指向哪个对象实例，多个变量可以引用同一个实例 |
+
+```swift
+class Box {
+    var count = 0
+}
+
+let a = Box()
+let b = a
+```
+
+在 `let b = a` 中，右侧 `a` 是对变量符号 `a` 的引用；运行时，因为 `Box` 是引用类型，`b` 获得指向同一个 `Box` 实例的引用，没有复制出第二个实例。
+
+值类型变量同样可以被源码引用。例如 `let number = 10; print(number)` 中，`print(number)` 使用了变量符号 `number`，但 `Int` 仍是值类型。源码里出现一次符号引用，不等于因此建立了一次 ARC 强引用或弱引用。对象引用与指针的区别另见[引用与指针](swift-objc-runtime.md#对象引用与-unsafepointer)。
+
+## 声明、定义、实现与引用
+
+| 概念 | 方法场景中的含义 |
+|-|-|
+| 声明（declaration） | 告诉编译器方法名称、参数、返回值等信息 |
+| 定义（definition） | 给出方法体；带方法体的定义通常同时也是声明 |
+| 实现（implementation） | 方法体中完成任务的具体代码，不是固定独立于“定义”的第三个源码位置 |
+| 引用（reference） | 使用已声明方法的位置，包括调用方法或把方法保存为函数值 |
+
+“方法的定义和实现分开”通常应改为“方法的声明和实现分开”。例如 Objective-C 的头文件与实现文件中，可以分别出现同一个方法的声明和定义：
+
+```objc
+// Demo.h
+#import <Foundation/Foundation.h>
+@interface Demo : NSObject
+- (void)reload;
+@end
+
+// Demo.m
+#import "Demo.h"
+@implementation Demo
+- (void)reload {
+    // 具体实现
+}
+@end
+```
+
+当搜索包含声明和定义且索引完整时，两处可以分别形成搜索结果。如果还包含引用，调用位置也会出现；不能保证结果恰好有两条。这个例子是**同一个方法符号对应不同源码位置**。协议中的方法要求和遵循类型的具体实现则是相关但不同的声明，不能直接当作同一个方法在头文件与实现文件中的两处出现。
+
+这与[属性、getter 和 setter](../engineering/xcode-and-testing.md#属性访问器与索引记录)的例子不同：属性与两个访问器是三个不同符号，可以关联到同一源码位置。**搜索结果条数不等于不同符号的数量。**
+
+## Swift 与 C 接口互操作
+
+C 接口指公开函数、类型和调用约定采用 C 兼容形式。例如 CFRunLoopSourceSignal 是一个 C 风格函数，Swift 可以通过导入框架调用它。接口形式描述调用者怎样使用库；实现语言描述库内部怎样编写，两者是不同维度。
+
+Apple 的 Core Foundation 历史设计文档说明其以 C 实现。不过，不能只凭接口是 C 风格，就断言某个当前系统版本的所有内部实现都只使用 C。使用系统框架时，应先掌握公开接口的行为契约，不依赖未经核实的私有实现细节。
+
+参考：[Core Foundation 设计概念](https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFDesignConcepts/CFDesignConcepts.html)。调用示例见[iOS 线程与任务调度中的 Source0 示例](../ios/threads-and-scheduling.md#source0-示例后台压缩完成后刷新预览)。
+
+## 存储属性、计算属性与访问器
+
+getter 负责读取属性，setter 负责写入属性。`let x = person.age` 是读取，`person.age = 20` 是写入；`newValue` 是 setter 接收的新值的默认参数名。
+
+```swift
+class Person {
+    var age = 18
+}
+```
+
+age 是存储属性，值保存在实例内部。编译器提供相应的访问能力，概念上可理解为“getter 读取 age 的存储，setter 把新值写进去”。下面只是等价语义示意，不是编译器生成的源码，也不表示实际多出两个 age 字段：
+
+```swift
+// 以下成员位于 Person 类内部
+private var ageStorage = 18
+
+var age: Int {
+    get { ageStorage }
+    set { ageStorage = newValue }
+}
+```
+
+计算属性自己不新增对应的实例存储字段，而是运行 get／set 中的代码；代码可以读写其他存储。优化后，简单访问可能直接变成内存读写，不要求机器码里始终存在一次独立的 getter／setter 函数调用。
+
+在原始资料核查的 Xcode 索引中，实例属性的隐式 getter／setter 被分类为 `InstanceMethod`，子类别分别为 `AccessorGetter`／`AccessorSetter`，因此显示 M 图标；属性本身显示 P。声明处与赋值处的具体记录见[P／M 图标与源码位置](../engineering/xcode-and-testing.md#属性访问器与索引记录)。索引中的访问器记录不能单独证明优化后机器码仍保留独立函数调用。
+
+## 扩展中的类型属性与实例存储限制
+
+对于这里讨论的普通非泛型类型，extension 可以添加 static 存储属性，也可以添加实例或类型计算属性。static 存储属于类型层面的共享状态，不要求每个实例新增字段，因此不违反“扩展不能添加实例存储属性”的限制。不能把普通类型的例子无条件推广到所有泛型或其他声明上下文。
+
+```swift
+struct Person {
+    var age: Int
+}
+
+extension Person {
+    static let adultAge = 18
+    var isAdult: Bool { age >= Self.adultAge }
+}
+```
+
+Person 本来的 age 是实例存储；adultAge 是类型属性；isAdult 是计算属性。struct 原始定义可以有实例存储属性，enum 可以通过关联值携带数据。“无法用 extension 添加实例存储字段”不等于“值类型不能保存数据”。
+
+## 协议存在类型与泛型约束
+
+本节使用的 `Speaker` 协议，以及 `Dog`、`Cat` 类型，定义见[协议见证表示例](swift-objc-runtime.md#协议见证表与遵循关系)。
+
+```swift
+func makeSound(_ value: any Speaker) {
+    value.speak()
+}
+
+func makeGenericSound<T: Speaker>(_ value: T) {
+    value.speak()
+}
+```
+
+只传一个值并调用 speak 时，两者可以表现出相同结果。any Speaker 表示可以承载不同遵循类型的存在类型值；泛型 T 保留函数签名中具体类型之间的关系，函数对每个满足约束的 T 都适用。
+
+更容易看出区别的例子：
+
+```swift
+func sameType<T: Speaker>(_ first: T, _ second: T) {}
+func possiblyDifferent(_ first: any Speaker, _ second: any Speaker) {}
+```
+
+前者要求两个参数能统一为同一个 T；对前面的两个独立 struct Dog 和 Cat，不能把它们直接作为同一个 T 传入。后者允许分别传入 Dog 和 Cat。泛型并不保证每次都静态派发，any 也不保证每次都发生堆分配，具体表示与优化有关。
+
+能否把 `any Speaker` 简写为 `Speaker`，取决于 Swift 版本、语言模式和 ExistentialAny 等设置，不能仅凭 Swift 6 版本号作判断。示例显式写 `any`，便于与泛型约束区分；原始资料未实测具体工程设置。
+
+## 逃逸闭包与执行时机
+
+**`@escaping` 标记函数参数中的闭包可以逃出当前函数调用的生命周期。** 例如，函数把闭包保存到属性中，闭包就可以在函数返回之后被调用。它不会自动创建线程、安排任务或执行闭包。
+
+```swift
+final class CallbackHolder {
+    var pending: (() -> Void)?
+
+    func register(_ callback: @escaping () -> Void) {
+        pending = callback
+    }
+}
+
+let holder = CallbackHolder()
+holder.register {
+    print("回调被执行")
+}
+// register 已经返回，闭包保存在 pending 中。
+holder.pending?()
+```
+
+执行过程是：`register` 保存闭包并返回，之后调用 `pending?()` 才执行闭包。保存闭包使它有机会在函数返回后使用，因此参数需要 `@escaping`。
+
+如果函数只在自己的调用期间直接执行参数闭包，就不需要因为参数名叫 `callback` 而加 `@escaping`。被标记的闭包也可以同步执行；是否异步、在哪个线程执行，由实际调度代码决定。
+
+依据：[Swift 逃逸闭包](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/closures/#Escaping-Closures)。
+
+## 闭包参数、捕获列表与可选回调
+
+闭包可以根据上下文推断参数类型。省略显式参数名称时，`$0` 表示第一个参数，`$1` 表示第二个参数。使用这种简写时，也省略参数列表与闭包体之间的 `in`。
+
+```swift
+let actionHandler: (String, Bool) -> Void = {
+    print($0, $1)
+}
+// 等价写法
+let namedHandler: (String, Bool) -> Void = { item, selected in
+    print(item, selected)
+}
+```
+
+上例中，变量类型已经规定闭包接收 `String` 和 `Bool`。编译器据此推断 `$0`、`$1` 的类型。省略名称没有减少参数数量，调用时仍需提供两个参数。
+
+捕获列表用于指定闭包如何保存来自外部作用域的值。`[weak self]` 是捕获列表，不是参数列表。弱捕获不会让闭包强持有 `self`；当对象释放后，闭包中的 `self` 为 `nil`。
+
+```swift
+// 上下文已规定 actionHandler 的两个参数类型
+// 简写
+actionHandler = { [weak self] in
+    self?.handle(item: $0, selected: $1)
+}
+// 显式参数名
+actionHandler = { [weak self] item, selected in
+    self?.handle(item: item, selected: selected)
+}
+```
+
+`[weak self]` 后面的 `in` 用于结束闭包头部。即使省略了显式参数名，只要写了捕获列表，这个 `in` 仍需保留。闭包体使用的外部变量属于捕获值，不会自动占用 `$0` 或 `$1` 的位置。
+
+## 多行字符串与脚本执行
+
+**普通字符串用一对双引号包围；多行字符串用开头三个和结尾三个双引号包围。** 三引号属于 Swift 的字符串语法，不是 JavaScript 的语法。
+
+```swift
+let script = """
+window.receiveProduct("123");
+"""
+```
+
+开头是 `"""`，结尾也是 `"""`。内部的 `"123"` 是字符串内容的一部分；它表示之后交给 JS 执行的代码中的字符串参数。
+
+上面的内容也可以用普通字符串表示：
+
+```swift
+let script = "window.receiveProduct(\"123\");"
+```
+
+普通字符串中，`\"` 表示内容里的双引号，避免被当作 Swift 字符串的结束标记。两种写法在此示例中得到相同的字符串内容。创建这个字符串不会执行 JS，调用 `evaluateJavaScript` 后才由 WebKit 执行，见[Native 调用前端](../cross-platform/webview-and-lynx-bridge.md#wkwebviewnative-执行-javascript)。
+
+依据：[Swift 多行字符串](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/stringsandcharacters/#Multiline-String-Literals)。
+
+## map、KeyPath、Sequence、Collection 与 Set
+
+沿用[策略示例](../engineering/design-patterns.md#策略模式与评论排序)的 result（[Comment]），这是 map 配合 KeyPath 字面量的写法，等价于：
+
+```swift
+result.map(\.text)
+
+result.map { $0.text }
+
+result.map { comment in
+    comment.text
+}
+```
+
+- map 对每个元素执行转换，生成新的数组。
+- \$0 是闭包的第一个参数，这里是当前 Comment。
+- \\.text 表示读取元素的 text 属性，根类型由上下文推断。
+
+result 是 [Comment]，text 是 String，因此结果是 [String]。完整键路径也可写成 `result.map(\Comment.text)`。这里编译器可以将键路径字面量用于需要 `(Comment) -> String` 的位置；不应无条件推广为任意已保存的 KeyPath 变量都可直接当闭包传入。
+
+**键路径：**
+
+KeyPath 是描述“怎样从某个根值访问属性”的值，可以保存在变量里或作为参数传递。下面沿用[策略示例](../engineering/design-patterns.md#策略模式与评论排序)中的 Comment 类型：
+
+```swift
+let textPath: KeyPath<Comment, String> = \Comment.text
+let comment = Comment(text: "你好", likeCount: 2, publishedAt: 100)
+
+let firstText = comment[keyPath: textPath]
+let secondText = comment.text
+// 都读到 "你好"
+```
+
+KeyPath<Comment, String> 的第一个类型参数是根类型 Comment，第二个是沿路径读出的值类型 String。
+
+路径本身没有保存某条评论的文字；应用到不同 Comment，可以读到不同的 text。它也不只适用于 class，前面的 Comment 就是 struct。上下文已知根类型时，\Comment.text 可以简写为 \\.text。
+
+**容器与协议：**
+
+Array、Set、Dictionary 都遵循 Sequence，也遵循 Collection。
+
+| 类型 | 遍历得到的元素 | 顺序 |
+|-|-|-|
+| Array<Int> | 一个 Int | 按数组索引顺序 |
+| Set<Int> | 一个 Int | 不保证插入顺序或排序顺序 |
+| Dictionary<String, Int> | 一个 (key: String, value: Int) 元组 | 不保证插入顺序或排序顺序 |
+
+```swift
+let ages = ["小明": 18, "小红": 20]
+for element in ages {
+    print(element.key)
+    print(element.value)
+}
+
+let numbers: Set<Int> = [1, 2, 3]
+let doubled = numbers.map { $0 * 2 }
+// doubled 是 [Int]，不保证按 2、4、6 排列
+
+let names = ages.map { $0.key }
+// names 是 [String]，不保证按插入顺序排列
+```
+
+上面 map 的结果都是数组，不会自动维持输入的 Set 或 Dictionary 类型。Sequence 强调能够逐个遍历，不要求按插入顺序排列；“顺序不保证”也不等于同一容器每次遍历必然随机变化。
+
+`Sequence` 规定逐个遍历的能力；`Collection` 在此基础上增加可多次遍历和按索引访问等约定。`Set` 是保存不重复元素的具体类型。一般意义上的集合、Collection 协议与 Set 类型需要分开。
+
+## 元组、字典与空元组 Void
+
+元组把固定数量的值组合成一个值。每个位置都有确定的类型，位置之间可以使用不同类型，且元组无法添加新元素。字典保存键到值的映射；同一个字典的键遵循统一的 `Key` 类型，值遵循统一的 `Value` 类型，键必须满足 `Hashable` 约束。
+
+| 比较项 | 元组 | 字典 |
+|-|-|-|
+| 结构 | 元素数量和各位置类型由元组类型确定 | 可变字典可添加或删除键值对 |
+| 访问方式 | 按位置或元素标签访问，如 `.0`、`.name` | 按键访问，如 `["小明"]` |
+| 顺序 | 元素位置有明确顺序 | 不保证按插入顺序或排序顺序遍历 |
+| 查询结果 | 已声明的元素具有对应位置的类型 | 普通按键下标返回 `Value?`，因为键可能不存在 |
+
+```swift
+let person: (name: String, age: Int) = ("小明", 20)
+print(person.name)  // 与 person.0 访问同一个元素
+print(person.age)
+
+let ages: [String: Int] = ["小明": 20, "小红": 22]
+let age: Int? = ages["小明"]
+let missing: Int? = ages["小王"] // nil
+```
+
+元组标签是元组结构的一部分，不是字典中的可动态查询的键。上例的元组适合组合某个人的不同字段，字典适合按姓名查找同一种年龄数据。
+
+`Void` 是空元组类型 `()` 的别名。空元组有且只有一个值，也写作 `()`；这个值不包含任何元素。`Void` 不是 `nil`，也不是“没有可构造的值”。例如 `() -> Void` 的左侧 `()` 表示零个参数，右侧 `Void` 表示返回空元组。
+
+## 相等规则与对象身份
+
+| 运算符 | 判断内容 |
+|-|-|
+| === | 两个对象引用是否指向同一个实例，即身份相同 |
+| == | 是否按照类型提供的规则相等 |
+
+对[单例示例](../engineering/design-patterns.md#单例共享状态与依赖传入)中的纯 Swift PostHistoryManager：
+
+```swift
+let first = PostHistoryManager.shared
+let second = PostHistoryManager.shared
+
+first === second // true
+// first == second // 当前定义不支持，编译错误
+```
+
+它没有提供 == 比较能力。类型通常通过遵循 Equatable 并实现相等规则来支持 ==。类不会仅因为两个引用实际相同，就自动获得 == 实现。
+
+例如两个不同的用户对象，可以按用户 ID 相同被定义为 == true，但它们仍是两个实例，所以 === false。判断单例是否为同一对象，应使用 ===。这里的编译错误结论限定当前示例类型，不应推广为所有类都不能用 ==。
+
+=== 用于比较类实例的身份，也支持可选对象引用。struct 和 enum 是值类型，不能直接使用它比较。
+
+```swift
+let a = [1, 2]
+let b = [1, 2]
+
+a == b // true，元素相等
+// a === b // 编译错误，Array 是值类型
+```
+
+不能用 === 判断两个数组是否内容相等，也不能据此检查其底层写时复制缓冲区是否共享。后者不是本次语言级对象身份比较所表达的含义。
