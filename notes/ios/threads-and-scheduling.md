@@ -30,8 +30,6 @@
 
 App 可以通过系统接口查询内核允许提供的信息。查询操作发生在 App 运行期间，但查询结果可以包含更早发生的事件，例如进程创建时间。
 
-参考：[Apple：内核架构概览](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/KernelProgramming/Architecture/Architecture.html)。
-
 ### CPU 核心、逻辑 CPU 与并行上限
 
 物理核心是 CPU 内部能够执行指令的硬件单元。逻辑 CPU 是操作系统能够独立调度线程的硬件执行上下文。一个物理核心可以提供一个或多个逻辑 CPU，具体取决于硬件能力和启用配置。
@@ -48,8 +46,6 @@ App 可以通过系统接口查询内核允许提供的信息。查询操作发�
 
 超线程是 Intel 对同时多线程技术的一种实现。启用相应能力时，一个物理核心可以向操作系统提供两个逻辑 CPU。因此，讨论线程并行上限时应看逻辑 CPU 数量。逻辑 CPU 仍共享所在物理核心的执行资源，数量翻倍不代表性能翻倍。
 
-参考：[Intel：超线程与逻辑处理器](https://www.intel.com/content/www/us/en/gaming/resources/hyper-threading.html)。
-
 ### 并发、并行与等待
 
 并发表示多个任务在同一段时间内推进；并行表示多个任务在同一时刻执行。并发可以通过交替执行实现，也可以包含并行执行。单个逻辑 CPU 可以通过线程切换推进多个任务，但不能同时执行多个软件线程。
@@ -57,8 +53,6 @@ App 可以通过系统接口查询内核允许提供的信息。查询操作发�
 系统中可以存在远多于逻辑 CPU 数量的进程和线程。就绪线程具备运行条件，但可能尚未获得 CPU；阻塞线程正在等待网络、文件或其他事件满足继续执行的条件。内核按调度策略选择就绪线程执行，不保证所有线程获得相同的执行时间。
 
 创建更多线程不会增加硬件执行位置。线程数量超过可用逻辑 CPU 数量时，部分线程需要等待调度；如果线程正在阻塞等待，内核可以让其他就绪线程使用 CPU。
-
-参考：[Apple：线程与调度](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/AboutThreads/AboutThreads.html)；[Apple：线程管理](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/CreatingThreads/CreatingThreads.html)。
 
 ## GCD 的任务、队列与提交方式
 
@@ -111,7 +105,7 @@ RunLoop 是在线程上等待并分发事件的循环。UIKit 应用由框架配
 
 `default` 是一个具体运行模式。`common` 是向一组被标记为 common 的模式注册任务的标记，不是一个独立运行模式，也不代表同时运行多个 mode。RunLoop 的某次运行使用一个具体 mode，处理该 mode 中符合条件的 source、timer 等。
 
-主线程滚动跟踪通常涉及 tracking mode。任务只注册 default 时，在 tracking 期间可能暂停回调；注册 common 可以让它在属于 common 集合的相关模式中被处理。common 不是所有模式，也不会切到其他线程，更不能保证主线程繁忙时准时回调。参考：[RunLoop common](https://developer.apple.com/documentation/foundation/runloop/mode/common)。
+主线程滚动跟踪通常涉及 tracking mode。任务只注册 default 时，在 tracking 期间可能暂停回调；注册 common 可以让它在属于 common 集合的相关模式中被处理。common 不是所有模式，也不会切到其他线程，更不能保证主线程繁忙时准时回调。
 
 ### Source0 与 Source1：事件来源、数量与回调
 
@@ -132,8 +126,6 @@ CFRunLoopSourceSignal(refreshSource) 只标记 refreshSource，不会标记该 R
 回调在创建输入源时配置。Source0 的 CFRunLoopSourceContext 中，version 为 0，perform 保存处理回调。Source1 使用 CFRunLoopSourceContext1，其中 getPort 提供端口，perform 处理收到的消息。通过 CFMachPort 创建 source 时，框架负责内部转发，再调用创建 CFMachPort 时注册的回调。
 
 发送事件时不需要把回调函数随消息重新发送。发送方提供就绪信号或消息；RunLoop 查找已注册的 source，再调用 source 对应的处理函数。回调运行在哪条线程，取决于负责处理事件的 RunLoop 所在线程。
-
-参考：[Apple：RunLoop 与输入源](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/RunLoopManagement/RunLoopManagement.html)；[CFRunLoopSourceSignal](https://developer.apple.com/documentation/corefoundation/cfrunloopsourcesignal(_:))；[CFMachPort](https://developer.apple.com/documentation/corefoundation/cfmachport)。
 
 ### Source0 示例：后台压缩完成后刷新预览
 
@@ -168,8 +160,6 @@ Mach 端口是内核管理的消息通信端点。发送方持有相应发送权
 消息编号属于消息头，不属于 Source1。每条 Mach 消息的 mach_msg_header_t 都有 msgh_id 字段；1001 只是本例约定，不是系统统一编号，也不是每个 Source1 独有的编号。其含义由发送方与接收方的协议决定，消息传输机制不解释其业务含义。
 
 例如，同一端口、同一个 Source1 可以接收 1001（压缩完成）、1002（保存完成）和 1003（任务取消）。这些编号仅为示例。RunLoop 先根据接收端口找到 source；回调再根据消息编号选择业务分支。不要把“按端口分发 source”与“按消息编号分支处理”混为一件事。
-
-参考：[Apple XNU：Mach 消息头与 msgh_id](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/mach/message.h)。
 
 ## Timer 的调度与重复触发
 

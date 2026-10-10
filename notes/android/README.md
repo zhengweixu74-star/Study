@@ -5,3 +5,5 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [ValueAnimator、插值器与滚动动画](valueanimator-and-interpolation.md) | 每帧执行顺序、插值器对象与动画进度、动画值、滚动距离与取消行为 |
+
+[Android View、ViewGroup 与 XML 布局](view-system-and-layout.md)：View 与 ViewGroup 的职责、容器嵌套、UIKit 对照、XML 布局，以及 Android 布局预览的示例数据。

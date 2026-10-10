@@ -37,8 +37,6 @@
 
 Lynx 渲染原生界面，也不代表 JS 能直接调用任意 Swift 方法；App 的原生业务能力仍需通过模块或组件接口暴露。Lynx 也有 Web 端适配能力，因此上述对比限定为移动端原生渲染场景，不表示 Lynx 只能运行在移动端。
 
-依据：[WKWebView](https://developer.apple.com/documentation/webkit/wkwebview/)、[WebKit Apple 平台接口实现](https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/API/Cocoa/WKUserContentController.mm)、[ReactLynx](https://lynxjs.org/react/introduction)、[Lynx 项目](https://github.com/lynx-family/lynx)。
-
 ## XML、HTML 与界面描述
 
 **XML 是描述结构化文档和数据的通用标记语言；HTML 专门描述网页结构和内容含义。** 标记语言通过标签表达内容及其组织关系。XML 允许应用定义标签含义，HTML 标准已经规定了常用网页标签的含义。
@@ -73,8 +71,6 @@ Lynx 渲染原生界面，也不代表 JS 能直接调用任意 Swift 方法；A
 
 XML 也能描述界面，前提是框架规定标签对应什么组件，并负责创建组件。不能把 XML 限定为“只能存数据”。同样，ReactLynx 中的 `<view>`、`<text>` 是 JSX 中的 Lynx 元素描述；标签外观相似，不代表它们就是 HTML 网页元素。
 
-依据：[XML 规范](https://www.w3.org/TR/xml/)、[HTML 语法规范](https://html.spec.whatwg.org/multipage/syntax.html)、[ReactLynx 组件](https://lynxjs.org/react/introduction#different-component-sets)。
-
 ## JSBridge 的职责与接口分工
 
 **按广义用法，JSB 是连接 JavaScript 与 Native、让两侧调用功能和传递数据的桥接机制。** JSB 是机制的统称，具体接口负责其中的某个环节。
@@ -89,9 +85,9 @@ XML 也能描述界面，前提是框架规定标签对应什么组件，并负�
 
 典型的业务桥接链路是：前端调用 → Native 根据注册信息路由到处理对象 → 校验输入 → 执行业务 → 回传结果。桥接成功仅说明消息或调用完成，不等于帖子发布等业务操作已经成功。
 
-不能把 `NativeModules` 或事件通知笼统说成“完全独立于 JSB 的通信方式”。如果项目把一套具体的业务 SDK 命名为“JSB”，需要进一步区分“桥接机制”和“是否接入该 SDK”。
+不能把 `NativeModules` 或事件通知笼统说成“完全独立于 JSB 的通信方式”。JSB 可以指 JavaScript 与原生代码之间的桥接机制，也可能被用作某个 SDK 的名称。讨论是否使用 JSB 时，需要区分桥接机制和具体 SDK。
 
-以下为示例代码，未在本次整理中编译或运行。WebKit 与 Lynx 的接口不能相互混用；Lynx 接入细节需要匹配实际 SDK 版本。
+以下代码用于说明通信机制。WebKit 与 Lynx 的接口不能相互混用；Lynx 接入细节需要匹配实际 SDK 版本。
 
 ## WKWebView：JavaScript 调用 Native
 
@@ -152,8 +148,6 @@ JS 发送到 openDetail，参数为 { productId: "123" }
 
 `userContentController(_:didReceive:)` 虽然以 `userContentController` 开头，却是 `handler` 实现的方法。第一个参数只是把有关的 `WKUserContentController` 实例传给 `handler`。`openDetail` 也是开发者约定的入口名，不会自动变成同名 Swift 方法或自动完成跳转。
 
-依据：[WKUserContentController](https://developer.apple.com/documentation/webkit/wkusercontentcontroller)、[WKScriptMessageHandler](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler)、[公开实现](https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/API/Cocoa/WKUserContentController.mm)。
-
 ## WKWebView：Native 执行 JavaScript
 
 **Native 把一段 JS 源代码作为字符串传给 `webView.evaluateJavaScript`。WebKit 在该 WebView 的页面 JS 环境中执行代码，并通过完成回调把执行结果或错误传回 Native。**
@@ -192,8 +186,6 @@ webView.evaluateJavaScript(script) { result, error in
 Swift 创建 `script` 时只是在创建字符串，尚未执行 JS。JS 函数体由 JavaScript 引擎运行；Swift 的完成闭包由原生侧执行。示例中的 `result` 对应 JS 返回的“更新成功”，不需要再额外调用 `postMessage` 才能获得这个返回值。
 
 调用必须针对正确的 WebView，并确保页面函数已经定义。该接口的完成回调不等于函数内部所有异步任务已经完成；若函数另行发起网络请求，需要按其异步协议接收结果。示例采用固定参数；实际传入动态字符串时应通过 JSON 序列化等方式正确编码，避免直接拼接未转义内容。三引号语法见[Swift 多行字符串](../language/swift-basics.md#多行字符串与脚本执行)。
-
-依据：[evaluateJavaScript](https://developer.apple.com/documentation/webkit/wkwebview/evaluatejavascript(_:completionhandler:))。
 
 ## callbackId 与请求响应关联
 
@@ -285,8 +277,6 @@ JS 通过 NativeModules 指定模块、方法、参数和回调
 
 示例同步返回固定结果，因此不需要因“回调”这个名称就添加 `@escaping`。若原生实现保存闭包，或让闭包可能在当前方法返回后执行，再根据 Swift 的规则使用[逃逸闭包](../language/swift-basics.md#逃逸闭包与执行时机)。
 
-依据：[Lynx Native Modules](https://lynxjs.org/guide/use-native-modules.html)。
-
 ## Lynx 事件监听与原生通知
 
 **前端先通过 `GlobalEventEmitter` 登记事件处理函数。Native 发送事件名称和数据后，Lynx 调用该事件对应的前端函数。** 事件由事件名称和本次携带的数据组成；不要求前端先发起一次请求。
@@ -333,5 +323,3 @@ emitter.removeListener("loginStateChanged", handleLoginChanged);
 ```
 
 事件与请求回调的区别：事件监听可接收多次状态变化，不需要每次先发出请求；一次请求对应一次结果时，则使用模块回调或约定的 `callbackId` 协议。登记前发出的事件不能仅凭上述接口假定会自动补发。
-
-依据：[Lynx 事件传播](https://lynxjs.org/next/guide/interaction/event-handling/event-propagation.html?platform=ios)、[LynxView.sendGlobalEvent](https://lynxjs.org/3.8/api/lynx-native-api/lynx-view/send-global-event.html)。

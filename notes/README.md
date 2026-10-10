@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 8 个主题整理的 17 篇学习笔记。每篇文档保留概念说明、工作机制、代码示例和参考资料；通过篇内目录与文档间链接查阅相关内容。
+按 8 个主题整理的 18 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -12,6 +12,7 @@
 | --- | --- |
 | [语言与运行时](language/) | 2 |
 | [iOS 界面、事件与调度](ios/) | 6 |
+| [Android 界面与动画](android/) | 2 |
 | [跨平台与宿主通信](cross-platform/) | 2 |
 | [软件设计与工程工具](engineering/) | 2 |
 | [网络与存储](network-and-storage/) | 2 |
@@ -41,11 +42,13 @@
 
 ## Android 界面与动画
 
-[Android 分类目录](android/README.md)：1 篇文档。
+[Android 分类目录](android/README.md)：2 篇文档。
 
 | 文档 | 内容范围 |
 | --- | --- |
 | [ValueAnimator、插值器与滚动动画](android/valueanimator-and-interpolation.md) | 每帧执行顺序、插值器对象与动画进度、动画值、滚动距离与取消行为 |
+
+[Android View、ViewGroup 与 XML 布局](android/view-system-and-layout.md)：View 与 ViewGroup 的职责、容器嵌套、UIKit 对照、XML 布局，以及 Android 布局预览的示例数据。
 
 ## 跨平台与宿主通信
 
@@ -60,6 +63,8 @@
 | --- | --- |
 | [设计模式与 Swift 实践](engineering/design-patterns.md) | 策略、工厂、单例、建造者，以及 Swift 示例与独立验证 |
 | [Xcode 工程管理与自动化测试](engineering/xcode-and-testing.md) | 源码编辑与搜索、工程与构建、XCTest、Swift Testing 与测试计划 |
+
+[Xcode：界面预览与 Android 布局预览](engineering/xcode-and-testing.md#界面预览与-android-布局预览)：Xcode 预览能力与 UIKit 接入条件。
 
 ## 网络与存储
 

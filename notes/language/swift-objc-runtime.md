@@ -58,8 +58,6 @@ Objective-C Runtime 支撑 OC 对象系统，可查询、添加、替换方法�
 
 启动阶段执行的 +load 会占用启动时间。+load 中应只放确实需要在加载阶段完成的少量工作，避免同步读取大文件、同步等待网络结果或执行大量计算。耗时工作会推迟 main 函数及后续界面初始化的执行。
 
-参考：[Apple：NSObject +load](https://developer.apple.com/documentation/objectivec/nsobject-swift.class/load()?language=objc)
-
 ## 关联对象、稳定 key 与持有关系
 
 class、struct、enum 都支持 extension，但扩展不能增加实例存储字段。给已有 UIView 附加 businessID，可用计算属性的 getter／setter 调用关联对象 API，由 Objective-C Runtime 在对象外保存附加值；原实例布局不变。
@@ -296,8 +294,6 @@ Selector 名中的两个冒号对应两个参数。这里没有通过 `@objc(...
 
 Lynx 的 `methodLookup` 使用 `[String: String]`，键是 JS 方法名，值是 OC 方法名，因此需要把 Selector 转成字符串。例如：`"getProductName" → "getProductName:callback:"`。`#selector` 让编译器检查目标方法是否存在且可用于 OC；相比手写整段字符串，方法变更时更容易得到编译期诊断。
 
-依据：[NSStringFromSelector](https://developer.apple.com/documentation/foundation/nsstringfromselector(_:))、[Lynx 原生模块](https://lynxjs.org/guide/use-native-modules.html)。
-
 ## @objcMembers 与 Objective-C 兼容限制
 
 **`@objcMembers` 是作用于类的 Swift 特性标注，让编译器为其中符合 Objective-C 表示要求的成员推断 `@objc`。** 它也会影响相关扩展和子类中的成员；不能把不兼容的声明自动变成 OC 可用声明，也不负责把类注册为 Lynx 模块。
@@ -341,7 +337,7 @@ final class ProductBox: NSObject {
 
 “Swift 的值类型一律不能暴露给 OC”不成立，`String` 等类型有既定桥接支持。另一方面，某个类型可桥接，不代表其任意组合形式都能导出；例如普通 `Int?` 属性不能像 `String?` 一样直接暴露为 OC 属性。应以实际声明是否满足编译器的互操作规则为准。
 
-`@objcMembers` 也不等于 `dynamic`。对派发的影响见[@objc、selector 与 IMP](#objective-c-互操作selector-与-imp)。依据：[Swift 特性](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/attributes/#objcMembers)、[SE-0160](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0160-objc-inference.md#re-enabling-objc-inference-within-a-class-hierarchy)、[编译器 OC 互操作测试](https://github.com/swiftlang/swift/blob/main/test/attr/attr_objc.swift)。
+`@objcMembers` 也不等于 `dynamic`。对派发的影响见[@objc、selector 与 IMP](#objective-c-互操作selector-与-imp)。
 
 ## KVO 观察关系与属性访问
 

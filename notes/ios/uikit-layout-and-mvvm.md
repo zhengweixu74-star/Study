@@ -72,8 +72,6 @@ UILabel、UITextView 都是 UIView 的子类。普通子视图没有 viewWillApp
 
 如果仅执行 `label.isHidden = false`，且父视图和所属窗口均未改变，就不会因这次显隐切换触发上述移动回调。业务需要在“显示文字”时启动操作，可以在更新显隐状态的代码路径中显式调用对应逻辑；业务需要判断实际曝光时，还应按约定检查可见区域、遮挡和曝光时长等条件。
 
-参考：[Apple：didMoveToSuperview()](https://developer.apple.com/documentation/uikit/uiview/didmovetosuperview())；[Apple：didMoveToWindow()](https://developer.apple.com/documentation/uikit/uiview/didmovetowindow())。
-
 ## 容器控制器与子控制器
 
 容器控制器是一种 UIViewController，负责管理其他 UIViewController，并组织这些子控制器的视图布局、显示和切换。被容器控制器管理的控制器称为子控制器。子控制器仍然管理自己的根视图和内部子视图。
@@ -97,8 +95,6 @@ UILabel、UITextView 都是 UIView 的子类。普通子视图没有 viewWillApp
 
 UIKit 标准容器已经实现相应的生命周期协调。自定义容器必须遵守控制器嵌入与出现回调转发规则。因此，子控制器可以收到 viewWillAppear 等控制器回调，而普通 UILabel 子视图不会因为属于某个控制器的视图层级，就获得这些回调。
 
-参考：[Apple：UIViewController 与容器控制器](https://developer.apple.com/documentation/uikit/uiviewcontroller)。
-
 ## 分栏界面与详情控制器生命周期
 
 ### 界面外观与各栏分工
@@ -107,7 +103,7 @@ UIKit 标准容器已经实现相应的生命周期协调。自定义容器必�
 
 ![图片展示了iPad邮件界面，左侧为邮件列表，显示“所有收件箱”，有Jenny Court、Xiaomeng Zhong等人的邮件，部分邮件被蓝色框选。右侧是选中邮件“Neighborhood garden”的正文，内容为关于邻里花园规划的讨论。图片上方标注了三个功能区域：左上角“Change mailboxes or accounts.”，右上角“Delete, move, or mark multiple messages.”，右下角“Move message to another mailbox.”，与上下文介绍的界面外观及控制器分工相呼应。](../assets/ipad-mail-split-view.png)
 
-图示：左侧选择邮件，右侧显示选中邮件的正文。图片来源：[Apple《在 iPad 上的“邮件”中查看电子邮件》](https://support.apple.com/guide/ipad/check-your-email-ipad99a3ef9e/ipados)。
+图示：左侧选择邮件，右侧显示选中邮件的正文。图片来源：Apple《在 iPad 上的“邮件”中查看电子邮件》。
 
 | 对象 | 职责 |
 |-|-|
@@ -151,8 +147,6 @@ UIKit 标准容器已经实现相应的生命周期协调。自定义容器必�
 
 仅创建控制器对象不代表该对象的视图已经出现。出现回调对应视图的展示过程；根视图加载则可能发生在展示前，例如业务代码提前访问了 view。这里讨论的是通用实现方式，不能仅凭邮件截图判断实际 App 是否每次都创建新的详情控制器。
 
-参考：[Apple：UISplitViewController](https://developer.apple.com/documentation/uikit/uisplitviewcontroller)；[Apple：UIViewController](https://developer.apple.com/documentation/uikit/uiviewcontroller)。
-
 ## UICollectionView 的职责与复用
 
 UICollectionView 展示一组可滚动内容。Cell 展示单项；DataSource 提供数量与配置好的 Cell；Delegate 处理点击等交互；Layout 提供位置、尺寸等布局信息。数据按 section／item 组织，IndexPath 表示当前位置，不是永久业务身份。
@@ -171,13 +165,11 @@ MVVM 没有规定一个页面只能有一个 VM，也没有规定每个 View 都
 | 列表 VM | 列表项数组、加载、刷新、分页、插入和删除 |
 | Cell VM | 单项展示数据、样式、选中／高亮等状态及交互处理 |
 
-本项目评论区容器 VM 持有输入框 VM、引导 VM 和列表 VM；列表 VM 的 `cellVMs` 数组中，每条评论以及展开更多回复项都有对应 VM。列表级逻辑管理“有哪些项、如何排序和更新”，单项 VM 管理该项的数据与展示状态。
+列表级 VM 管理列表有哪些项、如何排序和更新。单项 VM 管理该项的数据与展示状态。容器 VM 可以组织多个子区域的 VM；是否增加这一层，取决于是否存在独立的协调职责。
 
-复杂评论项需要管理内容、一级／二级样式、高亮、Cell 类型与高度，以及点赞／回复／删除等处理入口，拆分 Cell VM 有助于明确职责。如果只是展示固定标题或简单静态文本、没有额外状态与处理逻辑，直接配置 View 也可以，不必为了 MVVM 名称增加 VM。上述是划分原则，不表示每种界面都必须照搬本项目层级。
+复杂评论项需要管理内容、一级／二级样式、高亮、Cell 类型与高度，以及点赞／回复／删除等处理入口，拆分 Cell VM 有助于明确职责。如果只是展示固定标题或简单静态文本、没有额外状态与处理逻辑，直接配置 View 也可以，不必为了 MVVM 名称增加 VM。VM 的层级应根据界面的职责划分。
 
 **VM 对应数据项，Cell 是可复用的视图对象。** 100 条数据各有 VM，不意味着立即创建 100 个 Cell。同一个 Cell 滚动后可以绑定另一项的 VM，绑定时需要更新展示状态。框架布局、视图创建和动画执行仍由 View 等 UI 层承担。
-
-代码核查日期：2026-10-01。
 
 ## MVVM 的输入、状态输出与界面刷新
 

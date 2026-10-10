@@ -24,8 +24,6 @@ Darwin 是苹果的开源操作系统基础，包含内核以及基础系统库�
 
 内核是软件。CPU 和内存是内核管理的硬件资源。Darwin 既包含内核，也包含在普通进程中执行的系统代码；不能把 Darwin 中所有组件都理解为内核代码。
 
-参考：[Apple：Darwin 与系统架构](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/KernelProgramming/Architecture/Architecture.html)；[Apple：XNU](https://github.com/apple-oss-distributions/xnu)。
-
 ## Darwin 中的基础系统组件
 
 库是供其他程序调用的代码集合，工具是可以独立运行的程序。以下是内核之外的基础组件示例：
@@ -40,8 +38,6 @@ Darwin 是苹果的开源操作系统基础，包含内核以及基础系统库�
 
 sysctl 属于系统基础 C 接口。App 通过这个接口请求系统信息，内核提供允许查询的数据；查询接口与保存数据的内核需要区分。
 
-参考：[Apple：Libc](https://github.com/apple-oss-distributions/Libc)；[Apple：dyld](https://github.com/apple-oss-distributions/dyld)；[Apple：文件命令工具](https://github.com/apple-oss-distributions/file_cmds)。
-
 ## 应用框架
 
 应用框架是供开发者构建 App 的一套接口、代码实现和组织规则。开发者调用框架提供的类型和方法，也按框架规定实现回调。框架既提供可调用的功能，也规定部分代码在何时被调用。
@@ -51,8 +47,6 @@ UIKit 是应用框架。UIKit 提供界面和事件处理的基础能力，开�
 - 使用 UIButton 创建按钮。
 - 使用 UIViewController 管理页面。
 - 实现 viewDidLoad()，让 UIKit 在视图加载完成后调用自定义代码。
-
-参考：[Apple：UIKit](https://developer.apple.com/documentation/uikit)。
 
 ## 系统服务
 
@@ -69,5 +63,3 @@ UIKit 是应用框架。UIKit 提供界面和事件处理的基础能力，开�
 3. 满足触发条件、通知授权和相关设置时，系统投递通知。即使 App 已不在运行，系统仍能完成投递。
 
 这里的 UserNotifications 是框架，提供 App 使用通知能力的接口与配套实现；系统服务负责后续通知调度和投递。框架中也有直接在 App 进程内完成的逻辑，并不是所有框架操作都需要交给独立的系统服务。
-
-参考：[Apple：安排与处理本地通知](https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/SchedulingandHandlingLocalNotifications.html)。

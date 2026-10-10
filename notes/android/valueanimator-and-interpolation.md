@@ -82,11 +82,3 @@ animator.start()
 ofFloat() 创建并配置数值范围，start() 启动动画。更新 UI 的动画应在主线程运行。用户触摸需要打断自动滚动时，业务代码可以在触摸按下事件中调用正在运行的 animator.cancel()；ValueAnimator 不会自动监听用户触摸。
 
 cancel() 停止动画，不会强制把动画值设为终点。对于已启动的动画，取消会先触发 onAnimationCancel()，随后触发 onAnimationEnd()。因此，onAnimationEnd() 不能单独作为“正常到达终点”的证据。end() 则会把动画值推进到终点并结束动画。
-
-## 参考资料
-
-[ValueAnimator API](https://developer.android.com/reference/android/animation/ValueAnimator)
-
-[TimeInterpolator API](https://developer.android.com/reference/android/animation/TimeInterpolator)
-
-[LinearInterpolator API](https://developer.android.com/reference/android/view/animation/LinearInterpolator)

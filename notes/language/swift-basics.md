@@ -20,6 +20,8 @@
 - [元组、字典与空元组 Void](#元组字典与空元组-void)
 - [相等规则与对象身份](#相等规则与对象身份)
 
+基础语义与内存管理的小节：[闭包与 Delegate](#闭包与-delegate)。
+
 ## 基础语义与内存管理
 
 **ARC 与引用关系。** ARC 根据强引用关系管理对象生命周期。编译器插入相应引用计数操作；强引用计数归零后对象可被释放，weak 不维持对象存活。分析闭包时需要检查真实的强引用环；捕获 self 也可能只是延长生命周期。ARC 不等于垃圾回收机制 GC。
@@ -32,7 +34,40 @@
 
 **错误处理。**`throws` 表示函数可能抛错；`try` 本身不捕获错误，应使用 `do-catch` 捕获或向外传播。`try?` 在抛错时得到 nil 并丢弃具体错误；`try!` 遇到抛错会触发运行时错误，不等于强制解包返回的 Optional。
 
+### 闭包与 Delegate
+
+#### 概念与职责
+
 **闭包与 Delegate。** 闭包携带可调用的代码，Delegate 通过协议定义接收事件的对象与接口。应根据事件组织方式和对象关系选型，不能仅按事件是否高频决定。
+
+**概念区别。** 闭包是可以作为值传递的代码块，闭包可以捕获定义位置的变量。在回调场景中，使用组件的一方提供具体行为，组件在约定的时机调用闭包。Delegate 是一种委托模式：一个对象把约定的职责交给另一个对象。Swift 通常通过协议定义这些职责，由遵循协议的对象实现对应方法。
+
+#### 选型依据
+
+**选型原则。** 只需要传入一段具体的回调行为时，优先选择闭包；需要由一个对象统一承担一组相关职责时，优先选择 Delegate。事件频率本身不能决定选型。
+
+| 判断维度 | 更适合闭包 | 更适合 Delegate |
+| --- | --- | --- |
+| 回调内容 | 一个或少量独立的结果、动作 | 一组共同描述某种职责的方法 |
+| 代码组织 | 希望在发起操作的位置直接写回调 | 希望由接收对象集中实现相关方法 |
+| 对象关系 | 只需要提供具体行为，无须指定接收对象的角色 | 需要明确某个对象担任事件接收者或决策者 |
+| 状态管理 | 回调只使用少量局部变量 | 多个方法需要共享接收对象维护的状态 |
+
+**选择依据。** 判断使用组件的一方需要提供的是“一段回调行为”，还是“一个承担明确职责的对象”。这个区别通常比事件数量和事件频率更有决定作用。
+
+#### 使用场景
+
+**闭包示例：图片导出。** 使用组件的一方发起一次导出，并传入处理导出结果的闭包。导出完成后，导出组件把成功结果或错误传给闭包。使用组件的一方在发起导出的位置直接编写后续行为，代码比较集中。
+
+**Delegate 示例：编辑器交互。** 编辑器需要通知“开始编辑”“内容变化”“结束编辑”，还可能询问“是否允许结束编辑”。这些方法共同构成编辑器委托对象的职责。由同一个对象集中实现这些方法，职责更清楚。
+
+#### 适用边界
+
+**选型边界。** 闭包可以反复调用，持续触发的进度回调仍然可以使用闭包。Delegate 方法可以只调用一次，一次性事件也可以属于某个委托对象的职责。两种方式都可以通知事件，也可以返回决策结果。方法是否返回值不能单独决定选型。
+
+#### 生命周期与持有关系
+
+**持有关系。** 组件保存闭包时，闭包可能强引用捕获的对象，因此需要检查循环引用。Delegate 属性通常声明为 weak，但 weak 不会保持委托对象存活，必须有其他对象负责持有委托对象。
 
 ## 类型安全、值语义与动态能力
 
@@ -131,7 +166,7 @@ C 接口指公开函数、类型和调用约定采用 C 兼容形式。例如 CF
 
 Apple 的 Core Foundation 历史设计文档说明其以 C 实现。不过，不能只凭接口是 C 风格，就断言某个当前系统版本的所有内部实现都只使用 C。使用系统框架时，应先掌握公开接口的行为契约，不依赖未经核实的私有实现细节。
 
-参考：[Core Foundation 设计概念](https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFDesignConcepts/CFDesignConcepts.html)。调用示例见[iOS 线程与任务调度中的 Source0 示例](../ios/threads-and-scheduling.md#source0-示例后台压缩完成后刷新预览)。
+调用示例见[iOS 线程与任务调度中的 Source0 示例](../ios/threads-and-scheduling.md#source0-示例后台压缩完成后刷新预览)。
 
 ## 存储属性、计算属性与访问器
 
@@ -157,7 +192,7 @@ var age: Int {
 
 计算属性自己不新增对应的实例存储字段，而是运行 get／set 中的代码；代码可以读写其他存储。优化后，简单访问可能直接变成内存读写，不要求机器码里始终存在一次独立的 getter／setter 函数调用。
 
-在原始资料核查的 Xcode 索引中，实例属性的隐式 getter／setter 被分类为 `InstanceMethod`，子类别分别为 `AccessorGetter`／`AccessorSetter`，因此显示 M 图标；属性本身显示 P。声明处与赋值处的具体记录见[P／M 图标与源码位置](../engineering/xcode-and-testing.md#属性访问器与索引记录)。索引中的访问器记录不能单独证明优化后机器码仍保留独立函数调用。
+Xcode 索引可以将实例属性的隐式 getter／setter 分类为 `InstanceMethod`，子类别分别为 `AccessorGetter`／`AccessorSetter`，因此显示 M 图标；属性本身显示 P。声明处与赋值处的具体记录见[P／M 图标与源码位置](../engineering/xcode-and-testing.md#属性访问器与索引记录)。索引中的访问器记录不能单独证明优化后机器码仍保留独立函数调用。
 
 ## 扩展中的类型属性与实例存储限制
 
@@ -201,7 +236,7 @@ func possiblyDifferent(_ first: any Speaker, _ second: any Speaker) {}
 
 前者要求两个参数能统一为同一个 T；对前面的两个独立 struct Dog 和 Cat，不能把它们直接作为同一个 T 传入。后者允许分别传入 Dog 和 Cat。泛型并不保证每次都静态派发，any 也不保证每次都发生堆分配，具体表示与优化有关。
 
-能否把 `any Speaker` 简写为 `Speaker`，取决于 Swift 版本、语言模式和 ExistentialAny 等设置，不能仅凭 Swift 6 版本号作判断。示例显式写 `any`，便于与泛型约束区分；原始资料未实测具体工程设置。
+能否把 `any Speaker` 简写为 `Speaker`，取决于 Swift 版本、语言模式和 ExistentialAny 等设置，不能仅凭 Swift 6 版本号作判断。示例显式写 `any`，便于与泛型约束区分。
 
 ## 逃逸闭包与执行时机
 
@@ -227,8 +262,6 @@ holder.pending?()
 执行过程是：`register` 保存闭包并返回，之后调用 `pending?()` 才执行闭包。保存闭包使它有机会在函数返回后使用，因此参数需要 `@escaping`。
 
 如果函数只在自己的调用期间直接执行参数闭包，就不需要因为参数名叫 `callback` 而加 `@escaping`。被标记的闭包也可以同步执行；是否异步、在哪个线程执行，由实际调度代码决定。
-
-依据：[Swift 逃逸闭包](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/closures/#Escaping-Closures)。
 
 ## 闭包参数、捕获列表与可选回调
 
@@ -281,8 +314,6 @@ let script = "window.receiveProduct(\"123\");"
 ```
 
 普通字符串中，`\"` 表示内容里的双引号，避免被当作 Swift 字符串的结束标记。两种写法在此示例中得到相同的字符串内容。创建这个字符串不会执行 JS，调用 `evaluateJavaScript` 后才由 WebKit 执行，见[Native 调用前端](../cross-platform/webview-and-lynx-bridge.md#wkwebviewnative-执行-javascript)。
-
-依据：[Swift 多行字符串](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/stringsandcharacters/#Multiline-String-Literals)。
 
 ## map、KeyPath、Sequence、Collection 与 Set
 

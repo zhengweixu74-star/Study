@@ -5,7 +5,7 @@
 ## 本文目录
 
 - [NotificationCenter 与通知回调](#notificationcenter-与通知回调)
-- [响应式关系、OpenCombine 与 CombineNotify](#响应式关系opencombine-与-combinenotify)
+- [响应式关系与 OpenCombine](#响应式关系与-opencombine)
 - [事件值、失败与流结束](#事件值失败与流结束)
 - [无载荷事件：PassthroughSubject<Void, Never>](#无载荷事件passthroughsubjectvoid-never)
 - [@Published：状态订阅与赋值时序](#published状态订阅与赋值时序)
@@ -17,25 +17,22 @@
 
 NotificationCenter 通过 `addObserver` 建立观察关系，通过 `post` 发送通知。闭包观察者的 queue 为 nil 时，回调在发送线程同步执行；注册线程不决定回调线程。UI 更新需要满足主线程要求，指定 main 也不能解释为所有投递都必然异步。
 
-## 响应式关系、OpenCombine 与 CombineNotify
+## 响应式关系与 OpenCombine
 
 **响应式编程：** 先建立“数据／事件发生变化后，哪些代码需要执行”的关系，再由变化触发处理。例如先订阅点赞数变化，收到 13 时把 Label 更新为“13”；或者先监听定位目标，目标准备好后发送，View 收到再安排滚动。普通变量修改不会自动刷新界面，仍需暴露可观察的变化并写好接收处理。
 
-OpenCombine 是开源的 Combine 兼容实现，提供发布、订阅、转换、过滤、组合数据和事件的工具。此处项目封装文件导入 `OpenCombine`，不是通过 `import Combine` 使用系统同名类型。
+OpenCombine 是开源的 Combine 兼容实现，提供发布、订阅、转换、过滤、组合数据和事件的工具。使用 OpenCombine 类型时导入 `OpenCombine`；使用系统 Combine 类型时导入 `Combine`。
 
 ```text
-项目业务调用 CombineNotify.notify(obj:)
-    → OpenCombine.PassthroughSubject.send(_:)
-    → sink 注册的接收闭包
+PassthroughSubject.send(_:) 发送值
+    → sink 注册的接收闭包收到值
 ```
-
-`CombineNotify<XTIFCommentScrollTarget>` 中，`CombineNotify` 是本地 CombineX 组件中的通用通知封装，`XTIFCommentScrollTarget` 是项目结构体，泛型参数指定通知携带的数据类型。封装里的 `subject` 是属性名，类型为 `PassthroughSubject<Output, Never>`；`notify(obj:)` 内部调用 `subject.send(value)`，`listen` 内部调用 `subject.sink(receiveValue:)` 并返回订阅令牌。`send` 是 OpenCombine 的 PassthroughSubject 自身实现的方法。
 
 **订阅与生命周期：**
 
 - `PassthroughSubject` 将值传给当前有接收需求的订阅者，不保存最近值供后来的订阅者补收。没有订阅者时发送的值会丢弃。
-- `.sink { value in ... }` 建立订阅并处理收到的数据。项目的 `.listen` 包装了这一操作。
-- 返回的 `AnyCancellable` 用于保持与取消订阅；示例保存在变量中，项目常用 `.store(in: &cancels)`。取消订阅后该订阅者不再接收事件。
+- `.sink { value in ... }` 建立订阅并处理收到的数据。
+- 返回的 `AnyCancellable` 用于保持与取消订阅；可以保存在变量中，也可以使用 `.store(in: &cancels)` 存入集合。取消订阅后该订阅者不再接收事件。
 
 ## 事件值、失败与流结束
 
@@ -81,7 +78,7 @@ progress.send(70) // 该流已经结束，不再触发 receiveValue
 
 错误是下载业务主动调用 send 报告的；Subject 不会自行检测断网，也不会自动捕获所有业务错误。`.failure` 表示终止该流，不是发送一条错误提示后还能继续发送原流的数据。
 
-若类型改为 `PassthroughSubject<Int, Never>`，普通数据仍是 Int，但 `Never` 没有可构造的值，因此这个通道没有可以报告的失败值。它可以 `send(10)`，也可以 `send(completion: .finished)`；把 `.networkDisconnected` 用作它的失败值会类型不匹配。Never 不表示永不结束，也不表示业务绝不会出错。评论定位通知用 Never，是因为这个通知通道只负责发定位目标、不通过失败结束事件报告错误；找不到目标时，业务可以按原始资料所述实现直接退出而不发送定位通知。
+若类型改为 `PassthroughSubject<Int, Never>`，普通数据仍是 Int，但 `Never` 没有可构造的值，因此这个通道没有可以报告的失败值。它可以 `send(10)`，也可以 `send(completion: .finished)`；把 `.networkDisconnected` 用作它的失败值会类型不匹配。Never 不表示永不结束，也不表示业务绝不会出错。
 
 ## 无载荷事件：PassthroughSubject<Void, Never>
 
@@ -182,8 +179,6 @@ model.click.send(())
 
 读取 model.count 得到属性的当前值；访问 model.\$count 得到该属性的发布者，即向订阅者提供值的对象。sink 建立订阅，并在收到值时执行接收闭包。两者都能使用 sink，只说明两者都能向订阅者发送值，不代表两者保存当前值的方式相同，也不代表新订阅者收到值的时机相同。
 
-依据：[OpenCombine Published 源码与示例](https://github.com/OpenCombine/OpenCombine/blob/master/Sources/OpenCombine/Published.swift)。
-
 ## receive(on:) 与主队列异步调度
 
 调度器是安排动作在何处、何时执行的对象。`DispatchQueue.main` 表示主队列；主队列的任务在主线程执行。`.ocombine` 把这个队列适配为 OpenCombine 的调度器接口，不会创建另一个队列。
@@ -216,4 +211,4 @@ DispatchQueue.main.async {
 
 如果发送发生在后台线程，主线程可能在发送线程继续执行后续语句之前就接收事件。因此，“异步提交”不能单独证明后台发送代码后面的语句一定先于主线程接收闭包执行。
 
-依据：[OpenCombine DispatchQueue 调度器实现](https://github.com/OpenCombine/OpenCombine/blob/master/Sources/OpenCombineDispatch/DispatchQueue+Scheduler.swift)。GCD 基础概念见[iOS 线程与任务调度](threads-and-scheduling.md)。
+GCD 基础概念见[iOS 线程与任务调度](threads-and-scheduling.md)。

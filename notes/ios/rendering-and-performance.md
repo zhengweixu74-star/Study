@@ -52,9 +52,9 @@ FMP 边界仍适用：willDisplay、布局和事务提交完成，都不能直�
 
 回调时记录单调时钟，先保存基准时间，随后累计回调间隔数；在约一秒的统计窗口内，用间隔数除以实际经过时间，得到近似回调 FPS。同时记录每次间隔，避免平均值掩盖某一次明显停顿。例如当前按 60 FPS 调度时正常间隔约 16.7 ms，突然出现 100 ms 间隔值得记录排查；120 FPS 约 8.3 ms，动态帧率下不能统一套用 16.7 ms。应结合实际调度节奏判断，主动降帧不等于发生性能卡顿。
 
-**回调一次不代表新画面已成功上屏。** 这个统计反映 DisplayLink 回调节奏，是近似指标；后续渲染服务或 GPU 也可能错过显示时机，不能仅靠回调次数覆盖所有卡顿，更不能直接据此确定根因。[CADisplayLink](https://developer.apple.com/documentation/quartzcore/cadisplaylink)、[ProMotion 刷新时序](https://developer.apple.com/documentation/quartzcore/optimizing-iphone-and-ipad-apps-to-support-promotion-displays)。
+**回调一次不代表新画面已成功上屏。** 这个统计反映 DisplayLink 回调节奏，是近似指标；后续渲染服务或 GPU 也可能错过显示时机，不能仅靠回调次数覆盖所有卡顿，更不能直接据此确定根因。
 
-不限工具时，在真机上用 [Animation Hitches](#animation-hitches-的使用流程) 录制滑动，定位具体停顿和提交／渲染阶段；再结合 [Time Profiler](#time-profiler-的采样与统计边界) 与线程状态，区分主线程在执行耗时计算，还是等待锁、资源等。线上情况可结合 [MetricKit 与 Xcode Organizer](#metrickit-与-xcode-organizer) 的报告分析。这是验证思路，不代表已实现监控或完成本项目实测。
+不限工具时，在真机上用 [Animation Hitches](#animation-hitches-的使用流程) 录制滑动，定位具体停顿和提交／渲染阶段；再结合 [Time Profiler](#time-profiler-的采样与统计边界) 与线程状态，区分主线程在执行耗时计算，还是等待锁、资源等。线上情况可结合 [MetricKit 与 Xcode Organizer](#metrickit-与-xcode-organizer) 的报告分析。
 
 ## Time Profiler 的采样与统计边界
 
@@ -109,7 +109,7 @@ FMP 边界仍适用：willDisplay、布局和事务提交完成，都不能直�
 | 数据处理 | App 按需保存、上传到自己的监控平台，再做统计或告警 | Apple 收集并汇总数据，开发者查看指标及可用的诊断报告 |
 | 典型用途 | 接入公司的线上性能监控体系 | 比较版本、机型上的启动耗时、内存、卡顿及无响应表现 |
 
-**MetricKit 不负责自动上传到公司的平台。** 上传需要业务代码或监控 SDK 实现，可以组成下面的链路；这是能力说明，不代表本项目已接入：
+**MetricKit 不负责自动上传到公司的平台。** 上传需要业务代码或监控 SDK 实现，可以组成下面的链路：
 
 ```text
 系统收集数据 → MetricKit 将报告交给 App
