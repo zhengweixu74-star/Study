@@ -10,6 +10,9 @@
 - [无载荷事件：PassthroughSubject<Void, Never>](#无载荷事件passthroughsubjectvoid-never)
 - [@Published：状态订阅与赋值时序](#published状态订阅与赋值时序)
 - [receive(on:) 与主队列异步调度](#receiveon-与主队列异步调度)
+- [CombineX 的订阅关系与事件传递](#combinex-的订阅关系与事件传递)
+- [CombineX 与 NotificationCenter 的选择](#combinex-与-notificationcenter-的选择)
+- [removeDuplicates() 与连续重复值](#removeduplicates-与连续重复值)
 
 本篇记录事件通知、发布订阅、订阅生命周期，以及事件流的值、失败与结束。线程、队列、RunLoop 和定时回调的执行机制见[iOS 线程与任务调度](threads-and-scheduling.md)。
 
@@ -212,3 +215,98 @@ DispatchQueue.main.async {
 如果发送发生在后台线程，主线程可能在发送线程继续执行后续语句之前就接收事件。因此，“异步提交”不能单独证明后台发送代码后面的语句一定先于主线程接收闭包执行。
 
 GCD 基础概念见[iOS 线程与任务调度](threads-and-scheduling.md)。
+
+## CombineX 的订阅关系与事件传递
+
+CombineX 与 OpenCombine 是不同的开源 Combine 兼容实现。下文使用 CombineX 说明发布订阅的公共模型；具体模块名称和平台适配接口应按所用实现区分。
+
+| 对象或协议 | 职责 |
+| --- | --- |
+| `Publisher` | 发布者协议：接受订阅，并向订阅者提供值或结束通知。 |
+| `Subscriber` | 订阅者协议：接收订阅关系、普通值和结束通知。 |
+| `Subscription` | 表示一次订阅关系，提供请求接收数量和取消订阅的接口。 |
+| `Subject` | 支持主动发送的发布者协议；调用方可以使用 `send` 发送值或结束通知。 |
+
+`sink` 创建一个保存接收闭包的订阅者，并将该订阅者交给上游发布者。发布者建立订阅关系，通过 `receive(subscription:)` 把 `Subscription` 交给订阅者。`sink` 创建的订阅者随后请求 `.unlimited`，表示不限制接收值的数量。
+
+接收需求 `Demand` 表示订阅者允许上游继续发送多少个普通值。`Subscription` 负责传递请求和取消动作；`sink` 返回的 `AnyCancellable` 是供调用方管理取消动作的对象，两者不是同一个概念。
+
+以直接连接的 `PassthroughSubject → sink` 为例：调用方执行 `send(value)` → Subject 将值交给有接收需求的订阅者 → 订阅者执行 `receive(_:)` → `sink` 保存的接收闭包执行。订阅关系使发布者能够找到接收方，不需要接收方反复查询是否有新值。
+
+操作符是对事件流进行转换、过滤或组合的接口。链路中的“上游”指提供输入的一侧，“下游”指接收输出的一侧。例如 `subject.map { $0 * 2 }.sink { print($0) }` 会先把输入乘以 2，再把结果交给 `sink`。
+
+在没有切换调度或延迟操作符的直接 `PassthroughSubject → sink` 链路中，接收闭包在发送线程同步执行。发布订阅本身不表示异步执行，也不自动保证主线程。
+
+不同发布者的事件来源不同：Subject 由 `send` 触发；`@Published` 在属性赋值时发布新值；KVO 发布者把受支持的属性观察通知转换成事件流；NotificationCenter 发布者把通知中心收到的通知转换成事件流。KVO 和 NotificationCenter 都不是所有发布者共同依赖的通知机制。
+
+句柄是调用方用来间接标识、访问或控制某个资源的值。句柄不限定为整数、指针或内存地址。在订阅场景中，把 `AnyCancellable` 称为取消句柄，是强调调用方可以通过该对象取消订阅。
+
+`AnyCancellable` 在调用 `cancel()` 或对象销毁时执行取消动作。需要持续接收事件时，应保留 `sink` 返回的对象，例如保存为属性或存入 `Set<AnyCancellable>`。传统闭包式 `NotificationCenter.addObserver` 返回的观察者令牌使用另一套生命周期规则，应通过 `removeObserver` 移除观察关系，不能把令牌释放直接等同于自动取消。
+
+## CombineX 与 NotificationCenter 的选择
+
+CombineX 是构建和组合事件流的框架；NotificationCenter 是将通知分发给匹配观察者的通知中心。两者不是同一层次的工具，也可以配合使用。下面的对比限定于 NotificationCenter 的传统 `post(name:object:userInfo:)` 和 `addObserver` 接口。
+
+| 对比项 | CombineX | 传统 NotificationCenter 接口 |
+| --- | --- | --- |
+| 接收关系 | 订阅者订阅某个发布者；能否共享一次上游工作取决于发布者和链路。 | 观察者在同一个通知中心按通知名称和可选来源对象匹配通知。 |
+| 数据类型 | 通过 `Output` 和 `Failure` 明确普通值与失败的类型。 | 回调接收 `Notification`；`userInfo` 中的业务字段通常需要提取和类型转换。 |
+| 事件处理 | 可用 `map`、`filter`、`removeDuplicates` 等操作符组织处理步骤。 | 通知中心负责分发，业务转换和过滤由接收代码完成。 |
+| 当前状态 | `CurrentValueSubject`、`@Published` 可以表达当前状态；`PassthroughSubject` 不保存当前值。 | 通知表达一次发生的事情，不自动保存业务当前状态，也不向新观察者补发历史通知。 |
+| 通信范围 | 可以向多个订阅者发送值；具体关系由对象和订阅链路决定。 | 可以向多个观察者广播；既可使用 `default`，也可创建独立通知中心。 |
+
+界面需要随状态更新，或数据需要连续执行转换、过滤、组合时，可以使用 CombineX。例如 ViewModel 发布当前计数，View 订阅后刷新显示。
+
+接收系统已经提供的键盘、应用生命周期等通知时，可以使用 NotificationCenter。若接收后还需要组合事件流或安排下游调度，可以通过所用框架提供的适配接口，把通知转换为发布者后继续处理。
+
+**系统键盘通知的接入边界：** 监听 UIKit 发布的 `UIResponder.keyboardWillShowNotification` 等系统键盘通知时，CombineX 需要通过 NotificationCenter 接入事件。仅创建 `PassthroughSubject` 并调用 `sink` 建立订阅，不会让 UIKit 自动向该 Subject 发送键盘事件。
+
+```text
+UIKit 发布键盘通知
+    → NotificationCenter
+    → CombineX 的通知发布者
+    → sink 接收闭包
+```
+
+通知适配层负责观察 NotificationCenter 的通知，并把收到的通知传给 CombineX 订阅者。业务代码可以使用 `sink` 接收通知，并继续使用操作符；业务代码没有显式调用 `addObserver`，不表示这条链路不依赖 NotificationCenter。
+
+这里“不能单独使用 CombineX”限定为：不能仅靠创建发布者和建立订阅，就绕过通知中心取得这条系统键盘通知。通知由 UIKit 发出，接收方不需要自己调用 `post`。
+
+## removeDuplicates() 与连续重复值
+
+无参数的 `removeDuplicates()` 要求输出类型遵循 `Equatable`，使用相等比较过滤连续重复值。该操作符没有默认时间窗口，不会先收集一段时间的数据再批量去重。
+
+四次发送 `1、1、2、1` 是四个不同的事件，其中前两个事件携带相同的值。直接使用 `sink` 会收到四次；在 `sink` 前添加 `removeDuplicates()` 后，下游依次收到 `1、2、1`。
+
+| 本次输入 | 与前一个值的关系 | 是否传给下游 |
+| --- | --- | --- |
+| 第一个 `1` | 尚无前一个值 | 传递 `1` |
+| 第二个 `1` | 与前一个 `1` 相等 | 不传递 |
+| `2` | 与前一个 `1` 不相等 | 传递 `2` |
+| 最后的 `1` | 与前一个 `2` 不相等 | 传递 `1` |
+
+操作符仍然接收上游发送的值，只是在比较后决定是否继续传给下游。因此，“重复”指相邻事件的值相等，不表示某一次发送被系统重复投递。
+
+为完成比较，`removeDuplicates()` 为经过该操作符的每次订阅分别保存比较所需的前一个值。保存比较状态是该操作符的需要，不是所有订阅都会自动保存历史值。重新建立订阅时，新订阅从没有比较值的状态开始。
+
+只要订阅仍然有效，且中间没有不同的值到达操作符，即使两次相同值相隔很久，后一次仍会被过滤。`removeDuplicates()` 只判断连续值；不会像集合一样记住所有出现过的值。
+
+`CurrentValueSubject` 保存当前状态，与 `removeDuplicates()` 保存比较状态是两件事。使用 `CurrentValueSubject` 本身不会自动过滤相同值；需要过滤时仍应添加相应操作符。
+
+以下最小示例使用 CombineX。注释说明预期结果，示例未编译运行。
+
+```swift
+import CombineX
+
+let subject = PassthroughSubject<Int, Never>()
+let subscription = subject
+    .removeDuplicates()
+    .sink { print($0) }
+
+subject.send(1) // 输出 1
+subject.send(1) // 不输出
+subject.send(2) // 输出 2
+subject.send(1) // 输出 1
+
+subscription.cancel()
+```
