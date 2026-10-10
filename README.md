@@ -5,7 +5,8 @@
 ## 文档目录
 
 - [WebP 有损压缩：从像素到比特](./webp/README.md) — 从 RGB、色度采样讲到预测、变换、量化和熵编码，配有图解和手算示例。
-- [知识笔记总目录](./notes/README.md) — 16 篇学习笔记，按语言、iOS、跨平台、工程工具、网络与存储、统计和 AI 分类。
+
+- [知识笔记总目录](./notes/README.md) — 17 篇学习笔记，按语言、iOS、Android、跨平台、工程工具、网络与存储、统计和 AI 分类。
 
 ## 按主题查阅
 
@@ -18,3 +19,5 @@
 | [网络与存储](./notes/README.md#网络与存储) | 2 | 网络请求与代理；iOS 文件存储 |
 | [实验与统计](./notes/README.md#实验与统计) | 1 | A/B 实验与统计 |
 | [AI 辅助开发](./notes/README.md#ai-辅助开发) | 1 | AI Agent 原理与开发验证 |
+
+[Android 界面与动画](./notes/android/README.md)：1 篇文档，介绍 ValueAnimator、插值器与滚动动画。
