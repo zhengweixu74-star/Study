@@ -10,6 +10,8 @@
 - [工厂方法、简单工厂与抽象要求](#工厂方法简单工厂与抽象要求)
 - [单例、共享状态与依赖传入](#单例共享状态与依赖传入)
 - [建造者与链式调用](#建造者与链式调用)
+- [耦合与解耦](#耦合与解耦)
+- [依赖反转与依赖注入](#依赖反转与依赖注入)
 
 ## 设计模式的分类与职责
 
@@ -398,3 +400,163 @@ let post = Post(
 ```
 
 Swift 的参数标签和默认参数已经可以解决不少简单构造问题，不必为了模式额外增加 Builder。
+
+## 耦合与解耦
+
+耦合是代码单元之间的依赖关系及其紧密程度。代码单元可以是函数、类或模块。如果 A 需要调用 B 的方法才能完成工作，A 就依赖 B。依赖也可以体现在数据结构、共享状态和执行顺序上，不要求双方互相调用。
+
+当 A 需要了解 B 的具体类型、内部结构或处理步骤时，B 修改实现更容易迫使 A 一起修改。解耦是调整这些依赖，减少不必要的依赖并限制依赖范围，从而缩小变化的影响。
+
+解耦可以减少修改范围、方便独立测试，并支持组件复用和实现替换。例如，业务逻辑能够使用测试对象时，验证业务规则就不必依赖真实文件或网络。接口的方法和行为约定仍然是依赖；约定变化时，调用方仍可能需要修改。
+
+解耦不要求消除所有依赖，也不要求给每个类增加协议。应先确认现有依赖是否妨碍修改、测试或复用，再采用满足当前需求的直接方案。
+
+### 实例一：通过协议隔离具体存储实现
+
+假设 ProfileModel 需要读取用户名。如果 ProfileModel 自行创建 FileNameStore 并调用 readName()，业务对象就同时决定了所需能力和具体存储方式。更换文件存储，或者在测试中避免访问文件时，都要处理这个具体依赖。
+
+可以用 NameStore 声明读取能力，再由外部传入满足协议的对象。下面的独立示例使用固定值实现说明替换关系，假定用户名已存在，不展开真实文件读取与错误处理。
+
+```swift
+protocol NameStore {
+    func readName() -> String
+}
+
+final class ProfileModel {
+    private let store: any NameStore
+
+    init(store: any NameStore) {
+        self.store = store
+    }
+
+    func loadName() -> String {
+        store.readName()
+    }
+}
+
+struct FixedNameStore: NameStore {
+    let name: String
+
+    func readName() -> String {
+        name
+    }
+}
+
+let profile = ProfileModel(store: FixedNameStore(name: "小明"))
+print(profile.loadName()) // 小明
+```
+
+ProfileModel 只依赖 NameStore 的能力约定，不依赖 FixedNameStore 或 FileNameStore 的具体类型。正常运行时可以传入符合约定的文件存储或数据库存储；测试时可以传入固定值实现。具体对象仍由外部创建并选择，相关创建依赖集中在组装位置。
+
+### 实例二：通过回调隔离通用组件与具体页面
+
+如果工具栏直接持有某个具体页面控制器，并调用该控制器的跳转方法，工具栏就依赖这个页面。可以让工具栏只报告按钮点击事件，由使用工具栏的页面决定后续行为。
+
+```swift
+final class ToolbarActions {
+    var onEditTapped: (() -> Void)?
+
+    func editTapped() {
+        onEditTapped?()
+    }
+}
+```
+
+ToolbarActions 是独立的事件回调示例，不包含界面实现。页面设置 onEditTapped；按钮点击时调用 editTapped()；editTapped() 再执行页面提供的回调。执行顺序是：用户点击按钮 → 组件报告点击事件 → 页面决定后续行为。
+
+减少的是通用组件对具体页面和跳转逻辑的依赖。双方仍然需要遵守回调的参数和事件含义；闭包捕获对象时的生命周期也需要由调用方管理。
+
+### 实例三：个人页登录模块通过通知告知其他页面
+
+个人页的登录模块确认登录成功后，首页、消息页等页面可能需要刷新用户相关内容。如果登录模块直接持有这些页面并逐个调用刷新方法，登录模块就依赖具体页面；增加一个需要刷新的页面时，登录模块也可能需要修改。
+
+可以通过 NotificationCenter 发送登录成功通知。通知中心是根据通知名称和发送者等条件，把通知分发给已注册接收者的对象。其他页面分别注册接收同一个通知，收到通知后执行各自的刷新逻辑。登录模块只负责发布事件，不需要知道有哪些页面正在监听。
+
+下面是独立的通信示例，用打印代替实际页面刷新。个人页的登录流程在确认成功并保存登录状态后调用 loginDidSucceed()。示例不包含登录请求、状态存储和界面实现。
+
+```swift
+import Foundation
+
+extension Notification.Name {
+    static let userDidLogin = Notification.Name("userDidLogin")
+}
+
+final class ProfileLoginModule {
+    // 由真实登录流程在确认成功并保存登录状态后调用。
+    func loginDidSucceed() {
+        NotificationCenter.default.post(
+            name: .userDidLogin,
+            object: nil
+        )
+    }
+}
+
+// 首页先注册，保存返回的观察者凭据。
+let homeObserver = NotificationCenter.default.addObserver(
+    forName: .userDidLogin,
+    object: nil,
+    queue: .main
+) { _ in
+    print("首页收到登录成功通知，刷新用户相关内容")
+}
+
+// 消息页独立注册，不需要经过个人页。
+let messageObserver = NotificationCenter.default.addObserver(
+    forName: .userDidLogin,
+    object: nil,
+    queue: .main
+) { _ in
+    print("消息页收到登录成功通知，刷新消息相关内容")
+}
+
+// 假设此时真实登录已成功，登录状态也已保存。
+let loginModule = ProfileLoginModule()
+loginModule.loginDidSucceed()
+```
+
+执行顺序是：其他页面先注册接收通知 → 个人页登录模块确认登录成功并保存状态 → 发布 userDidLogin → 通知中心分发通知 → 已注册的页面各自读取当前状态并刷新。本例使用 queue: .main 指定回调在主队列执行，不依赖首页与消息页两个回调之间的先后顺序。
+
+addObserver 返回的对象用于标识这次注册，页面应保存该对象。在对应页面不再需要监听时，分别执行以下清理；这些语句表示页面结束监听时的操作，不应紧接注册语句执行。
+
+```swift
+// 首页结束监听时执行。
+NotificationCenter.default.removeObserver(homeObserver)
+
+// 消息页结束监听时执行。
+NotificationCenter.default.removeObserver(messageObserver)
+```
+
+减少的是登录模块对首页、消息页等具体页面的直接依赖。新增一个接收页面时，只需让新页面注册通知；发送方无须增加对新页面的调用。双方仍然依赖同一个通知中心、通知名称和事件含义，这些约定可以放在独立的公共事件定义中。
+
+通知表示一次事件，不替代登录状态的保存。通知发出后才注册的页面不会补收到这次历史通知，应在需要展示时读取当前登录状态。实际页面回调如果捕获自身，还应管理捕获关系和取消监听的时机，避免不必要的长期持有。
+
+## 依赖反转与依赖注入
+
+依赖反转是一条设计原则，用于让高层业务逻辑与底层具体实现都依赖抽象，并由具体实现满足业务所需要的能力。高层业务逻辑决定完成什么业务；底层具体实现提供文件、数据库或网络等技术能力；抽象声明能力和行为约定，不规定具体实现方式。Swift 可以使用协议表达这种抽象。
+
+依赖反转包含两项要求：高层模块不直接依赖底层具体实现，两者都依赖抽象；抽象不依赖实现细节，具体实现依赖并遵守抽象。抽象应表达业务需要，而不是把底层内部结构原样暴露给业务。
+
+### 源码依赖方向与运行时调用顺序
+
+沿用用户名存储示例，假设 FileNameStore 是具体文件存储类型。依赖调整前后可以表示为：
+
+```text
+原来：ProfileModel → FileNameStore
+调整后：ProfileModel → NameStore ← FileNameStore
+```
+
+箭头表示代码需要引用目标类型或协议的声明。ProfileModel 使用 NameStore，FileNameStore 遵守 NameStore。业务代码不再直接引用具体文件存储类型，而具体文件存储实现需要遵守业务所要求的协议。反转的是源码依赖方向。
+
+运行时调用顺序仍然是：ProfileModel 调用 readName() → 实际传入的存储对象执行读取 → 返回用户名。依赖反转不会把这个过程改成存储对象主动调用业务对象。
+
+当代码分成独立模块时，NameStore 可以放在业务模块或独立接口模块中。业务模块通过协议使用能力，具体存储模块依赖协议声明。如果协议仍放在具体存储模块里，业务为了使用协议而必须依赖整个存储模块，那么模块级依赖方向仍未反转。
+
+只要协议的行为约定保持稳定，业务代码就可以使用另一种符合约定的实现，无须了解文件或数据库的内部细节。该原则减少具体实现对业务的影响，但不消除对协议的依赖。
+
+### 依赖反转与依赖注入的区别
+
+依赖注入是由外部向对象提供所需依赖的方式。示例中的 init(store:) 属于构造器注入：ProfileModel 接收外部创建的存储对象，而不是自行创建存储对象。
+
+依赖反转规定源码应该依赖什么，关注业务与实现之间的依赖方向；依赖注入规定所需对象由谁提供，关注对象的组装方式。示例同时采用二者：ProfileModel 依赖 NameStore 抽象，并通过初始化方法接收具体对象。
+
+仅把初始化参数写成具体类型 FileNameStore 并从外部传入，也属于依赖注入，但 ProfileModel 仍然依赖 FileNameStore，因此不能仅凭从外部传入对象就认定实现了依赖反转。
