@@ -26,6 +26,8 @@
 | [Swift 语言基础](language/swift-basics.md) | 类型、属性、协议与泛型、闭包、集合和相等规则；Swift 与 C 接口互操作 |
 | [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 对象布局、关联对象、方法派发、Objective-C 互操作与 KVO；+load 与自动注册 |
 
+相关专题：[协议继承与类继承的区别](language/swift-basics.md#协议继承与类继承的区别)。
+
 ## iOS 界面、事件与调度
 
 [Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md)：Darwin 与 XNU 的关系、基础系统组件、应用框架、系统服务及通知协作示例。
@@ -39,6 +41,8 @@
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
 
 相关专题：[内核、逻辑 CPU 与线程并发](ios/threads-and-scheduling.md#内核的职责与进程信息)；[进程创建时间与启动计时起点](ios/app-lifecycle-and-events.md#进程创建时间与启动计时起点)。
+
+相关专题：[获取锁失败后的等待行为](ios/threads-and-scheduling.md#获取锁失败后的等待行为)；[局部坐标、命中测试与点击长按协调](ios/app-lifecycle-and-events.md#uiview-的局部坐标与-bounds)；[UICollectionView 分区、重点回调与布局协议](ios/uikit-layout-and-mvvm.md#分区项目与分区边距)。
 
 ## Android 界面与动画
 

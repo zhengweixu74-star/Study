@@ -95,6 +95,108 @@ makeKeyAndVisible() 还会把窗口放到同级或更低级别窗口的前面。
 
 命中测试是根据触摸位置和视图层级寻找目标视图的过程。响应链则是由响应对象之间的 next 关系构成的传递路径。命中测试负责寻找触摸目标，响应链负责描述事件继续传递的关系，二者需要区分。
 
+### UIView 的局部坐标与 bounds
+
+UIView 的局部坐标系用于描述视图内部的位置。默认情况下，bounds.origin 为 (0, 0)，可见矩形的左上角对应局部坐标 (0, 0)，x 轴向右，y 轴向下。
+
+对于 bounds 为 CGRect(x: 0, y: 0, width: 50, height: 50) 的按钮，局部中心点是 (25, 25)，右下角的边界坐标是 (50, 50)。这里的尺寸单位是点（pt）。按钮放在父视图中的哪个位置，不会自动改变这些局部坐标。
+
+bounds 描述视图在自身坐标系中的矩形；frame 描述视图在父视图坐标系中的矩形。修改 bounds.origin 后，可见矩形左上角对应的局部坐标会随之改变，不能始终把左上角认定为 (0, 0)。UIView.center 属性使用父视图坐标系，也不同于局部中心点。
+
+### point(inside:with:) 与 hitTest(_:with:)
+
+point(inside:with:) 判断一个局部坐标点是否属于当前视图的命中区域，返回 Bool。hitTest(_:with:) 在当前视图及其子视图中寻找触摸目标，返回 UIView?；找不到目标时返回 nil。
+
+UIView 默认命中测试可以按以下顺序理解：
+
+1. 当前视图隐藏、关闭用户交互或透明度低于 UIKit 的命中阈值时，返回 nil。
+2. 调用当前视图的 point(inside:with:)。结果为 false 时，返回 nil，并跳过当前视图的子树。
+3. 按从前向后的顺序检查子视图。先把触摸点转换到对应子视图的坐标系，再调用子视图的 hitTest(_:with:)。
+4. 某个子视图找到目标时，返回该目标。所有子视图都没有找到目标时，返回当前视图。
+
+两个方法接收的 point 都采用方法接收者自身的坐标系。重写命中区域时，通常应把 point 与 bounds 比较，不能直接与父视图坐标系中的 frame 比较。
+
+### 扩大按钮的命中区域
+
+重写 point(inside:with:) 可以扩大命中区域，同时保持按钮的显示尺寸和布局尺寸。下面的按钮向四周各扩大 10 pt；当 bounds 为 50×50 pt 时，命中矩形为 70×70 pt。
+
+```swift
+final class ExpandedHitButton: UIButton {
+    override func point(
+        inside point: CGPoint,
+        with event: UIEvent?
+    ) -> Bool {
+        let hitBounds = bounds.insetBy(dx: -10, dy: -10)
+        return hitBounds.contains(point)
+    }
+}
+```
+
+扩大后的区域只有在祖先视图允许命中测试继续进入该子树时才有效。如果触摸位置位于父视图的命中区域之外，父视图默认会直接返回 nil，按钮就没有机会判断该位置。需要根据布局调整父视图的命中范围或命中测试转发。
+
+clipsToBounds 控制是否裁剪超出边界的绘制内容。把 clipsToBounds 设为 false，不会自动扩大父视图或按钮的命中区域。
+
+### 同一按钮的点击与长按协调
+
+按钮的短按动作可以使用 touchUpInside。长按可以使用 UILongPressGestureRecognizer。把长按识别器直接添加到按钮上，可以让长按从按钮的命中区域内开始识别；仅与按钮发生视觉重叠的兄弟视图，不会因此收到这次触摸。
+
+以下代码位于 UIViewController 子类中。button 是已经创建的 UIButton 属性；setupInteractions() 在界面初始化时调用一次。示例仅展示事件协调。
+
+```swift
+private func setupInteractions() {
+    button.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
+
+    let longPress = UILongPressGestureRecognizer(
+        target: self,
+        action: #selector(handleLongPress(_:))
+    )
+    longPress.minimumPressDuration = 0.5
+    longPress.cancelsTouchesInView = true
+    button.addGestureRecognizer(longPress)
+}
+
+@objc private func handleTap() {
+    print("短按完成")
+}
+
+@objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+    switch gesture.state {
+    case .began:
+        print("长按开始")
+    case .ended, .cancelled:
+        print("长按结束，恢复临时状态")
+    default:
+        break
+    }
+}
+```
+
+按住时间不足 0.5 秒、且按钮仍满足正常点击条件时，用户松手会触发 touchUpInside，不需要等待剩余时间。达到最短时长且满足触点移动距离等识别条件时，长按进入 began。
+
+cancelsTouchesInView 为 true 时，已经识别成功的长按会取消发送给按钮的触摸。按钮因此不会在这次长按松手时再触发 touchUpInside。该属性取消的是按钮的触摸，不是把长按识别器自身改成 cancelled。
+
+如果按下时就执行动作，例如使用 touchDown，长按识别成功时该动作已经发生。后续取消触摸不能撤销已经执行的动作。
+
+手势识别器也会观察命中其附属视图的子视图的触摸。因此，若将识别器添加到整个页面的根视图上，长按的起始范围就可能扩大到页面内的其他视图。按钮已经扩大的命中区域也会参与起始位置判断。
+
+### 长按状态与取消后的恢复
+
+UILongPressGestureRecognizer 是连续手势识别器。连续手势在识别开始后还会跟踪触摸变化，并在正常结束或取消时通知目标对象。
+
+| 状态 | 含义 | 适合执行的操作 |
+| --- | --- | --- |
+| .began | 达到长按识别条件 | 保存原状态，开启临时效果 |
+| .changed | 长按已经开始，触摸信息发生变化 | 按需要更新连续交互 |
+| .ended | 已识别的长按正常结束，例如用户松手 | 恢复原状态，结束临时效果 |
+| .cancelled | 已识别的长按被中断 | 同样恢复原状态并清理 |
+| .failed | 在识别开始前未满足条件 | 不执行仅属于长按成功路径的操作 |
+
+例如，长按开始后，如果来电界面接管交互并导致 UIKit 取消当前触摸，识别器可能进入 cancelled。不是所有来电横幅都会取消触摸，判断依据是系统是否实际中断了这次触摸。
+
+长按已经开始后，手指移出按钮不会自动表示手势取消。若要求移出时结束效果，需要显式检查位置并定义结束规则；这与限制“长按从哪里开始”是两个条件。
+
+临时效果应在 began 时保存原状态，并在 ended 和 cancelled 时恢复该状态。不能只处理正常松手，否则发生取消时可能残留临时状态。
+
 ## 屏幕键盘：触摸位置与文字接收对象
 
 第一响应者是当前优先接收特定类型事件的响应对象。在文本输入场景中，成为第一响应者的输入框是当前文字输入目标；这不意味着所有触摸事件都交给该输入框。

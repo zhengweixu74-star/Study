@@ -69,6 +69,31 @@
 
 **持有关系。** 组件保存闭包时，闭包可能强引用捕获的对象，因此需要检查循环引用。Delegate 属性通常声明为 weak，但 weak 不会保持委托对象存活，必须有其他对象负责持有委托对象。
 
+### 协议继承与类继承的区别
+
+协议可以继承一个或多个协议。子协议在已有协议的要求之上增加要求或约束；遵循子协议的类型，也必须满足继承而来的要求和约束。
+
+```swift
+protocol Movable {
+    func move()
+}
+
+protocol Stoppable: Movable {
+    func stop()
+}
+
+struct Cursor: Stoppable {
+    func move() {}
+    func stop() {}
+}
+```
+
+Stoppable 继承 Movable，因此 Cursor 需要满足 move() 和 stop() 两个要求。示例没有提供默认实现，所以 Cursor 自己实现这两个方法。
+
+协议继承本身不会提供父类那样的实例存储和方法实现。协议扩展可以提供默认实现，但那属于协议扩展的能力，不能把“继承了协议”直接理解为“获得了实现”。类继承则可以继承父类的属性和方法实现。
+
+协议要求还需要区分必需和可选。普通 Swift 协议中的方法要求默认是必需的；适用 Objective-C 互操作的协议可以声明 optional 要求。UIKit 的 UICollectionViewDelegate、UIScrollViewDelegate 等协议包含可选回调，遵循协议不表示必须实现每一个回调。
+
 ## 类型安全、值语义与动态能力
 
 - **类型安全：** 值和操作受到类型规则约束，例如不能把 String 直接赋给 Int 变量；Optional 要先处理有值／无值的情况，才能作为非可选值使用。它减少一类错误，不表示所有错误都会在编译期被发现。

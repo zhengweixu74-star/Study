@@ -155,6 +155,66 @@ UICollectionView 展示一组可滚动内容。Cell 展示单项；DataSource �
 
 SnapKit 可负责 UICollectionView 在页面中的位置，以及 Cell 内控件约束。Cell 在列表中的排列由 UICollectionViewLayout 负责，例如 FlowLayout、CompositionalLayout 或自定义 Layout。
 
+### 分区、项目与分区边距
+
+分区（section）是 UICollectionView 对数据项的一层逻辑分组。项目（item）是分区内的一项数据，Cell 是展示该项目的可复用视图。一个分区可以显示多行 Cell，也可以不显示分区头部或尾部。
+
+例如，同一个图片列表可以把“今天”和“昨天”各作为一个分区：
+
+```text
+同一个 UICollectionView
+├─ section 0：今天
+│  ├─ Header：今天（可选）
+│  ├─ 第一行：[item 0] [item 1] [item 2]
+│  ├─ 第二行：[item 3] [item 4]
+│  └─ Footer（可选）
+└─ section 1：昨天
+   ├─ Header：昨天（可选）
+   └─ 第一行：[item 0] [item 1]
+```
+
+每个分区的 item 索引独立从 0 开始。IndexPath(item: 1, section: 0) 表示第一个分区中的第二项，不是整个列表的第二行。
+
+使用垂直滚动的 UICollectionViewFlowLayout 时，Cell 通常沿水平方向排列，当前行放不下时换到下一行。分区与行不是同一个概念。
+
+sectionInset 描述分区内容的四周边距。在常见的垂直布局中，top 对应头部之后与第一行 Cell 之前的留白，bottom 对应最后一行 Cell 之后与尾部之前的留白，left 和 right 对应内容两侧的留白。未配置头部或尾部时，相应间距位于分区内容边缘。
+
+```swift
+layout.sectionInset = UIEdgeInsets(top: 10, left: 16, bottom: 10, right: 16)
+```
+
+此处 layout 是 UICollectionViewFlowLayout。具体参考边界还受 sectionInsetReference 等布局设置影响。行间距由 minimumLineSpacing 控制；同一行项目之间的最小间距由 minimumInteritemSpacing 控制。这些间距与 sectionInset 不同。
+
+### 数据源与代理的五个重点回调
+
+数据源负责向 UICollectionView 提供数据数量和配置好的视图；代理接收交互、显示变化等通知，也可以在约定方法中提供决策。下表针对直接实现 UICollectionViewDataSource 的常见用法。
+
+| 方法 | 所属协议 | 使用场景 |
+| --- | --- | --- |
+| collectionView(_:numberOfItemsInSection:) | UICollectionViewDataSource | 返回指定分区的项目数，例如当前分区有 20 张图片就返回 20 |
+| collectionView(_:cellForItemAt:) | UICollectionViewDataSource | 获取复用 Cell，根据 indexPath 对应的数据设置图片、标题及其他展示状态，再返回 Cell |
+| collectionView(_:didSelectItemAt:) | UICollectionViewDelegate | 用户选中项目后，读取对应数据并执行选择动作，例如打开详情 |
+| collectionView(_:didEndDisplaying:forItemAt:) | UICollectionViewDelegate | Cell 结束显示时，停止该 Cell 的动画等显示相关工作 |
+| scrollViewDidScroll(_:) | UIScrollViewDelegate | 滚动位置变化时读取 contentOffset，例如按位置调整导航栏透明度 |
+
+前两个方法是 UICollectionViewDataSource 的必需方法。多个分区还需要通过 numberOfSections(in:) 提供分区数量；未实现该可选方法时，默认按一个分区处理。
+
+cellForItemAt 表示准备 Cell，不表示用户已经看到 Cell。UIKit 可能提前调用该方法，因此不能直接把该回调当成内容曝光。willDisplay 表示即将显示，也不能独自证明内容已满足实际可见区域或持续显示时间等曝光条件。
+
+didEndDisplaying 回调中的 Cell 是结束显示的视图。数据可能已经发生插入、删除或重排，因此需要关联数据时，应使用稳定的数据标识，不能盲目按旧 indexPath 读取当前数组。
+
+scrollViewDidScroll 既可能来自用户拖动，也可能来自减速滚动或程序改变滚动位置。contentOffset 表示当前内容滚动偏移。该回调可能频繁发生，适合执行轻量的界面更新。
+
+### 代理协议的继承与布局回调
+
+UICollectionViewDelegate 继承 UIScrollViewDelegate。因此，设置为 collectionView.delegate 的同一个对象，可以同时实现列表选择回调和滚动回调，不需要另设一个滚动代理属性。
+
+UICollectionViewDelegateFlowLayout 又继承 UICollectionViewDelegate。使用 UICollectionViewFlowLayout 时，可以按需实现 sizeForItemAt 来提供项目尺寸，或实现 insetForSectionAt 来提供不同分区的边距。尺寸和边距统一时，直接设置布局对象的 itemSize、sectionInset 即可。
+
+这些 FlowLayout 回调针对 UICollectionViewFlowLayout。其他布局应通过各自的布局接口配置。上述 UIKit 代理协议的方法均为可选方法，不要求把全部回调都写出来。
+
+协议继承的通用规则见[Swift 语言基础中的协议继承](../language/swift-basics.md#协议继承与类继承的区别)。
+
 ## 页面、列表与 Cell ViewModel
 
 MVVM 没有规定一个页面只能有一个 VM，也没有规定每个 View 都必须有 VM。划分依据是是否存在需要独立管理的展示数据、状态与交互职责。
