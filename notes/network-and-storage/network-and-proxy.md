@@ -5,6 +5,9 @@
 ## 本文目录
 
 - [HTTP 请求方法、安全性与幂等性](#http-请求方法安全性与幂等性)
+- [请求正文格式与 JSON 字段](#请求正文格式与-json-字段)
+- [使用 JSON 上传文件](#使用-json-上传文件)
+- [gzip 压缩与抓包正文显示](#gzip-压缩与抓包正文显示)
 - [multipart 文件上传与请求体结构](#multipart-文件上传与请求体结构)
 - [Swift 构造 multipart 请求与上传](#swift-构造-multipart-请求与上传)
 
@@ -55,6 +58,83 @@ POST 和 PATCH 不保证幂等，不表示所有 POST 和 PATCH 接口都无法�
 GET 与 POST 的主要区别是操作语义，不是“一个能够带参数，另一个不能带参数”。HTTP 也没有规定 GET 参数统一只能有 2 KB；实际长度限制取决于客户端、代理和服务端。
 
 POST 把数据放入请求体，不等于对数据加密。GET 和 POST 都需要通过 HTTPS 获得传输保护。URL 还可能出现在历史记录或访问日志中，因此参数位置与传输加密是两个不同问题。
+
+## 请求正文格式与 JSON 字段
+
+Content-Type 声明请求正文的媒体类型，即正文采用的数据格式。application/json 表示 JSON 格式，multipart/form-data 表示由多个表单部分组成的格式。HTTP 请求正文不必都包含表单分隔行。
+
+| 对比项 | application/json | multipart/form-data |
+| --- | --- | --- |
+| 字段名的位置 | JSON 对象的键，例如 title | 各部分 Content-Disposition 中的 name 参数，例如 name="title" |
+| 字段值的位置 | JSON 对象中对应键的值 | 各部分头部后的空行之后 |
+| 内容如何分隔 | 由 JSON 的括号、冒号和逗号等语法组织 | 由 boundary 对应的分隔行组织 |
+| 文件内容如何表示 | 按接口约定转换为字符串等 JSON 数据，例如 Base64 字符串 | 可在文件部分直接携带原始文件字节 |
+
+例如，下面的请求正文提交 title 和 count 两个字段：
+
+```http
+Content-Type: application/json
+```
+
+```json
+{
+  "title": "hello",
+  "count": 10
+}
+```
+
+title 和 count 已经是 JSON 对象的字段名，因此不需要额外写 name="title"。JSON 对象也不使用 multipart 的 boundary 分隔行。即使 JSON 中存在名为 name 或 boundary 的键，这些键也只是接口数据，不自动具有 multipart 的协议含义。
+
+在 multipart/form-data 中，boundary 是用于构造各部分分隔行的标识字符串；name 是每个部分的 Content-Disposition 中用于标识表单字段的参数。两者的具体结构见本文“multipart 文件上传与请求体结构”。
+
+## 使用 JSON 上传文件
+
+application/json 可以承载文件内容，前提是客户端将文件内容转换成 JSON 能表示的数据，服务端按相同约定还原。JSON 没有直接表示任意二进制字节序列的独立数据类型，不能把任意图片字节直接插入 JSON 文本。
+
+Base64 是将字节序列编码成文本的可逆编码方式，不是加密。客户端可以把 Base64 文本放入 JSON 字符串。下面示例上传一个文件名为 hello.txt、内容为 hello 的文件；请求头使用 Content-Type: application/json。
+
+```json
+{
+  "filename": "hello.txt",
+  "contentBase64": "aGVsbG8="
+}
+```
+
+1. 客户端读取文件字节，将字节编码成 Base64 字符串。
+2. 客户端把文件名和 Base64 字符串写入 JSON，并发送 JSON 正文。
+3. 服务端解析 JSON，读取约定字段，再把 Base64 字符串解码为原始文件字节。
+4. 服务端根据接口约定保存或处理文件。
+
+filename 和 contentBase64 是示例接口约定的字段名，不是 JSON 规定的文件字段。服务端不会仅凭字段名称自动完成 Base64 解码或文件保存。只发送客户端本地路径或一个文件地址字符串，也不等于在本次正文中发送了文件字节。
+
+对于 n 字节的数据，带标准填充且不插入换行的 Base64 文本长度为 4 × ceil(n / 3) 个字符，ceil 表示向上取整。数据量较大时，编码后的长度约增加三分之一，还需要加上 JSON 字段名等开销。该比较不包含后续压缩的影响。
+
+multipart/form-data 的文件部分可以直接承载原始文件字节，不要求先做 Base64 编码。使用 JSON 还是 multipart，应以服务端接口约定为准；只修改 Content-Type 请求头不会转换正文格式。
+
+## gzip 压缩与抓包正文显示
+
+gzip 是将原始字节压缩为另一段字节、并允许解压还原的无损压缩格式。正文的数据格式与压缩方式是两个不同层次：JSON 正文可以使用 gzip 压缩，解压后仍是 JSON，不会增加 multipart 的 boundary 或部分头部。
+
+| 请求头 | 作用 |
+| --- | --- |
+| Content-Type: application/json | 声明解码后正文的数据格式为 JSON |
+| Content-Encoding: gzip | 声明正文应用了 gzip 内容编码，接收方需要先解压再按媒体类型解析 |
+| Content-Length（存在时） | 声明消息正文的字节长度；正文经过 gzip 编码时，对应编码后的长度，不是解压后的字符数 |
+
+发送 gzip 压缩的 JSON 时，标准请求头可以同时包含以下两项；服务端必须支持这种请求内容编码：
+
+```http
+Content-Type: application/json
+Content-Encoding: gzip
+```
+
+客户端先将 JSON 序列化为文本并编码成 UTF-8 字节，再使用 gzip 压缩。接收方先还原 gzip 压缩数据，再将解压后的文本解析为 JSON。序列化是把内存中的数据组织成可存储或传输的格式；解压和 JSON 解析是两个独立步骤。
+
+某些接口使用自定义请求头声明压缩方式。自定义请求头由通信双方约定，抓包工具不一定按标准 Content-Encoding 的规则自动识别。请求和响应各自拥有头部与正文，响应中的 Content-Encoding 不能用于判断请求正文是否压缩。
+
+十六进制视图是逐字节显示数值的方式，不是一种压缩或加密方式。gzip 数据常见的起始三个字节为 1F 8B 08，其中前两个字节标识 gzip，第三个字节表示使用 DEFLATE 压缩方法。这个前缀可以辅助识别，但不能单独证明整段数据完整有效。
+
+抓包工具中的 JSON、文本和十六进制视图是展示方式。把展示方式切换为 JSON，并不等于已经执行 gzip 解压；只有工具先获得有效的 JSON 文本，才能展示 JSON 结构。HTTPS 解密也不会自动消除正文中的 gzip 压缩层。
 
 ## multipart 文件上传与请求体结构
 

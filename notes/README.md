@@ -91,6 +91,8 @@
 
 相关专题：[HTTP 请求方法与文件上传](network-and-storage/network-and-proxy.md#http-请求方法安全性与幂等性)。内容范围：HTTP 方法、安全性与幂等性、GET 与 POST、multipart 字段与 boundary、两层头部、服务端解析，以及 Swift URLSession 上传。
 
+相关专题：[请求正文格式与 JSON 字段](network-and-storage/network-and-proxy.md#请求正文格式与-json-字段)；[使用 JSON 上传文件](network-and-storage/network-and-proxy.md#使用-json-上传文件)；[gzip 压缩与抓包正文显示](network-and-storage/network-and-proxy.md#gzip-压缩与抓包正文显示)。内容范围：JSON 与 multipart 字段表示、Base64 文件上传、正文格式与 gzip 压缩的区别，以及抓包预览与原始字节。
+
 ## 实验与统计
 
 | 文档 | 内容范围 |
