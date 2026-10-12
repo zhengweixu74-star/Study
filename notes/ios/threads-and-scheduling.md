@@ -13,6 +13,8 @@
 - [Timer 的调度与重复触发](#timer-的调度与重复触发)
 - [CADisplayLink 的原理与适用场景](#cadisplaylink-的原理与适用场景)
 
+补充专题：[Operation 与 OperationQueue](#operation-与-operationqueue)。
+
 ## 进程与线程
 
 进程是操作系统为运行程序创建的运行实例，拥有相应的地址空间和资源。线程是进程中由内核安排执行的单位。一个进程可以包含多个线程；CPU 实际执行的是被调度线程的指令。
@@ -57,6 +59,58 @@ App 可以通过系统接口查询内核允许提供的信息。查询操作发�
 ## GCD 的任务、队列与提交方式
 
 GCD 的任务、队列和线程是不同概念。串行或并发描述队列如何组织任务；同步或异步描述提交方是否等待。`async` 不等于切换后台线程，主队列 async 也不保证下一轮 RunLoop 才执行。
+
+## Operation 与 OperationQueue
+
+OperationQueue 是 Foundation 提供的任务调度队列。应用把需要执行的工作封装成 Operation，队列根据任务是否就绪、优先级和并发限制安排执行。Operation 表示一个任务，OperationQueue 负责管理多个任务。
+
+BlockOperation 是用闭包封装工作的 Operation 子类。普通同步任务可以直接使用 BlockOperation；需要自定义执行状态或异步生命周期时，才需要进一步封装。OperationQueue 不是线程本身，也不表示每加入一个任务就创建一条线程。
+
+### 并发限制、依赖与执行顺序
+
+`maxConcurrentOperationCount` 限制队列同时处于执行状态的 Operation 数量。例如设为 2，队列最多同时执行两个 Operation，其余任务等待。这个值不是系统线程数，也不是 CPU 核心数。
+
+设为 1 可以让队列同一时刻只执行一个 Operation，但不能把它当作无条件按提交顺序执行的 FIFO 队列。任务是否就绪、任务之间的依赖和优先级会影响选择顺序。queuePriority 影响就绪任务之间的调度，不会让高优先级任务抢占已经开始的任务。
+
+通过 taskB.addDependency(taskA) 可以让 taskB 等待 taskA 完成。依赖只表达完成先后，不保证 taskA 成功，也不会自动传递结果或错误。taskB 是否继续执行，需要应用根据结果决定。
+
+通常创建的 OperationQueue 用于在后台执行工作。OperationQueue.main 把任务安排在主线程执行。图片计算可以在后台队列完成，UIKit 视图更新应回到主线程。
+
+### 最小使用示例
+
+```swift
+import Foundation
+
+let queue = OperationQueue()
+queue.maxConcurrentOperationCount = 2
+
+let taskA = BlockOperation {
+    print("执行任务 A")
+}
+let taskB = BlockOperation {
+    print("执行任务 B")
+}
+
+queue.addOperations([taskA, taskB], waitUntilFinished: false)
+```
+
+上例创建两个同步任务，并允许队列同时执行最多两个任务。waitUntilFinished 为 false 表示提交方不等待全部任务完成；A 和 B 的打印顺序没有保证。闭包执行结束后，对应的同步任务完成。
+
+### 取消是协作式的
+
+`cancel()` 主要设置 Operation 的取消状态。协作式取消表示执行代码需要检查取消状态，并在能够停止的位置主动结束；取消不会强制中断正在运行的线程或任意函数。
+
+标准 Operation 在开始工作前发现已经取消时，会跳过工作并结束。任务已经开始后，需要在耗时步骤之前以及步骤之间检查 isCancelled。同步解码函数内部没有取消入口时，只能等待函数返回，再停止后续工作或丢弃过期结果。自定义 Operation 必须正确维护自己的结束状态。
+
+已经加入 OperationQueue 的任务不能直接从队列移除。应用可以取消指定任务，或者用 cancelAllOperations() 请求取消全部任务；队列仍会保留相关任务，直到任务结束。
+
+### 异步下载不能只套普通闭包限流
+
+在普通 BlockOperation 中调用 URLSessionTask.resume() 后，闭包通常很快返回，但网络下载仍在进行。BlockOperation 此时已经完成，OperationQueue 会继续启动下一个任务。因此，单靠这层包装的 maxConcurrentOperationCount 不能限制实际进行中的下载数量。
+
+要限制下载并发，可以让图片加载器维护正在执行的下载数量和待调度请求，在网络完成回调中释放名额；也可以使用正确实现异步状态的 Operation，在网络任务真正结束后才设置完成状态。下载取消仍需等待实际结束，不能立即释放名额。
+
+下载与解码分别限流、预取需求和取消流程见[长列表图片任务调度](image-loading-decoding-and-memory.md#长列表图片任务调度)。
 
 ## i++ 的执行过程与线程安全
 

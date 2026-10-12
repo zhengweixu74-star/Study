@@ -46,6 +46,8 @@
 
 [iOS 图片加载、解码与内存](ios/image-loading-decoding-and-memory.md)：压缩数据与像素内存、降采样与服务器缩略图、ImageIO、提前解码、缓存与并发控制。
 
+相关专题：[长列表图片任务调度](ios/image-loading-decoding-and-memory.md#长列表图片任务调度)；[Operation 与 OperationQueue](ios/threads-and-scheduling.md#operation-与-operationqueue)。内容范围：下载与解码分别限流、预取回调、共享任务取消、快速滚动的启动控制，以及任务队列的并发限制与协作式取消。
+
 ## Android 界面与动画
 
 [Android 分类目录](android/README.md)：4 篇文档。
