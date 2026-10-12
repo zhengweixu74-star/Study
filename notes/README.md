@@ -89,6 +89,8 @@
 | [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任 |
 | [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Caches 和 tmp 的用途与备份边界 |
 
+相关专题：[HTTP 请求方法与文件上传](network-and-storage/network-and-proxy.md#http-请求方法安全性与幂等性)。内容范围：HTTP 方法、安全性与幂等性、GET 与 POST、multipart 字段与 boundary、两层头部、服务端解析，以及 Swift URLSession 上传。
+
 ## 实验与统计
 
 | 文档 | 内容范围 |

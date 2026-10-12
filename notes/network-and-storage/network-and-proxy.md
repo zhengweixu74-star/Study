@@ -4,6 +4,10 @@
 
 ## 本文目录
 
+- [HTTP 请求方法、安全性与幂等性](#http-请求方法安全性与幂等性)
+- [multipart 文件上传与请求体结构](#multipart-文件上传与请求体结构)
+- [Swift 构造 multipart 请求与上传](#swift-构造-multipart-请求与上传)
+
 - [连接、超时与幂等重试](#连接超时与幂等重试)
 - [TCP 慢启动与快重传](#tcp-慢启动与快重传)
 - [代理连接与 HTTPS 隧道](#代理连接与-https-隧道)
@@ -11,6 +15,188 @@
 - [证书公钥、CA 签名与会话密钥](#证书公钥ca-签名与会话密钥)
 - [证书链、中间 CA 与根 CA 信任](#证书链中间-ca-与根-ca-信任)
 - [“证书不可用”的归因与排查](#证书不可用的归因与排查)
+
+## HTTP 请求方法、安全性与幂等性
+
+HTTP 是应用层的请求与响应协议。客户端在请求中指定目标资源和请求方法。服务端根据请求执行操作，并返回状态码、响应头和可选的响应体。请求方法表达客户端希望对目标资源执行的操作。
+
+### 常见请求方法
+
+| 方法 | 含义 | 安全性 | 幂等性 |
+| --- | --- | --- | --- |
+| GET | 获取目标资源的表示，例如一份 JSON 数据 | 安全 | 幂等 |
+| HEAD | 获取与 GET 对应的响应元信息，不返回响应体 | 安全 | 幂等 |
+| POST | 让目标资源按自身规则处理请求内容，例如提交表单或创建记录 | 不安全 | 不保证 |
+| PUT | 用请求内容创建或替换指定目标资源的状态 | 不安全 | 幂等 |
+| PATCH | 按请求中的修改指令局部修改资源 | 不安全 | 不保证 |
+| DELETE | 删除目标 URI 与当前资源功能之间的关联 | 不安全 | 幂等 |
+| OPTIONS | 查询目标资源或服务端支持的通信选项 | 安全 | 幂等 |
+
+安全性是请求方法的语义属性：客户端没有要求服务端改变业务状态。服务端记录访问日志不违背安全性。这里的“安全”不表示传输经过加密。
+
+幂等性表示：对同一目标重复执行相同请求，产生的预期服务端效果与执行一次相同。幂等性不要求每次响应内容或状态码相同。例如，重复删除同一个资源可以先返回删除成功，再返回资源不存在，但不会因此产生额外的删除效果。
+
+POST 和 PATCH 不保证幂等，不表示所有 POST 和 PATCH 接口都无法实现幂等。接口可以通过服务端去重等约定提供幂等行为。DELETE 的协议语义也不要求服务端立即物理删除存储中的所有相关数据。
+
+客户端、缓存和代理依据请求方法理解操作语义。例如，缓存可以在满足缓存条件时复用响应；客户端可以结合幂等性和失败情况判断是否允许自动重试。不同方法并非只是在 URL 上添加不同的名称，服务端实现也应遵守对应语义。
+
+### GET 与 POST 的区别
+
+| 对比项 | GET | POST |
+| --- | --- | --- |
+| 核心语义 | 获取资源的表示 | 让目标资源处理提交的内容 |
+| 安全性与幂等性 | 安全且幂等 | 均不保证 |
+| 常见参数位置 | URL 路径和查询参数 | 请求体，也可以同时带 URL 查询参数 |
+| 请求体 | 没有通用定义的请求体语义，通常不发送 | 常用于承载提交的数据，格式由 Content-Type 和接口约定确定 |
+| 响应缓存 | 满足缓存条件时可缓存 | 满足 HTTP 缓存规范的条件时也可缓存，但通用实现支持较少 |
+
+请求体是 HTTP 消息中承载本次提交内容的部分。HTTP 请求头则是描述请求及其内容的一组字段。Content-Type 用于声明请求体的媒体类型，即内容格式，例如 application/json 或 multipart/form-data。
+
+GET 与 POST 的主要区别是操作语义，不是“一个能够带参数，另一个不能带参数”。HTTP 也没有规定 GET 参数统一只能有 2 KB；实际长度限制取决于客户端、代理和服务端。
+
+POST 把数据放入请求体，不等于对数据加密。GET 和 POST 都需要通过 HTTPS 获得传输保护。URL 还可能出现在历史记录或访问日志中，因此参数位置与传输加密是两个不同问题。
+
+## multipart 文件上传与请求体结构
+
+文件上传需要客户端发送文件的实际字节。仅发送客户端本地路径，不能让远程服务端读取该路径对应的本地文件。
+
+multipart/form-data 是一种将多个表单项组织在同一个请求体中的格式。每个部分可以承载普通文本或文件数据。客户端是否使用这种格式，应以接口约定为准；文件上传并不必然使用 multipart。
+
+### 文件字段、文件名与两层头部
+
+表单字段是表单中的一个命名数据项。文件字段是承载文件数据的表单字段。file 是示例接口约定的字段名，不是 HTTP 规定的保留名称，也不是 HTTP 请求头中的字段名。
+
+multipart 的每个部分都有自己的头部，用于说明该部分的字段名、文件名和内容类型。这些部分头部位于 HTTP 请求体内部，与描述整个请求的 HTTP 请求头不同。
+
+| 示例内容 | 所在位置 | 含义 |
+| --- | --- | --- |
+| Content-Type: multipart/form-data; boundary=Boundary-ABC123 | HTTP 请求头 | 整个请求体采用 multipart 格式，并指定分隔标识 |
+| Content-Disposition: form-data; name="file"; filename="photo.jpg" | 请求体中，文件部分的头部 | 该部分对应名为 file 的表单字段，提交的文件名是 photo.jpg |
+| Content-Type: image/jpeg | 请求体中，文件部分的头部 | 声明该部分的数据格式是 JPEG 图片 |
+| 图片的实际字节 | 请求体中，文件部分的内容 | 服务端接收的文件数据 |
+
+name="file" 中的 file 是 name 参数的值。filename="photo.jpg" 表示文件名。把字段名改成 avatar，不会自动把文件名也改成 avatar。声明 image/jpeg 或修改扩展名，都不会把其他格式的数据转换为 JPEG。
+
+### boundary 与完整请求体示例
+
+boundary 是用于构造各部分分隔行的标识字符串。客户端在 HTTP 请求头中声明该字符串，并在请求体中使用相同字符串。下面示例的 boundary 值为 Boundary-ABC123。
+
+HTTP 请求头中的 Content-Type：
+
+```http
+Content-Type: multipart/form-data; boundary=Boundary-ABC123
+```
+
+请求体包含一个普通文本字段 description 和一个文件字段 file：
+
+```text
+--Boundary-ABC123
+Content-Disposition: form-data; name="description"
+
+我的头像
+--Boundary-ABC123
+Content-Disposition: form-data; name="file"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+[这里是图片的实际字节]
+--Boundary-ABC123--
+```
+
+方括号中的文字只是说明位置，实际发送时应替换为图片字节。示例将格式中的换行显示为普通换行，实际分隔行和头部行使用 CRLF，即回车加换行，对应字节 0x0D、0x0A。
+
+普通分隔行是 -- 加 boundary。结束分隔行在末尾再加 --，表示 multipart 请求体结束。每个部分的头部与内容之间有一个空行；前一部分内容结束后，通过 CRLF 接下一条分隔行。分隔行前面的两个连字符不属于请求头中声明的 boundary 值。
+
+boundary 必须避免与各部分内容中的分隔标记冲突。实际构造请求时通常使用包含随机值的字符串，降低冲突概率。HTTP 请求头声明的 boundary 与请求体使用的 boundary 必须一致，否则服务端无法按声明正确解析。
+
+### 服务端如何取得文件
+
+1. 服务端读取 HTTP 请求头中的 Content-Type，确定请求体格式与 boundary。
+2. multipart 解析器按分隔标记识别请求体中的各个部分。
+3. 解析器读取各部分的 Content-Disposition，取得 name 和可选的 filename。
+4. 服务端框架将普通字段和文件字段提供给接口代码。接口代码按照约定的字段名取得对应文件，并保存或处理文件字节。
+
+解析后的逻辑关系可以表示为：
+
+```text
+普通字段["description"] → "我的头像"
+文件字段["file"]        → photo.jpg 的信息和字节内容
+```
+
+文件数据来自请求体，字段名用于标识文件属于哪个接口参数。服务端也可以遍历所有文件部分，但如果接口代码只读取 file，而客户端发送 name="avatar"，文件字节即使已经到达，接口仍可能报告缺少 file 字段。
+
+## Swift 构造 multipart 请求与上传
+
+Foundation 的 Data 是用于存放字节的值类型。URLRequest 描述请求地址、方法和请求头。URLSession 负责执行网络传输。使用 multipart 上传时，调用方先构造符合格式的请求体，再交给 URLSession 发送。
+
+### 分隔行如何变成字节
+
+Data("--\(boundary)\r\n".utf8) 将“分隔行加换行”转换为字节。该表达式可以拆成以下步骤：
+
+```swift
+let boundary = "Boundary-ABC123"
+let text = "--\(boundary)\r\n"
+let bytes = text.utf8
+let data = Data(bytes)
+```
+
+字符串插值 \(boundary) 将 boundary 的值放入字符串。开头的 -- 是 multipart 分隔行的固定前缀。\r\n 分别表示回车和换行。字符串的 utf8 属性提供 UTF-8 编码的字节视图，Data(bytes) 再用这些字节创建二进制数据。
+
+body.append(data) 将这条分隔行追加到请求体末尾。分隔行和部分头部需要从文本编码为字节，文件内容则直接追加原始 Data，不需要转换为字符串。
+
+### 单个 JPEG 文件的最小示例
+
+下面的示例假设接口接受 POST 和 multipart/form-data，文件字段名为 file。jpegData 必须已经是 JPEG 编码数据，uploadURL 必须是实际上传接口的 HTTPS 地址。异步 upload(for:from:) 在 iOS 15 及以上可用。
+
+```swift
+import Foundation
+
+@available(iOS 15.0, *)
+func uploadJPEG(
+    _ jpegData: Data,
+    to uploadURL: URL
+) async throws -> Data {
+    let boundary = "Boundary-\(UUID().uuidString)"
+    var body = Data()
+
+    body.append(Data("--\(boundary)\r\n".utf8))
+
+    let disposition = "Content-Disposition: form-data; "
+        + "name=\"file\"; filename=\"photo.jpg\"\r\n"
+    body.append(Data(disposition.utf8))
+    body.append(Data("Content-Type: image/jpeg\r\n\r\n".utf8))
+    body.append(jpegData)
+    body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+
+    var request = URLRequest(url: uploadURL)
+    request.httpMethod = "POST"
+    request.setValue(
+        "multipart/form-data; boundary=\(boundary)",
+        forHTTPHeaderField: "Content-Type"
+    )
+
+    let (responseData, response) = try await URLSession.shared.upload(
+        for: request,
+        from: body
+    )
+
+    guard let httpResponse = response as? HTTPURLResponse,
+          (200..<300).contains(httpResponse.statusCode) else {
+        throw URLError(.badServerResponse)
+    }
+
+    return responseData
+}
+```
+
+客户端按“分隔行 → 文件部分头部 → 空行 → 图片字节 → 结束分隔行”的顺序构造 body。upload(for:from:) 创建并启动上传任务，完成后返回服务端的响应体和响应对象。responseData 是服务端返回的数据，不是已经上传的图片数据。
+
+示例只检查 HTTP 状态码是否为 2xx。真实接口还可能要求认证请求头，并使用响应体中的业务状态表达结果。调用方需要按照接口约定解析响应，不能仅凭网络传输完成就认定业务处理成功。
+
+### 大文件的内存边界
+
+示例将完整 multipart 请求体组装到一个 Data 中，因此需要在内存中持有整个请求体，不适合直接用于大文件。对于大文件，可以分段读取源文件，并将部分头部、文件字节和结束分隔行依次写入临时文件，再通过 upload(for:fromFile:) 发送该临时文件。
+
+fromFile 指向的是完整 HTTP 请求体文件。如果接口要求 multipart，就必须写入完整 multipart 格式。URLSession 不会根据原始文件路径自动生成 multipart 的 boundary 或部分头部。临时文件应在上传期间保持可读，并在上传完成或取消后按任务生命周期清理。
 
 ## 连接、超时与幂等重试
 
