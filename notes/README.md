@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 8 个主题整理的 20 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 8 个主题整理的 21 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -11,7 +11,7 @@
 | 分类 | 文档数 |
 | --- | --- |
 | [语言与运行时](language/) | 2 |
-| [iOS 界面、事件与调度](ios/) | 6 |
+| [iOS 界面、事件与调度](ios/) | 7 |
 | [Android 界面与动画](android/) | 4 |
 | [跨平台与宿主通信](cross-platform/) | 2 |
 | [软件设计与工程工具](engineering/) | 2 |
@@ -43,6 +43,8 @@
 相关专题：[内核、逻辑 CPU 与线程并发](ios/threads-and-scheduling.md#内核的职责与进程信息)；[进程创建时间与启动计时起点](ios/app-lifecycle-and-events.md#进程创建时间与启动计时起点)。
 
 相关专题：[获取锁失败后的等待行为](ios/threads-and-scheduling.md#获取锁失败后的等待行为)；[局部坐标、命中测试与点击长按协调](ios/app-lifecycle-and-events.md#uiview-的局部坐标与-bounds)；[UICollectionView 分区、重点回调与布局协议](ios/uikit-layout-and-mvvm.md#分区项目与分区边距)。
+
+[iOS 图片加载、解码与内存](ios/image-loading-decoding-and-memory.md)：压缩数据与像素内存、降采样与服务器缩略图、ImageIO、提前解码、缓存与并发控制。
 
 ## Android 界面与动画
 

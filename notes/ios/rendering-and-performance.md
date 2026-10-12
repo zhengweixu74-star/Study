@@ -99,6 +99,14 @@ FMP 边界仍适用：willDisplay、布局和事务提交完成，都不能直�
 
 [CADisplayLink](threads-and-scheduling.md#cadisplaylink-的原理与适用场景) 可通过回调间隔观察流畅度迹象；Animation Hitches 则用于录制、分析一次具体交互的渲染时间线。
 
+### 同次录制中的时间线关联
+
+Animation Hitches 不只是标记卡顿发生的时间，还展示持续时长和相关渲染阶段。定位 CPU 方法时，需要在同一次录制中采集 Time Profiler，才能把帧的时间线与同一时段的线程调用栈对齐；两次独立录制中的相同秒数不代表同一次工作。
+
+Animation Hitches 模板可以组合多个分析工具。开始录制前应检查当前模板是否已经包含 Time Profiler；已经包含时，无需再开一次独立录制，缺少时则把 Time Profiler 加入本次录制。
+
+观察到画面停顿的时刻，不一定就是耗时代码开始执行的时刻。应沿帧生命周期检查导致该帧延迟的事件处理、布局和提交区间，再查看对应 CPU 采样。Time Profiler 反映采样到的 CPU 调用路径，不能单独确定 GPU 执行瓶颈，也不能仅凭某个方法出现在卡顿附近就认定完整因果关系。
+
 ## MetricKit 与 Xcode Organizer
 
 **MetricKit 是 App 中接收系统性能与诊断报告的框架；Xcode Organizer 是开发者在 Xcode 中查看 App 数据的窗口。** 这里讨论的是 Organizer 的性能指标与诊断功能。
