@@ -28,6 +28,10 @@
 
 相关专题：[协议继承与类继承的区别](language/swift-basics.md#协议继承与类继承的区别)。
 
+相关专题：[ARC 与 Android GC](language/swift-basics.md#arc-与-android-gc引用计数可达性与引用环)。内容范围：强引用计数、GC Roots、可达性、引用环与内存泄漏。
+
+相关专题：[结构体、枚举与值的生命周期](language/swift-basics.md#结构体枚举与值的生命周期)。内容范围：ARC 与 GC 的管理边界、值内部的强引用、作用域与生命周期，以及局部值、替换和返回值的清理规则。
+
 ## iOS 界面、事件与调度
 
 [Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md)：Darwin 与 XNU 的关系、基础系统组件、应用框架、系统服务及通知协作示例。
