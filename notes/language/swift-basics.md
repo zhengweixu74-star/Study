@@ -19,6 +19,7 @@
 - [map、KeyPath、Sequence、Collection 与 Set](#mapkeypathsequencecollection-与-set)
 - [元组、字典与空元组 Void](#元组字典与空元组-void)
 - [相等规则与对象身份](#相等规则与对象身份)
+- [defer 与作用域退出](#defer-与作用域退出)
 
 基础语义与内存管理的小节：[闭包与 Delegate](#闭包与-delegate)。
 
@@ -566,3 +567,32 @@ a == b // true，元素相等
 ```
 
 不能用 === 判断两个数组是否内容相等，也不能据此检查其底层写时复制缓冲区是否共享。后者不是本次语言级对象身份比较所表达的含义。
+
+## defer 与作用域退出
+
+defer 是 Swift 的延后执行语句，用于在离开当前作用域之前执行一段代码。这里的作用域指包围 defer 的代码块，例如函数体或 do 代码块。程序执行到 defer 语句时，不会立即执行其中的代码。
+
+只有程序已经执行到某条 defer 语句，这条 defer 才会在退出对应作用域时执行。退出方式可以是正常执行完代码块、通过 return 提前返回，或通过抛出 Swift 错误离开作用域。如果程序在执行到 defer 之前就退出，defer 中的代码不会执行。
+
+defer 的执行位置由所在作用域决定。写在函数体内的 defer 在函数退出前执行；写在内层 do 代码块里的 defer 在离开该代码块前执行，不必等到整个函数结束。同一作用域内，如果执行到了多条 defer，退出时按遇到它们的相反顺序执行。
+
+下面的例子使用 defer 统一解锁。NSLock 是互斥锁，同一时刻只允许一个线程持有。lock.lock() 获取锁，lock.unlock() 释放锁。
+
+```swift
+import Foundation
+
+func performWork(lock: NSLock, shouldSkip: Bool) {
+    lock.lock()
+    defer { lock.unlock() }
+
+    if shouldSkip {
+        return
+    }
+
+    print("执行操作")
+}
+```
+
+函数先获取锁，再执行到 defer 语句，并继续运行后续代码。shouldSkip 为 true 时，函数在返回调用方之前解锁；shouldSkip 为 false 时，函数输出文字，并在函数结束之前解锁。多个退出位置可以共用同一条 defer，避免分别编写解锁代码。
+
+defer 不会主动结束函数，也不会超时解锁。如果函数一直等待另一把锁、重复获取自己已经持有的 NSLock，或者进入无限循环，函数就无法退出，defer 中的解锁代码也无法执行。因此，使用 defer 不能代替对加锁顺序和重复加锁的检查。

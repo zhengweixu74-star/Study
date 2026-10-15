@@ -32,6 +32,8 @@
 
 相关专题：[结构体、枚举与值的生命周期](language/swift-basics.md#结构体枚举与值的生命周期)。内容范围：ARC 与 GC 的管理边界、值内部的强引用、作用域与生命周期，以及局部值、替换和返回值的清理规则。
 
+相关专题：[defer 与作用域退出](language/swift-basics.md#defer-与作用域退出)。内容范围：延后执行、退出作用域、提前返回时解锁，以及函数无法退出时的执行边界。
+
 ## iOS 界面、事件与调度
 
 [Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md)：Darwin 与 XNU 的关系、基础系统组件、应用框架、系统服务及通知协作示例。
