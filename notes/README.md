@@ -34,6 +34,8 @@
 
 相关专题：[defer 与作用域退出](language/swift-basics.md#defer-与作用域退出)。内容范围：延后执行、退出作用域、提前返回时解锁，以及函数无法退出时的执行边界。
 
+相关专题：[实例存储属性与局部变量的初始化](language/swift-basics.md#实例存储属性与局部变量的初始化)；[为什么扩展不能添加实例存储属性](language/swift-basics.md#为什么扩展不能添加实例存储属性)。内容范围：声明与初始化、读取前赋值、可选属性的 nil、lazy 延迟初始化，以及实例存储与扩展的限制。
+
 ## iOS 界面、事件与调度
 
 [Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md)：Darwin 与 XNU 的关系、基础系统组件、应用框架、系统服务及通知协作示例。
