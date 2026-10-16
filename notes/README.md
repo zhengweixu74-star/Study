@@ -113,6 +113,8 @@
 | --- | --- |
 | [AI Agent 原理与开发验证](ai/agents-and-development.md) | 模型与 Agent、工具调用、Skill / Tool / MCP、代码审查与开发验证 |
 
+相关专题：[Codex 的 AGENTS.md 加载与代码定位](ai/agents-and-development.md#codex-的-agentsmd-加载与代码定位)。内容范围：启动指令加载、按需读取、分层导航、语义匹配与源码验证。
+
 ## 文档锚点、内部链接与交叉引用
 
 锚点是文档中用于定位跳转目标的标记。HTML 可用 `id` 声明锚点，Markdown 链接可通过片段标识指向该位置。
