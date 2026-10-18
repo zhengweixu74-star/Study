@@ -5,6 +5,7 @@
 ## 本文目录
 
 - [页面生命周期与布局补充](#页面生命周期与布局补充)
+- [frame、Auto Layout 与 SnapKit](#frameauto-layout-与-snapkit)
 - [视图层级与父子关系](#视图层级与父子关系)
 - [UIView 子视图的回调与可见性](#uiview-子视图的回调与可见性)
 - [容器控制器与子控制器](#容器控制器与子控制器)
@@ -28,6 +29,48 @@ Cell 自动高度通常需要 automaticDimension、合理的预估行高、多�
 Content Hugging 与 Compression Resistance 分别表达视图相对固有内容尺寸抵抗被拉大、被压小的优先级。空间富余时，较低 hugging 优先被拉大；空间不足时，较低 compression resistance 优先被压小。最终结果由整体约束共同决定，优先级改变的是视图尺寸倾向，不是文字字形。
 
 例如标题与价格水平排列，边距和间距约束已建立，且价格本身能放入容器时，可令价格抗压缩优先级为 750、标题为 749，并让标题单行尾部省略。
+
+## frame、Auto Layout 与 SnapKit
+
+在视图没有旋转、缩放等变换时，`frame` 表示视图在父视图坐标系中的位置和大小。Auto Layout 根据约束计算视图的位置和大小，UIKit 在布局过程中更新对应的 `frame`。SnapKit 封装的是 Auto Layout 的约束 API，不是一次 `frame` 赋值。
+
+约束是视图几何属性之间的等式或不等式，例如“子视图左边缘距离父视图左边缘 20 点”。一组足以确定布局且没有冲突的约束，可以在给定父视图尺寸等条件后确定子视图的位置和大小。
+
+调用 SnapKit 后，执行关系如下：
+
+1. 代码调用 `snp.makeConstraints`，由 SnapKit 创建并激活 Auto Layout 约束。
+2. UIKit 在后续布局过程中，根据约束和当前布局条件求解位置与大小。
+3. UIKit 更新视图的几何信息，代码此时可以读取与当前布局一致的 `frame`。
+
+`makeConstraints` 返回只表示约束设置操作完成，不保证新布局已经执行。立即读取 `frame` 可能得到旧值或初始值。如果当前代码需要使用布局结果，应在覆盖相关约束的父视图或祖先视图上调用 `layoutIfNeeded()`，让 UIKit 完成该范围内待处理的布局。父视图本身的尺寸也必须已经确定。
+
+下面的示例需要引入 UIKit 和 SnapKit。容器与子视图均未设置变换，容器使用手动指定的尺寸。
+
+```swift
+import UIKit
+import SnapKit
+
+let container = UIView(
+    frame: CGRect(x: 0, y: 0, width: 300, height: 100)
+)
+let child = UIView()
+container.addSubview(child)
+
+child.snp.makeConstraints { make in
+    make.edges.equalToSuperview().inset(20)
+}
+
+container.layoutIfNeeded()
+// child.frame：x = 20，y = 20，width = 260，height = 60
+
+container.frame.size.width = 400
+container.layoutIfNeeded()
+// child.frame：x = 20，y = 20，width = 360，height = 60
+```
+
+两次布局使用同一组约束。父视图变宽后，Auto Layout 重新计算子视图宽度，使四边间距继续保持 20 点。直接设置一次 `frame` 只保存当时的位置和大小，不会单独建立这种持续的间距关系；后续适配需要代码重新计算，或由其他布局机制负责。
+
+这些计算结果依赖当前约束和尺寸条件。约束不足时，布局可能不唯一；约束冲突时，系统可能打破部分约束。存在非单位 `transform` 时，也不能直接用上述规则解释或设置 `frame`。
 
 ## 视图层级与父子关系
 
