@@ -49,6 +49,24 @@ Commit hitch 是 App 未及时完成事件处理、布局／绘制和提交；Re
 
 FMP 边界仍适用：willDisplay、布局和事务提交完成，都不能直接等同指定内容真实上屏。
 
+### UIView 与 CALayer 的对应关系
+
+`CALayer` 是 Core Animation 中保存视觉内容和几何、外观属性的对象。支撑图层指 UIKit 为某个 `UIView` 创建并管理、通过 `view.layer` 访问的图层。每个 `UIView` 有一个支撑图层；这个支撑图层可以包含多个子图层。
+
+子图层是加入另一个图层内部的 `CALayer` 对象。`superlayer` 表示直接父图层，`sublayers` 表示直接子图层数组。调用 `view.layer.addSublayer(layer)` 可以添加图层。一个视图的支撑图层与该视图对应，但所有 `UIView` 与所有 `CALayer` 并非一一对应，因为额外创建的图层可以没有对应的 `UIView`。
+
+调用 `parentView.addSubview(childView)` 时，UIKit 会同步组织子视图及其支撑图层的层级。直接向 `parentView.layer` 添加独立图层，不会创建子视图，也不会在 `parentView.subviews` 中增加元素。
+
+### 多个子图层的用途与形状
+
+多个子图层可以把一个控件的不同视觉部分分开管理。例如，一个进度控件可以用 `CAGradientLayer` 显示渐变背景，用 `CAShapeLayer` 显示进度线，再用另一个图层显示装饰。各图层可以分别改变颜色、位置、透明度或动画，而不必把全部内容合并为同一张图片。
+
+`CAShapeLayer` 根据 `path` 指定的几何路径绘制形状。路径是一组描述直线、曲线和轮廓的数据，可以表示矩形、圆、折线或自定义轮廓。`CAShapeLayer` 不会因为自身类型就自动画成圆；例如，用宽高相等的矩形生成椭圆路径，再把路径赋给 `path`，才会得到圆形轮廓。
+
+仅承担视觉展示和动画的部分可以使用独立图层。需要 UIKit 的触摸事件、手势或无障碍交互时，通常由 `UIView` 承担。独立 `CALayer` 不属于 UIKit 的事件响应对象链；虽然图层提供几何命中检测方法，也不会自动获得 `UIView` 的事件处理能力。
+
+额外添加的图层不会自动获得 UIView 的 Auto Layout 约束能力。父视图尺寸变化时，应根据布局更新需要调整子图层的尺寸和路径。拆分图层有助于独立控制视觉部分，但图层越多并不意味着渲染一定更快。
+
 ## 圆角、边界裁剪与离屏渲染
 
 ### cornerRadius 与 masksToBounds 的职责

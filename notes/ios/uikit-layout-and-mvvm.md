@@ -45,6 +45,26 @@ Content Hugging 与 Compression Resistance 分别表达视图相对固有内容�
 
 移动评论区容器，里面的文字和按钮会跟着移动；隐藏容器，子视图也不会显示。评论文字的 `frame` 使用评论区容器的坐标系。UIView 管理视图层级，就是组织谁包含谁，以及这些视图的布局、显示和交互关系。
 
+### 视图树与子视图数组
+
+一个根视图及其后代视图构成有序多叉树：每个视图节点可以有多个子节点，同一父视图下的子节点有确定的顺序。一个视图同一时刻最多有一个直接父视图；没有父视图的节点可以作为一棵树的根。
+
+`superview` 指向当前视图的直接父视图，没有父视图时为 `nil`。`subviews` 是当前视图的直接子视图数组，不包含孙视图等更深层的后代。递归访问每个子视图的 `subviews`，才能遍历整个视图子树。
+
+同级视图使用默认的图层深度设置时，`subviews` 中索引较小的视图位于后方，索引较大的视图位于前方。`addSubview(_:)` 通常把视图加入数组末尾；`insertSubview`、`bringSubviewToFront(_:)` 和 `sendSubviewToBack(_:)` 可以调整顺序。这里描述的是公开接口中的组织关系，不推断 UIKit 内部使用了哪一种存储实现。
+
+### UIStackView 与 UIScrollView 的继承和职责
+
+`UIStackView` 不是 `UIScrollView` 的子类。`UIStackView` 和 `UIScrollView` 都直接继承自 `UIView`。类继承关系表示一个类基于另一个类定义，并继承相应的属性和方法。
+
+`UIStackView` 负责排列视图。`arrangedSubviews` 是由 `UIStackView` 自动安排布局的子视图数组。`UIStackView` 根据 `axis` 指定的水平或垂直方向，以及间距、对齐等设置排列这些子视图。`UIStackView` 本身不提供滚动能力。
+
+`UIScrollView` 负责内容滚动。`UIScrollView` 改变内容相对可见区域的位置，使用户能够查看超出可见区域的内容。`UIScrollView` 不会自动把普通子视图排成一行或一列。
+
+父子视图关系表示具体视图对象之间的包含关系，与类继承关系不同。例如，`scrollView` 是一个 `UIScrollView` 对象，`stackView` 是一个 `UIStackView` 对象。调用 `scrollView.addSubview(stackView)` 后，`scrollView` 成为 `stackView` 的父视图，但 `UIStackView` 的父类仍然是 `UIView`。
+
+需要让排列好的内容可以滚动时，可以把 `UIStackView` 放入 `UIScrollView`：由 `UIStackView` 排列内容，由 `UIScrollView` 提供滚动。还需要正确设置内容尺寸或用于确定内容尺寸的布局约束；仅调用 `addSubview` 不会自动完成滚动布局。
+
 ## UIView 子视图的回调与可见性
 
 UILabel、UITextView 都是 UIView 的子类。普通子视图没有 viewWillAppear、viewDidAppear 等 UIViewController 的出现回调。UIView 提供视图层级变化回调，但“加入视图层级”和“用户实际看见内容”是不同的事件。

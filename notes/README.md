@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 9 个主题整理的 23 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 9 个主题整理的 24 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -12,7 +12,7 @@
 | --- | --- |
 | [语言与运行时](language/) | 3 |
 | [iOS 界面、事件与调度](ios/) | 7 |
-| [Android 界面与动画](android/) | 4 |
+| [Android 界面与动画](android/) | 5 |
 | [跨平台与宿主通信](cross-platform/) | 2 |
 | [软件设计与工程工具](engineering/) | 2 |
 | [网络与存储](network-and-storage/) | 2 |
@@ -63,7 +63,9 @@
 
 ## Android 界面与动画
 
-[Android 分类目录](android/README.md)：4 篇文档。
+[Android 分类目录](android/README.md)：5 篇文档。
+
+[Android 列表复用：ListView、RecyclerView 与 ViewHolder](android/listview-recyclerview-and-viewholder.md)：ListView 与 RecyclerView 的区别、视图复用、ViewHolder、创建与绑定流程、局部更新及性能边界。
 
 | 文档 | 内容范围 |
 | --- | --- |

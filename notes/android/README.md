@@ -2,6 +2,8 @@
 
 [返回笔记目录](../README.md)
 
+本分类目前有 5 篇笔记。
+
 | 文档 | 内容范围 |
 | --- | --- |
 | [ValueAnimator、插值器与滚动动画](valueanimator-and-interpolation.md) | 每帧执行顺序、插值器对象与动画进度、动画值、滚动距离与取消行为 |
@@ -15,3 +17,5 @@
 [Activity、Fragment 与页面组织](activity-fragment-and-navigation.md)：Activity 与 Fragment 的职责、宿主和窗口关系、页面组合、清单声明、启动流程及 UIViewController 对照。
 
 [Android 页面生命周期与状态保存](activity-lifecycle-and-state.md)：补充 Activity 的基本回调、Fragment 实例与其视图的生命周期，以及视图引用的清理时机。
+
+[Android 列表复用：ListView、RecyclerView 与 ViewHolder](listview-recyclerview-and-viewholder.md)：ListView 与 RecyclerView 的区别、视图复用、ViewHolder、创建与绑定流程、局部更新及性能边界。
