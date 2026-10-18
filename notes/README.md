@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 8 个主题整理的 22 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 9 个主题整理的 23 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -10,14 +10,15 @@
 
 | 分类 | 文档数 |
 | --- | --- |
-| [语言与运行时](language/) | 2 |
+| [语言与运行时](language/) | 3 |
 | [iOS 界面、事件与调度](ios/) | 7 |
 | [Android 界面与动画](android/) | 4 |
 | [跨平台与宿主通信](cross-platform/) | 2 |
-| [软件设计与工程工具](engineering/) | 3 |
+| [软件设计与工程工具](engineering/) | 2 |
 | [网络与存储](network-and-storage/) | 2 |
 | [实验与统计](statistics/) | 1 |
 | [AI 辅助开发](ai/) | 1 |
+| [数据结构](data-structures/) | 1 |
 
 ## 语言与运行时
 
@@ -25,6 +26,8 @@
 | --- | --- |
 | [Swift 语言基础](language/swift-basics.md) | 类型、属性、协议与泛型、闭包、集合和相等规则；Swift 与 C 接口互操作 |
 | [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 对象布局、关联对象、方法派发、Objective-C 互操作与 KVO；+load 与自动注册 |
+
+[TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：类型标注与推断、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
 
 相关专题：[协议继承与类继承的区别](language/swift-basics.md#协议继承与类继承的区别)。
 
@@ -48,6 +51,8 @@
 | [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、线程安全、锁、RunLoop、Timer 与 CADisplayLink |
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
 
+相关专题：[圆角、边界裁剪与离屏渲染](ios/rendering-and-performance.md#圆角边界裁剪与离屏渲染)。内容范围：cornerRadius、masksToBounds、clipsToBounds、离屏渲染条件、shadowPath，以及圆角图片与外部阴影的组合。
+
 相关专题：[内核、逻辑 CPU 与线程并发](ios/threads-and-scheduling.md#内核的职责与进程信息)；[进程创建时间与启动计时起点](ios/app-lifecycle-and-events.md#进程创建时间与启动计时起点)。
 
 相关专题：[获取锁失败后的等待行为](ios/threads-and-scheduling.md#获取锁失败后的等待行为)；[局部坐标、命中测试与点击长按协调](ios/app-lifecycle-and-events.md#uiview-的局部坐标与-bounds)；[UICollectionView 分区、重点回调与布局协议](ios/uikit-layout-and-mvvm.md#分区项目与分区边距)。
@@ -67,6 +72,8 @@
 [Android View、ViewGroup 与 XML 布局](android/view-system-and-layout.md)：View 与 ViewGroup 的职责、容器嵌套、UIKit 对照、XML 布局，以及 Android 布局预览的示例数据。
 
 [Android 页面生命周期与状态保存](android/activity-lifecycle-and-state.md)：Activity 配置变化与重建、Jetpack ViewModel、进程结束后的状态恢复、SavedStateHandle 与异步结果。
+
+布局补充：[常见布局容器及与 UIKit 的对照](android/view-system-and-layout.md#常见布局容器及与-uikit-的对照)。内容范围：LinearLayout、FrameLayout、ConstraintLayout、RelativeLayout 与 XML 的关系。
 
 [Activity、Fragment 与页面组织](android/activity-fragment-and-navigation.md)：Activity 与 Fragment 的职责、宿主和窗口关系、页面组合、清单声明、启动流程及 UIViewController 对照。
 
@@ -116,6 +123,10 @@
 | [AI Agent 原理与开发验证](ai/agents-and-development.md) | 模型与 Agent、工具调用、Skill / Tool / MCP、代码审查与开发验证 |
 
 相关专题：[Codex 的 AGENTS.md 加载与代码定位](ai/agents-and-development.md#codex-的-agentsmd-加载与代码定位)。内容范围：启动指令加载、按需读取、分层导航、语义匹配与源码验证。
+
+## 数据结构
+
+[HashMap 的结构与实现原理](data-structures/hash-map.md)：键值映射、哈希与相等规则、冲突链、插入查找删除、负载因子、扩容与复杂度。
 
 ## 文档锚点、内部链接与交叉引用
 

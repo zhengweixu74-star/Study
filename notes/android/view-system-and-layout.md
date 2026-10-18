@@ -49,6 +49,23 @@ outer.addSubview(inner)
 
 同一个 Android View 不能同时挂在两个父容器下。把已有父容器的 View 加入新容器前，应先从原容器移除。UIKit 的 addSubview 在转移已有子视图时会自动解除原父视图关系，因此不能把 UIKit 的这项行为直接套到 Android。
 
+## 常见布局容器及与 UIKit 的对照
+
+在传统 Android View 体系中，布局容器负责按照自身规则确定子视图的尺寸和位置。LinearLayout、FrameLayout、ConstraintLayout 和 RelativeLayout 都是 ViewGroup 的具体子类。
+
+| 容器 | 排列规则 | 典型示例 |
+| --- | --- | --- |
+| LinearLayout（线性布局） | 沿水平或垂直方向依次排列子视图。 | 横向按钮组、纵向表单。 |
+| FrameLayout（帧布局） | 允许子视图叠放，通过对齐方式和边距调整位置。 | 图片上覆盖播放按钮。 |
+| ConstraintLayout（约束布局） | 通过子视图与父容器或同级视图之间的约束确定尺寸和位置。 | 头像靠左，用户名位于头像右侧，描述位于用户名下方。 |
+| RelativeLayout（相对布局） | 通过相对位置规则排列子视图。 | 控件位于另一控件下方，或与父容器底部对齐。 |
+
+LinearLayout 的排列思路类似 UIStackView，但两者的尺寸分配规则和 API 不同。FrameLayout 可以类比为用于叠放子视图的 UIView；普通 UIView 不会自动采用 FrameLayout 的测量和对齐规则。
+
+ConstraintLayout 的约束思路类似 UIKit Auto Layout。ConstraintLayout 是一个具体的 ViewGroup 容器，Auto Layout 是 UIKit 的约束布局机制，两者不是同一层次的类型。对位置关系较复杂的界面，ConstraintLayout 可以在同一容器内表达较多关系，从而减少仅为排列控件而增加的容器嵌套；减少嵌套不等于任何场景都一定更快。
+
+XML 是描述布局的方式，不是布局容器类型。这些容器既可以在 XML 中声明，也可以通过 Kotlin 或 Java 代码创建。以上内容针对传统 View 体系，不涵盖 Jetpack Compose 的布局组件。
+
 ## XML 和代码都可以创建 Android 视图
 
 XML 是描述布局的标记语言，不是与 UIKit 同一层次的 UI 框架。Android XML 标签描述视图类型、属性和嵌套结构。App 加载布局资源时，会创建相应的 View／ViewGroup 对象并建立父子关系。
