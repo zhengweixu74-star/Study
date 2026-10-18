@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 9 个主题整理的 24 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 9 个主题整理的 25 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -10,7 +10,7 @@
 
 | 分类 | 文档数 |
 | --- | --- |
-| [语言与运行时](language/) | 3 |
+| [语言与运行时](language/) | 4 |
 | [iOS 界面、事件与调度](ios/) | 7 |
 | [Android 界面与动画](android/) | 5 |
 | [跨平台与宿主通信](cross-platform/) | 2 |
@@ -39,6 +39,8 @@
 
 相关专题：[实例存储属性与局部变量的初始化](language/swift-basics.md#实例存储属性与局部变量的初始化)；[为什么扩展不能添加实例存储属性](language/swift-basics.md#为什么扩展不能添加实例存储属性)。内容范围：声明与初始化、读取前赋值、可选属性的 nil、lazy 延迟初始化，以及实例存储与扩展的限制。
 
+[C++ 静态存储期对象与初始化](language/cpp-static-storage-and-initialization.md)：静态存储期、静态数据成员、构造函数、全局对象与静态局部对象的初始化时机。
+
 ## iOS 界面、事件与调度
 
 [Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md)：Darwin 与 XNU 的关系、基础系统组件、应用框架、系统服务及通知协作示例。
@@ -60,6 +62,8 @@
 [iOS 图片加载、解码与内存](ios/image-loading-decoding-and-memory.md)：压缩数据与像素内存、降采样与服务器缩略图、ImageIO、提前解码、缓存与并发控制。
 
 相关专题：[长列表图片任务调度](ios/image-loading-decoding-and-memory.md#长列表图片任务调度)；[Operation 与 OperationQueue](ios/threads-and-scheduling.md#operation-与-operationqueue)。内容范围：下载与解码分别限流、预取回调、共享任务取消、快速滚动的启动控制，以及任务队列的并发限制与协作式取消。
+
+相关专题：[main 之前的启动工作与 dyld](ios/app-lifecycle-and-events.md#main-之前的启动工作与-dyld)；[UIApplication 与主线程 RunLoop](ios/app-lifecycle-and-events.md#uiapplication-与主线程-runloop)。内容范围：pre-main 初始化、UIApplication 单例、主事件循环与主线程事件处理。
 
 ## Android 界面与动画
 
@@ -98,6 +102,8 @@
 相关专题：[耦合与解耦](engineering/design-patterns.md#耦合与解耦)；[依赖反转与依赖注入](engineering/design-patterns.md#依赖反转与依赖注入)。内容范围：耦合的含义、解耦目的与三个实例、源码依赖方向、模块边界，以及依赖反转与依赖注入的区别。
 
 [Xcode：界面预览与 Android 布局预览](engineering/xcode-and-testing.md#界面预览与-android-布局预览)：Xcode 预览能力与 UIKit 接入条件。
+
+相关专题：[编译、链接、嵌入与装载](engineering/xcode-and-testing.md#编译链接嵌入与装载)；[静态库的目标文件提取与代码裁剪](engineering/xcode-and-testing.md#静态库的目标文件提取与代码裁剪)；[动态库的打包、启动装载与延迟装载](engineering/xcode-and-testing.md#动态库的打包启动装载与延迟装载)。
 
 ## 网络与存储
 

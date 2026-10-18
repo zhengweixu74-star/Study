@@ -12,6 +12,9 @@
 - [UIApplication 与 UIWindow 为什么都分发事件](#uiapplication-与-uiwindow-为什么都分发事件)
 - [屏幕键盘：触摸位置与文字接收对象](#屏幕键盘触摸位置与文字接收对象)
 
+- [main 之前的启动工作与 dyld](#main-之前的启动工作与-dyld)
+- [UIApplication 与主线程 RunLoop](#uiapplication-与主线程-runloop)
+
 分类：iOS 界面、事件与调度。本文整理应用启动、窗口职责、事件分发和文本输入；以传统 AppDelegate 生命周期为主要背景。
 
 ## UIApplication、AppDelegate、UIWindow 与 UIView 的职责
@@ -39,6 +42,28 @@ UIApplication 与 AppDelegate 是不同对象。UIKit 调用 AppDelegate 的回�
 6. 应用提交准备好的界面内容，系统完成渲染和合成后显示首帧。首帧是用户第一次看到的应用界面，不代表网络请求和所有业务数据已经完成加载。
 
 didFinishLaunchingWithOptions 返回、makeKeyAndVisible() 返回，都不能单独证明首帧已经显示。applicationDidBecomeActive(\_:) 表示应用进入活动状态，也不是精确的首帧显示回调。采用 Storyboard 自动创建界面时，窗口与根控制器的创建方式会不同。
+
+### main 之前的启动工作与 dyld
+
+`main` 是程序入口函数。pre-main 表示进入 `main` 之前的启动阶段。Swift 的 UIKit 应用可以由 `@main` 生成入口代码，因此源码中不一定存在手写的 `main`。
+
+`dyld` 是 Apple 平台的运行时动态链接器。系统准备应用进程和主可执行文件后，dyld 根据程序记录的依赖准备所需动态库，也处理这些动态库的依赖。动态库装载到进程后，dyld 完成必要的地址修正和符号绑定。符号是用于标识函数或变量等实体的名称；符号绑定把程序中的符号引用关联到实际实现地址。
+
+进入 `main` 前还需要完成必要的运行时初始化，并执行启动时要求执行的初始化代码。例如，Objective-C 运行时调用相关类和分类的 `+load`；启动时装载的代码还可能执行 C++ 非局部对象的构造函数和标记为初始化函数的代码。这些工作会占用启动时间。
+
+不能把上述过程写成“所有 C++ 静态对象都在 main 前构造”。具有动态初始化的函数内静态局部对象，通常在程序第一次执行到声明处时初始化。对象的存储期与构造时机见 [C++ 静态存储期对象与初始化](../language/cpp-static-storage-and-initialization.md)。
+
+静态库的代码在构建时已经合入使用该库的目标产物，dyld 不会在运行时再装载 `.a` 文件。动态库的链接、嵌入和装载见 [编译、链接、嵌入与装载](../engineering/xcode-and-testing.md#编译链接嵌入与装载)。
+
+### UIApplication 与主线程 RunLoop
+
+`UIApplicationMain` 创建应用级的 `UIApplication` 单例及指定的 AppDelegate，并建立应用主事件循环。业务代码通过 `UIApplication.shared` 访问该应用对象。UIApplication 协调应用级状态和事件分发，也提供请求系统打开 URL、注册远程通知等接口；具体页面由窗口、视图控制器和视图组织。
+
+主事件循环是 UIKit 驱动主线程 RunLoop 来等待和分发事件的运行过程。RunLoop 是在线程上等待输入源和定时器等事件、并调用相应处理函数的机制。普通 UIKit 应用由框架建立和运行这个循环，不需要业务代码再调用 `RunLoop.main.run()`。
+
+以按钮点击为例：系统把触摸事件送入应用的事件处理路径，主线程 RunLoop 使相关处理代码获得执行机会；UIKit 再通过 UIApplication、UIWindow 等对象把事件交给合适的接收对象，最终触发按钮动作。RunLoop 组织事件处理时机，UIApplication 等 UIKit 对象负责应用层的事件分发。
+
+没有待处理事件时，RunLoop 可以让主线程等待；事件到来后，主线程在系统调度下恢复执行。如果按钮回调长时间占用主线程，后续触摸处理和界面更新就会延迟。RunLoop 不能打断这个耗时回调，也不负责给线程分配 CPU。运行模式和输入源见 [iOS 线程与任务调度](threads-and-scheduling.md#runloop-与运行模式)。
 
 ### 进程创建时间与启动计时起点
 
