@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 9 个主题整理的 25 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 26 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -19,6 +19,7 @@
 | [实验与统计](statistics/) | 1 |
 | [AI 辅助开发](ai/) | 1 |
 | [数据结构](data-structures/) | 1 |
+| [操作系统基础](operating-systems/README.md) | 1 |
 
 ## 语言与运行时
 
@@ -40,6 +41,8 @@
 相关专题：[实例存储属性与局部变量的初始化](language/swift-basics.md#实例存储属性与局部变量的初始化)；[为什么扩展不能添加实例存储属性](language/swift-basics.md#为什么扩展不能添加实例存储属性)。内容范围：声明与初始化、读取前赋值、可选属性的 nil、lazy 延迟初始化，以及实例存储与扩展的限制。
 
 [C++ 静态存储期对象与初始化](language/cpp-static-storage-and-initialization.md)：静态存储期、静态数据成员、构造函数、全局对象与静态局部对象的初始化时机。
+
+补充专题：[inout 与内存独占访问](language/swift-basics.md#inout-与内存独占访问)；[actor 的默认隔离与重入](language/swift-basics.md#actor-的默认隔离与重入)；[数组值语义、写时复制与返回值](language/swift-basics.md#数组值语义写时复制与返回值)；[ArraySlice 的存储保留与索引](language/swift-basics.md#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](language/swift-basics.md#类的两阶段初始化与-self-使用时机)。
 
 ## iOS 界面、事件与调度
 
@@ -64,6 +67,8 @@
 相关专题：[长列表图片任务调度](ios/image-loading-decoding-and-memory.md#长列表图片任务调度)；[Operation 与 OperationQueue](ios/threads-and-scheduling.md#operation-与-operationqueue)。内容范围：下载与解码分别限流、预取回调、共享任务取消、快速滚动的启动控制，以及任务队列的并发限制与协作式取消。
 
 相关专题：[main 之前的启动工作与 dyld](ios/app-lifecycle-and-events.md#main-之前的启动工作与-dyld)；[UIApplication 与主线程 RunLoop](ios/app-lifecycle-and-events.md#uiapplication-与主线程-runloop)。内容范围：pre-main 初始化、UIApplication 单例、主事件循环与主线程事件处理。
+
+补充专题：[优先级反转与优先级继承](ios/threads-and-scheduling.md#优先级反转与优先级继承)。
 
 ## Android 界面与动画
 
@@ -135,6 +140,12 @@
 ## 数据结构
 
 [HashMap 的结构与实现原理](data-structures/hash-map.md)：键值映射、哈希与相等规则、冲突链、插入查找删除、负载因子、扩容与复杂度。
+
+## 操作系统基础
+
+[操作系统基础目录](operating-systems/README.md)：1 篇文档。
+
+[虚拟内存、按需分配与缺页异常](operating-systems/virtual-memory-and-page-faults.md)：虚拟地址与物理内存、页表、按需分配、缺页异常及非法访问。
 
 ## 文档锚点、内部链接与交叉引用
 
