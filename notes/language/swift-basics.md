@@ -468,6 +468,20 @@ holder.pending?()
 
 如果函数只在自己的调用期间直接执行参数闭包，就不需要因为参数名叫 `callback` 而加 `@escaping`。被标记的闭包也可以同步执行；是否异步、在哪个线程执行，由实际调度代码决定。
 
+**省略 `@escaping` 时的编译限制。** 对于上例中的 `() -> Void` 闭包参数，不加 `@escaping` 时，参数默认是非逃逸的。非逃逸表示接收函数不能让这个闭包保留到函数返回之后。
+
+如果把上例的 `register` 改为下面的写法，编译器会在 `pending = callback` 处报错：
+
+```swift
+func register(_ callback: () -> Void) {
+    pending = callback // 编译错误：不能把非逃逸闭包参数保存到这里
+}
+```
+
+`pending` 是 `CallbackHolder` 的实例属性。`register` 返回后，调用方仍可以通过 `holder.pending` 访问闭包。把 `callback` 存入这个属性会让闭包逃逸，因此参数必须声明为 `@escaping`。
+
+去掉 `@escaping` 后，这段代码无法通过编译，因此不会执行到 `holder.pending?()`。编译器在保存闭包的位置检查是否允许逃逸，不会等到后续调用闭包时才检查。
+
 ## 闭包参数、捕获列表与可选回调
 
 闭包可以根据上下文推断参数类型。省略显式参数名称时，`$0` 表示第一个参数，`$1` 表示第二个参数。使用这种简写时，也省略参数列表与闭包体之间的 `in`。
@@ -556,6 +570,39 @@ let secondText = comment.text
 KeyPath<Comment, String> 的第一个类型参数是根类型 Comment，第二个是沿路径读出的值类型 String。
 
 路径本身没有保存某条评论的文字；应用到不同 Comment，可以读到不同的 text。它也不只适用于 class，前面的 Comment 就是 struct。上下文已知根类型时，\Comment.text 可以简写为 \\.text。
+
+**直接属性访问与键路径的用途。** 只需要读取某个实例的固定属性时，直接使用 `comment.text` 即可。键路径的用途是把“访问哪个属性”表示成一个可以保存、传递和复用的值。
+
+```swift
+let text = comment.text  // 保存当前读到的字符串："你好"
+let path = \Comment.text // 保存访问路径：读取 Comment 的 text 属性
+```
+
+`text` 保存本次读取的字符串。`path` 描述从一个 `Comment` 实例读取 `text` 属性的路径，不绑定某个具体的 `comment`，也不保存本次读取的结果。使用 `comment[keyPath: path]` 时，程序才从传入的实例读取对应属性。
+
+当函数需要让调用方决定读取哪个属性时，可以把键路径作为参数传入。下面沿用前面的 `Comment` 类型和 `comment` 实例，用同一个函数读取评论文字或点赞数：
+
+```swift
+func collect<Value>(
+    _ comments: [Comment],
+    by path: KeyPath<Comment, Value>
+) -> [Value] {
+    comments.map { comment in
+        comment[keyPath: path]
+    }
+}
+
+let comments = [comment]
+
+let texts = collect(comments, by: \Comment.text)           // ["你好"]
+let likeCounts = collect(comments, by: \Comment.likeCount) // [2]
+```
+
+`Value` 是泛型类型参数，表示所选属性的值类型。传入 `\Comment.text` 时，`Value` 是 `String`，函数返回 `[String]`；传入 `\Comment.likeCount` 时，`Value` 是 `Int`，函数返回 `[Int]`。
+
+调用方先传入评论数组和键路径。`collect` 通过 `map` 遍历每个 `Comment`，按照传入的路径读取属性，再把结果组成数组。函数实现保持不变，调用方通过不同键路径选择不同属性。
+
+如果函数内部固定写 `comment.text`，函数就固定读取 `text`，不能通过上述参数选择 `likeCount`。键路径适用于需要传递或复用属性访问方式的场景；单次读取固定属性不需要引入键路径。
 
 **容器与协议：**
 
