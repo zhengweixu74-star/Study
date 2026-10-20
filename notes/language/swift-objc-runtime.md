@@ -36,6 +36,12 @@ Runtime 是程序运行期间使用的一组支持代码和机制。Swift 编译
 
 Objective-C Runtime 支撑 OC 对象系统，可查询、添加、替换方法和管理关联对象。消息派发不会自动变成异步任务，也不是所有 Swift 方法调用都经过 OC Runtime。
 
+Objective-C 的动态性，是程序可以在运行时识别对象的实际类、选择方法实现，并查询或修改类的信息。常见表现包括：
+
+- 动态类型：Objective-C 的 id 可以保存不同类的对象引用，但对象在运行时仍有确定的类。Swift 的 AnyObject 也可以表达不同类的对象引用，但两种语言的类型检查规则不完全相同。
+- 动态绑定：普通 Objective-C 消息调用根据接收者的实际类选择方法实现。动态绑定描述调用与实现之间的确定关系，具体派发过程见本文的 Selector 与 IMP 章节。
+- 动态加载与类注册：程序可以在运行时加载包含类的代码，也可以通过 Runtime API 创建并注册类。加载已有代码和创建类是不同动作，都不等于即时编译任意源码。
+
 ## Objective-C +load：调用时机与自动注册
 
 +load 是 Objective-C 提供的类方法。当类或分类被加载到 Objective-C Runtime 时，Runtime 会自动调用该类或分类自己实现的 +load。开发者可以在方法中编写需要在加载时执行的准备代码，无须先创建对象，也无须在业务代码中手动调用 +load。
@@ -269,7 +275,17 @@ selector 确定找哪个方法
 setter 修改 age
 ```
 
-“查找 setAge: → 执行 setter”是查找与执行两个阶段，不是在 setter 前又执行一个独立的 setAge 方法。Runtime 会用缓存加速查找，必要时沿父类查找。
+“查找 setAge: → 执行 setter”是查找与执行两个阶段，不是在 setter 前又执行一个独立的 setAge 方法。
+
+普通 Objective-C 消息调用通常经 objc_msgSend 等运行时入口派发。对于非 nil 接收者，Runtime 先检查方法缓存；未命中时查找当前类及父类的方法，找到 IMP 后调用实现，并传入接收者、Selector 和显式参数。缓存、方法信息与父类关系共同完成查找，不需要每次都遍历完整继承链。
+
+当正常查找找不到实现时，系统还提供以下处理机会：
+
+1. 动态方法解析：请求类补充缺失的方法实现；实例方法和类方法使用对应的解析入口。
+2. 消息转发：允许对象指定其他接收者，或提供方法签名并通过 NSInvocation 处理调用。NSInvocation 是保存接收者、方法标识和参数等调用信息的对象。
+3. 如果这些步骤仍未处理消息，默认路径会报告 unrecognized selector 并抛出异常。
+
+这里的消息转发不等于把任务提交到后台线程。上述机制针对 Objective-C 消息派发，不能直接套用到所有原生 Swift 方法调用。
 
 | 查找起点 | selector | 对应实现 |
 |-|-|-|
@@ -383,18 +399,62 @@ person → isa → KVO_Person → 带通知逻辑的 setter → Person 原 sette
 
 ## KVO 通知选项与自动通知
 
-下面是自动通知效果的伪代码，不是系统实际源码，也不是需要手写的 KVO 子类：
+KVO 是观察对象属性变化的机制。对于前文的 Person.age，调用 observe 注册观察后，KVO 会在规定时机调用注册时传入的观察闭包，并传入被观察对象和变化信息。这里的“通知”指这次闭包调用，不是 NotificationCenter 广播。
+
+setter 是执行属性赋值的方法。自动 KVO 先进入运行时子类重写的 setter，再由这个 setter 调用 Person 原来的 setter。下面以 age 从 18 改成 19、未指定 .prior 为例，展示调用层级；这是效果示意，不是系统实际源码，也不需要开发者手写 KVO 子类。
 
 ```text
-KVO setter(newValue):
-    willChangeValue(forKey: "age")
-    调用父类原 setter(newValue)
-    didChangeValue(forKey: "age")
+person.age = 19
+    ↓
+进入 KVO 子类重写的 age setter
+    ├─ willChangeValue(forKey: "age")
+    │      告诉 KVO 即将修改，此时 age = 18
+    ├─ 调用 Person 原来的 age setter
+    │      将 age 写成 19，原 setter 返回
+    ├─ didChangeValue(forKey: "age")
+    │      KVO 触发修改后的通知
+    │      调用观察闭包，闭包返回
+    └─ KVO setter 返回
+    ↓
+继续执行赋值之后的代码
 ```
 
-前后处理用于组织变化通知，默认观察闭包在变化后收到通知，不因为内部有 will／did 两步就默认调用两次。注册时指定 .prior 才会额外要求变化前通知；.initial 则要求注册时立即提供初始通知。是否提供 old／new 值也由 options 控制。
+willChangeValue 和 didChangeValue 分别报告修改开始与结束。这两个方法不是观察闭包；内部存在前后两步，不代表闭包默认调用两次。原 setter 返回后，KVO setter 仍需继续执行通知处理。普通属性赋值触发的传统 KVO 通知，在修改属性的线程上同步调用观察闭包，不会自动切到主线程，也不是等 KVO setter 返回后再异步通知。
 
-上述说明以默认自动通知开启且属性符合 KVO 条件为前提。手动 KVO 可以由实现方自行在修改前后配对通知，不应在自动通知仍开启时不加区分地重复手动发送。
+options 是注册观察时传入的选项集合。下面沿用前文的 Person 定义；observation 需要在观察期间保留。
+
+```swift
+let person = Person() // age 初始为 18
+let observation = person.observe(
+    \.age,
+    options: [.old, .new]
+) { person, change in
+    print("当前值：", person.age)
+    print("旧值：", change.oldValue as Any)
+    print("新值：", change.newValue as Any)
+}
+
+person.age = 19
+// 闭包调用一次：当前值 19、旧值 Optional(18)、新值 Optional(19)
+observation.invalidate()
+```
+
+| 选项 | 注册时 | 一次 18 → 19 修改中的闭包调用 |
+| --- | --- | --- |
+| [] | 不调用 | 修改后一次；不要求 change 提供旧值和新值 |
+| [.old, .new] | 不调用 | 修改后一次；oldValue 为 18，newValue 为 19 |
+| [.prior, .old, .new] | 不调用 | 修改前一次、修改后一次 |
+| [.initial, .new] | 立即调用一次，newValue 为当前值 18 | 修改后一次，newValue 为 19 |
+
+.old 和 .new 控制变化信息中是否包含旧值和新值，不增加通知次数。不请求这些值时，仍可从回调参数 person 读取当时的 age；这不等于 change 自动提供了历史值。
+
+.prior 要求在修改前额外通知一次。修改前通知的 change.isPrior 为 true，person.age 仍是 18；修改后通知的 isPrior 为 false，person.age 是 19。变化前通知不提供 newValue；指定 .old 时可以提供旧值。
+
+.initial 要求在 observe 返回前立即调用一次闭包，此时属性可以尚未发生任何修改。初始通知不提供 oldValue；要通过 newValue 取得当前值，还需指定 .new。.initial 与 .prior 可以组合：注册时一次，之后每次修改前后各一次。上述次数以本例的一次普通赋值、没有额外修改或嵌套通知为前提。
+
+自动通知表示系统负责安排修改前后的通知处理。前文的 @objc dynamic 属性在标准自动 KVO 场景中直接赋值即可；只有声明 @objc dynamic、没有注册观察，不会调用一个尚未注册的观察闭包。
+
+手动通知表示属性实现者自行在实际修改前调用 willChangeValue(forKey:)，修改后配对调用 didChangeValue(forKey:)。如果完全由实现者负责某个属性的通知，应通过 automaticallyNotifiesObservers(forKey:) 针对该属性返回 false，其他属性交给父类决定。不要在自动通知仍开启时无区别地再发送同一组手动通知，以免出现重复或嵌套通知。
 
 ## dynamic 对 KVO 访问路径的影响
 

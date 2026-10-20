@@ -112,6 +112,8 @@
 
 相关专题：[编译、链接、嵌入与装载](engineering/xcode-and-testing.md#编译链接嵌入与装载)；[静态库的目标文件提取与代码裁剪](engineering/xcode-and-testing.md#静态库的目标文件提取与代码裁剪)；[动态库的打包、启动装载与延迟装载](engineering/xcode-and-testing.md#动态库的打包启动装载与延迟装载)。
 
+相关专题：[IPA、.app 与 Mach-O](engineering/xcode-and-testing.md#ipaapp-与-mach-o)；[Mach-O 的加载信息](engineering/xcode-and-testing.md#mach-o-的加载信息)；[预设虚拟地址、ASLR 与物理内存](engineering/xcode-and-testing.md#预设虚拟地址aslr-与物理内存)。内容范围：安装分发包与应用目录、可执行文件的加载信息、启动地址随机化，以及虚拟地址与物理地址的映射。
+
 ## 网络与存储
 
 | 文档 | 内容范围 |
