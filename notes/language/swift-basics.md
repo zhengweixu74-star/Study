@@ -31,7 +31,7 @@
 
 属性补充：[实例存储属性与局部变量的初始化](#实例存储属性与局部变量的初始化)；[为什么扩展不能添加实例存储属性](#为什么扩展不能添加实例存储属性)。
 
-补充专题：[inout 与内存独占访问](#inout-与内存独占访问)；[actor 的默认隔离与重入](#actor-的默认隔离与重入)；[数组值语义、写时复制与返回值](#数组值语义写时复制与返回值)；[ArraySlice 的存储保留与索引](#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](#类的两阶段初始化与-self-使用时机)。
+补充专题：[inout 与内存独占访问](#inout-与内存独占访问)；[actor 的默认隔离与重入](#actor-的默认隔离与重入)；[MainActor、主队列与异步调用](#mainactor主队列与异步调用)；[数组值语义、写时复制与返回值](#数组值语义写时复制与返回值)；[自定义 CoW 与引用唯一性检查](#自定义-cow-与引用唯一性检查)；[ArraySlice 的存储保留与索引](#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](#类的两阶段初始化与-self-使用时机)。
 
 ## 基础语义与内存管理
 
@@ -308,6 +308,85 @@ func take(_ amount: Int) async -> Bool {
 ```
 
 这个方法片段替换 Quota 中的 take 方法。如果实际异步步骤可能失败，还需要按具体操作约定设计失败后的状态恢复。另一种处理方式是在 await 后重新检查状态，再决定是否更新。
+
+### MainActor、主队列与异步调用
+
+MainActor 是 Swift 内置的全局 actor。全局 actor 是由程序各处共同使用的 actor，其隔离规则可以应用于不同类型中的方法和属性。@MainActor 声明代码和数据归 MainActor 管理；actor 隔离的基本含义见[actor 的默认隔离与重入](#actor-的默认隔离与重入)。
+
+在 iOS、macOS 应用中，MainActor 利用主队列安排受隔离代码在主线程执行。主线程是实际执行代码的线程；DispatchQueue.main 是 GCD 提供的串行队列；MainActor 是 Swift 的隔离机制，还让编译器检查访问是否合法。三者有关联，但不是同一个概念。
+
+#### 跨隔离调用与同步调用
+
+@MainActor 规定函数在哪里执行；await 标记调用可能挂起的位置。从 MainActor 外部调用受 MainActor 隔离的函数时，需要使用 await，让 Swift 在进入函数体前安排到 MainActor 执行。即使被调用函数没有声明 async，跨隔离调用仍然可能需要 await。
+
+```swift
+@MainActor
+func updateUI() {
+    print("更新界面")
+}
+
+Task.detached {
+    await updateUI()
+    print("更新完成")
+}
+```
+
+Task.detached 创建不继承创建位置 actor 隔离的任务。上述任务等待 updateUI() 返回后，才打印“更新完成”。updateUI() 在 MainActor 上执行，但后面的 print 不会因为上一行调用而获得 MainActor 隔离。
+
+| 调用情况 | 行为 |
+| --- | --- |
+| MainActor 外部通过 await 调用 updateUI() | Swift 安排函数体在 MainActor 上执行，并等待调用完成 |
+| 非隔离同步函数直接调用 updateUI() | 在正常隔离检查下编译报错，不会自动把同步调用转换成异步调度 |
+| 调用方已经归属于 MainActor，直接调用同步的 updateUI() | 合法，不需要 await，也不需要额外切换 |
+| 调用没有 actor 隔离要求的普通同步函数 | 函数本身在调用线程执行，不会仅因普通调用而切换主线程 |
+
+单独写 await 不表示切到主线程。目标函数必须具有 MainActor 隔离要求，才有相应执行保证；隔离要求既可以显式声明，也可以由所在类型等规则推断。普通 nonisolated 同步函数不归属于 actor，但 nonisolated 不表示函数一定在后台线程执行。编译器依据隔离规则检查调用，不能仅凭函数名或当前线程判断调用是否合法。
+
+部分旧语言模式、兼容接口或 Objective-C 调用路径可能绕过静态隔离检查。非法的同步调用不会因此获得自动切换保证；具体路径可能在调用线程执行，也可能触发运行时隔离检查失败。不能依靠 @MainActor 修复任意绕过检查的同步调用。
+
+#### 任务挂起与线程释放
+
+任务是 Swift 管理的一段异步工作，记录执行进度和继续执行需要的状态。线程是实际执行代码的资源。同一个任务可以在执行过程中由不同线程承接；任务等待某个调用完成，不要求原线程一直停在那里。
+
+```swift
+Task.detached {
+    print("A")
+    await updateUI()
+    print("B")
+}
+```
+
+假设任务最初在线程 T 上执行，并需要转到 MainActor，过程可以如下：
+
+1. 线程 T 执行 print("A")。
+2. 到达 await updateUI() 时，Swift 保存继续执行需要的状态，并安排 MainActor 执行 updateUI()。
+3. 等待调度期间，任务可以挂起，线程 T 可以执行其他工作；当前任务的 print("B") 仍然不能执行。
+4. 主线程执行 updateUI()。函数返回后，Swift 安排当前任务继续执行 print("B")。
+5. 继续执行时不保证使用原来的线程 T，也不保证仍在主线程。
+
+A → updateUI() → B 的先后关系保持不变。任务挂起释放的是原线程的执行机会，不会提前执行当前任务中依赖调用完成的后续语句。await 只表示可能挂起，不保证每次都实际暂停。
+
+上述“不阻塞原线程”描述的是等待方式。updateUI() 执行期间仍占用主线程；函数内部的大量同步计算或阻塞调用仍然会影响界面响应。
+
+#### 同步函数发起主 actor 任务
+
+普通同步函数不能直接使用 await。如果函数不归属于 MainActor，直接同步调用 updateUI() 会违反隔离要求。需要从这样的函数发起界面更新时，可以创建一个指定在 MainActor 执行的新任务。
+
+```swift
+nonisolated func backgroundCallback() {
+    // updateUI() // 编译错误：非隔离同步调用
+
+    Task { @MainActor in
+        updateUI()
+    }
+
+    print("回调继续执行")
+}
+```
+
+Task { ... } 创建新任务；@MainActor in 指定大括号中的代码归 MainActor 管理。新任务执行时已经处于 MainActor，所以可以直接调用同步的 updateUI()。
+
+backgroundCallback() 创建任务后继续执行，不等待新任务完成。仅凭这个示例不能保证“更新界面”和“回调继续执行”哪句先打印。需要等待界面更新结束再继续的异步流程，应在同一个任务中使用 await updateUI() 表达依赖关系。
 
 ## 类型、实例与对象引用
 
@@ -740,9 +819,9 @@ let names = ages.map { $0.key }
 
 ### 数组值语义、写时复制与返回值
 
-对 [Int] 而言，值语义保证数组赋值后，修改一个数组的元素不会改变另一个数组的元素。值语义描述程序能观察到的行为，不要求每次赋值或返回数组时立即复制全部元素。元素存储空间是保存数组元素的内存区域，需要与数组值本身区分。
+对 [Int] 而言，值语义保证数组赋值后，修改一个数组的元素不会改变另一个数组的元素。值语义描述程序能观察到的行为，不要求每次赋值或返回数组时立即复制全部元素。元素存储空间是保存数组元素的内存区域，需要与数组值本身区分。 Array 本身是结构体，元素通常保存在单独分配的缓冲区中；缓冲区是存放元素的内存区域。外层数组值保存访问内部存储所需的信息，不能把数组值与存储对象视为同一个对象。
 
-Array 使用写时复制：多个数组值可以先共享元素存储空间；当某个数组需要修改元素且存储空间仍被共享时，修改方先取得独立的元素存储空间，再完成修改。编译器可以在保持行为不变的前提下减少实际复制。
+Array 使用写时复制（Copy-on-Write，简称 CoW）：多个数组值可以先共享元素存储空间；修改前检查存储是否独占。存储仍被共享时，修改方先复制存储再修改；已独占且满足修改所需容量时，可以直接修改。因此，CoW 不表示每次写入都复制。编译器可以在保持行为不变的前提下减少实际复制。
 
 ```swift
 let original = [1, 2, 3]
@@ -752,6 +831,28 @@ copy[0] = 99
 print(original) // [1, 2, 3]
 print(copy)     // [99, 2, 3]
 ```
+
+上述赋值之后、修改之前，外层 original 和 copy 是两个数组值，但可以共享同一个存储对象。箭头表示数组内部持有的存储引用，下面是便于理解的共享关系，不承诺某个优化构建的实际内存布局。
+
+```text
+original ──┐
+           ├──→ 缓冲区 A：[1, 2, 3]
+copy ──────┘
+```
+
+执行 copy[0] = 99 时，数组的修改入口先检查存储能否独占修改。在共享状态下，修改过程是：
+
+1. 分配新的元素缓冲区 B。
+2. 将 A 中的元素复制到 B。
+3. 将 copy 内部的存储引用改为指向 B。
+4. 将 B 的第一个元素改为 99；original 继续使用 A。
+
+```text
+original ─────→ 缓冲区 A：[ 1, 2, 3]
+copy ─────────→ 缓冲区 B：[99, 2, 3]
+```
+
+检查和复制由数组的修改实现负责，例如下标赋值和追加元素的修改路径。Swift 运行时维护存储对象的引用信息，数组实现利用这些信息判断是否可以独占修改。这里检查的是保存元素的存储对象，不是数组结构体本身，也不是数组中的某个元素对象。
 
 函数返回局部数组后，如果局部变量结束生存期，而且只有接收结果的变量继续持有元素存储空间，修改已有元素可以直接复用原来的存储空间。是否需要复制，取决于修改时是否仍有其他持有者共享存储，不取决于之前是否发生过返回或赋值。
 
@@ -770,6 +871,83 @@ print(backup[0]) // -1：backup 仍需保留修改前的值
 ```
 
 当存储仍被共享时，修改方需要能够保存全部现有元素的独立存储；实际分配容量不保证与旧存储完全相同。容量是无需重新分配就能容纳的元素数量。即使数组独占存储，追加元素超过容量时，也可能需要重新分配。
+
+数组的写时复制不会自动复制元素引用的类实例。对 [Box] 而言，数组元素保存 Box 的引用；修改 Box.value 没有替换数组元素，所以两个数组仍能观察到同一个对象的变化。下面是独立示例。
+
+```swift
+final class Box {
+    var value: Int
+
+    init(_ value: Int) {
+        self.value = value
+    }
+}
+
+let original = [Box(1)]
+var copied = original
+
+copied[0].value = 2
+print(original[0].value) // 2：仍共享同一个 Box
+
+copied[0] = Box(3)
+print(original[0].value) // 2：替换 copied 的元素不改变 original
+print(copied[0].value)   // 3
+```
+
+即使数组已经获得独立的元素存储，复制到新存储中的 Box 引用也不会自动变成新 Box。容器存储独立与元素对象独立是两个不同条件。需要对象副本时，应按模型的复制约定显式创建新对象；值内部持有对象引用的规则见[结构体、枚举与值的生命周期](#结构体枚举与值的生命周期)。
+
+#### 自定义 CoW 与引用唯一性检查
+
+结构体不会仅因使用 struct 声明就自动获得 CoW。只有整数等直接保存的值成员时，通常无需自行实现 CoW。结构体内部持有类实例时，复制结构体会复制对象引用，不会自动复制类实例；具体引用关系见[结构体、枚举与值的生命周期](#结构体枚举与值的生命周期)。如果希望共享存储的多个结构体副本可以独立修改，就需要在修改前确保内部存储独占。
+
+自定义 CoW 类型可以主动定义一个 Storage 类保存数据。Storage 是开发者定义的普通类，不是 Swift 自动为结构体生成的数组缓冲区。存储对象只保存一个整数也可以用于演示 CoW；实际只有一个整数时，直接保存在结构体里更简单，不需要这种包装。
+
+isKnownUniquelyReferenced(&storage) 检查 storage 指向的类实例是否已知只有一个强引用。强引用是使目标对象保持存活的引用。这个 API 检查对象的引用关系，不要求对象是数组缓冲区，也不会创建缓冲区或复制数据。没有持有类实例的结构体，不能直接把结构体本身传给这个函数来实现 CoW。
+
+返回 true 时，表示已知对象只有一个强引用；返回 false 时，表示无法确认强引用唯一，CoW 实现应先取得独立存储。检查只考虑强引用，额外的 weak 或 unowned 引用不会因此使结果必然为 false。标准库 Array 使用专门的内部实现完成同类存储检查，不能将其内部实现直接等同于调用这个公开 API。
+
+```swift
+struct Counter {
+    private final class Storage {
+        var value: Int
+
+        init(value: Int) {
+            self.value = value
+        }
+    }
+
+    private var storage: Storage
+
+    init(value: Int) {
+        storage = Storage(value: value)
+    }
+
+    var value: Int {
+        get { storage.value }
+        set {
+            if !isKnownUniquelyReferenced(&storage) {
+                storage = Storage(value: storage.value)
+            }
+            storage.value = newValue
+        }
+    }
+}
+
+let a = Counter(value: 1)
+var b = a
+b.value = 100
+
+print(a.value) // 1
+print(b.value) // 100
+```
+
+var b = a 之后，a.storage 和 b.storage 可以持有同一个 Storage 对象。设置 b.value 时，setter（属性的写入访问器）先检查 b.storage。存在其他强引用时，setter 创建保存原整数的新 Storage，让 b.storage 指向新对象，再写入 100。a 继续读取旧对象中的 1。存储已知独占时，setter 直接修改原对象。
+
+如果删除 setter 中的检查与复制分支，只保留 storage.value = newValue，a 和 b 仍会指向同一个 Storage；修改 b.value 后，a.value 也会成为 100。外层 Counter 被复制，不代表内部 Storage 对象被复制。
+
+storage 使用 private 隐藏，外部只能通过带有 CoW 检查的 value 写入，不能取得内部对象并绕过检查。&storage 将变量作为 inout 参数传入，相关访问规则见[inout 与内存独占访问](#inout-与内存独占访问)。isKnownUniquelyReferenced 只负责检查，创建副本和执行写入由 setter 完成。
+
+引用唯一性检查不是线程锁，不能用它允许多个线程同时读写同一个 Counter 变量。调用方仍需保证对该变量的访问符合 Swift 的独占访问和并发规则。
 
 ### ArraySlice 的存储保留与索引
 
