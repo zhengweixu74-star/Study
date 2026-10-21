@@ -64,7 +64,7 @@
 
 相关专题：[获取锁失败后的等待行为](ios/threads-and-scheduling.md#获取锁失败后的等待行为)；[局部坐标、命中测试与点击长按协调](ios/app-lifecycle-and-events.md#uiview-的局部坐标与-bounds)；[UICollectionView 分区、重点回调与布局协议](ios/uikit-layout-and-mvvm.md#分区项目与分区边距)。
 
-[iOS 图片加载、解码与内存](ios/image-loading-decoding-and-memory.md)：压缩数据与像素内存、降采样与服务器缩略图、ImageIO、提前解码、缓存与并发控制。
+[iOS 图片加载、解码与内存](ios/image-loading-decoding-and-memory.md)：共享加载服务、压缩数据与像素内存、降采样与 ImageIO、提前解码、缓存引用与释放、共享任务取消、过期回调校验、内存预算与验证。
 
 相关专题：[长列表图片任务调度](ios/image-loading-decoding-and-memory.md#长列表图片任务调度)；[Operation 与 OperationQueue](ios/threads-and-scheduling.md#operation-与-operationqueue)。内容范围：下载与解码分别限流、预取回调、共享任务取消、快速滚动的启动控制，以及任务队列的并发限制与协作式取消。
 
