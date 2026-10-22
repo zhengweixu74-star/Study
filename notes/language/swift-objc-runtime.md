@@ -6,6 +6,7 @@
 
 - [Objective-C 分类与类扩展](#objective-c-分类与类扩展)
 - [Swift Runtime 与 Objective-C Runtime](#swift-runtime-与-objective-c-runtime)
+- [自动释放池与 AutoreleasePoolPage](#自动释放池与-autoreleasepoolpage)
 - [Objective-C +load：调用时机与自动注册](#objective-c-load调用时机与自动注册)
 - [关联对象、稳定 key 与持有关系](#关联对象稳定-key-与持有关系)
 - [实例布局、静态存储与类型元数据](#实例布局静态存储与类型元数据)
@@ -41,6 +42,68 @@ Objective-C 的动态性，是程序可以在运行时识别对象的实际类�
 - 动态类型：Objective-C 的 id 可以保存不同类的对象引用，但对象在运行时仍有确定的类。Swift 的 AnyObject 也可以表达不同类的对象引用，但两种语言的类型检查规则不完全相同。
 - 动态绑定：普通 Objective-C 消息调用根据接收者的实际类选择方法实现。动态绑定描述调用与实现之间的确定关系，具体派发过程见本文的 Selector 与 IMP 章节。
 - 动态加载与类注册：程序可以在运行时加载包含类的代码，也可以通过 Runtime API 创建并注册类。加载已有代码和创建类是不同动作，都不等于即时编译任意源码。
+
+## 自动释放池与 AutoreleasePoolPage
+
+自动释放池记录延迟执行的对象释放操作，池结束时执行对应的 release。retain 增加一次持有；release 减少一次持有，对象没有剩余持有时才销毁；autorelease 安排稍后执行一次 release，登记本身不会增加引用计数。同一对象登记多次时，对应的释放次数也要匹配。
+
+池不会扫描代码块里的变量，也不会自动接管块中创建的全部对象。框架代码或编译器生成的代码执行 autorelease 时，运行时才登记对象地址。登记可能发生在同步调用的多层函数内部，不要求直接写在 autoreleasepool 的闭包中。下面按记录实际进入池的情况解释，不展开返回值优化等实现细节。
+
+### 线程、Page 与池边界
+
+AutoreleasePoolPage 是运行时分块保存对象地址和池边界标记的数据结构。Page 保存地址，不搬移对象本身。next 指向下一个可写入位置，parent 和 child 连接前后 Page。hotPage 表示当前使用的 Page。当前 Page 写满时，运行时使用后续 Page；没有可用 Page 时再分配。
+
+线程局部存储（TLS）让每个线程分别保存一份数据。运行时通过 TLS 查找当前线程的 hotPage。记录进入哪个线程的池，取决于执行 autorelease 时所在的线程，不取决于创建对象的线程。一个线程清空自己的池，不会同时清空另一个线程的池。
+
+池边界是用来标记一次自动释放池起点的特殊记录。一个 Page 可以包含多个池的记录，一个池也可以跨越多个 Page。Page 写满不会自动产生内层池；parent 和 child 表示 Page 的存储顺序，不表示池的嵌套层级。池结束后，空 Page 可能被保留复用，不保证立即释放全部 Page 存储。
+
+### 嵌套池的进入与退出
+
+在同一线程上，一个池尚未结束时再进入另一个池，就形成外层池与内层池。两者采用相同机制，只是边界不同。假设依次发生以下操作：
+
+```text
+进入外层池 → 登记 A
+进入内层池 → 登记 B → 登记 C
+退出内层池
+登记 D → 退出外层池
+```
+
+登记 C 后，记录可简化表示为“外层边界、A、内层边界、B、C”。这些记录可能在同一个 Page，也可能跨越多个 Page。退出内层池时，运行时从最新记录向前处理 C、B，对对象执行对应的 release，并移除内层边界。外层边界和 A 的记录仍然保留。随后登记 D；退出外层池时再处理 D、A。这个简化示例假设清理过程没有额外登记新的自动释放对象。
+
+池清空只保证执行相应释放操作。外部仍有强引用时，对象会继续存活。ARC 的基本规则见 [ARC 与 Android GC](swift-basics.md#arc-与-android-gc引用计数可达性与引用环)。
+
+### Swift 使用场景与按批释放
+
+普通纯 Swift 类实例通常由 ARC 直接管理。Swift 调用 Foundation、UIKit 等 Objective-C 框架时，框架内部仍可能产生自动释放的临时对象。ARC 不会消除这些自动释放行为。UIKit 和 AppKit 通常已经在主线程的事件处理循环周围设置池；大量同步工作可以再设置较小范围的池，提前执行临时对象的释放操作。
+
+下面的独立示例同步读取 1,000 个图片路径，每批处理 100 张。前提是 paths.count 等于 1,000；示例使用 UIKit。每批池结束时清理本批实际登记的自动释放操作，而不是保证全部 UIImage 都在这一行销毁。
+
+```swift
+import UIKit
+
+func inspectImages(at paths: [String]) {
+    precondition(paths.count == 1_000)
+
+    autoreleasepool {
+        for batch in 0..<10 {
+            autoreleasepool {
+                for offset in 0..<100 {
+                    let index = batch * 100 + offset
+                    if let image = UIImage(contentsOfFile: paths[index]) {
+                        print(image.size)
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+执行顺序是处理第 1～100 张后清空本批池，再处理第 101～200 张，依次完成全部批次。10 个内层池是先后关系，每一个都嵌套在同一个外层池中。也可以每张图片使用一个池；100 只是批次大小，不是运行时要求。
+
+仅增加循环层级不会创建自动释放池。需要用 autoreleasepool 明确划定范围。若内部没有产生自动释放记录，池就没有相应释放工作。若数组、缓存或其他对象持续持有图片，清空池也不能解除这些持有关系。把异步任务启动代码包进池，不代表任务稍后在其他线程产生的对象也属于这个池。
+
+自动释放池用于执行延迟释放；[UITableView 重用机制](../ios/uikit-layout-and-mvvm.md#uitableview-的重用机制)则保留已有视图对象供后续使用，两者目的和行为不同。
 
 ## Objective-C +load：调用时机与自动注册
 

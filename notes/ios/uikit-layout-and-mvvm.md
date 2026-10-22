@@ -10,6 +10,7 @@
 - [UIView 子视图的回调与可见性](#uiview-子视图的回调与可见性)
 - [容器控制器与子控制器](#容器控制器与子控制器)
 - [分栏界面与详情控制器生命周期](#分栏界面与详情控制器生命周期)
+- [UITableView 的重用机制](#uitableview-的重用机制)
 - [UICollectionView 的职责与复用](#uicollectionview-的职责与复用)
 - [页面、列表与 Cell ViewModel](#页面列表与-cell-viewmodel)
 - [MVVM 的输入、状态输出与界面刷新](#mvvm-的输入状态输出与界面刷新)
@@ -210,6 +211,84 @@ UIKit 标准容器已经实现相应的生命周期协调。自定义容器必�
 
 仅创建控制器对象不代表该对象的视图已经出现。出现回调对应视图的展示过程；根视图加载则可能发生在展示前，例如业务代码提前访问了 view。这里讨论的是通用实现方式，不能仅凭邮件截图判断实际 App 是否每次都创建新的详情控制器。
 
+## UITableView 的重用机制
+
+UITableView 保留已经创建的 UITableViewCell，在需要显示另一行时重新配置该对象，减少 Cell 和子视图的重复创建。Cell 是展示一行内容的视图对象，不固定对应某条数据。数据模型保存内容和状态；稳定的数据 ID 标识数据项；IndexPath 由 section 和 row 表示当前位置，插入、删除或重排后可能改变。
+
+### 注册、获取与重新配置
+
+reuseIdentifier 是区分可重用 Cell 类别的字符串。注册 Cell 类、注册 nib 界面文件，或配置 Storyboard 原型，都是告诉表格如何在没有可重用对象时创建 Cell。注册建立创建规则，不会立即为全部数据创建 Cell。
+
+表格按需调用数据源的 tableView(_:cellForRowAt:)，传入表格和目标 IndexPath。数据源是负责提供行数及配置后 Cell 的对象。数据源根据位置取出模型，再调用 dequeueReusableCell(withIdentifier:for:)。表格找到对应标识的可重用对象时，会调用该对象的 prepareForReuse() 后返回；没有可用对象时，根据注册信息或原型创建新对象。数据源完整配置内容，再把 Cell 返回给表格。
+
+带 for: IndexPath 的方法要求事先提供匹配的注册信息或 Storyboard 原型，否则会发生运行时错误。调用这个方法不等于每次创建新对象。重用池是表格管理的可再次使用的 Cell 集合，应用不需要手动把 Cell 放回。不要依赖具体内部容器或取出顺序。
+
+以下是独立单分区示例。页面需在首次获取 Cell 前调用 registerCell(in:)，并把持有此方法的对象设为数据源。contentConfiguration 适用于 iOS 14 及以上。
+
+```swift
+import UIKit
+
+final class ItemDataSource: NSObject, UITableViewDataSource {
+    struct Item {
+        let title: String
+        let subtitle: String?
+        let isFavorite: Bool
+    }
+
+    var items: [Item] = []
+
+    func registerCell(in tableView: UITableView) {
+        tableView.register(UITableViewCell.self,
+                           forCellReuseIdentifier: "ItemCell")
+    }
+
+    func tableView(_ tableView: UITableView,
+                   numberOfRowsInSection section: Int) -> Int {
+        items.count
+    }
+
+    func tableView(_ tableView: UITableView,
+                   cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let item = items[indexPath.row]
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: "ItemCell", for: indexPath
+        )
+        var content = cell.defaultContentConfiguration()
+        content.text = item.title
+        content.secondaryText = item.subtitle
+        cell.contentConfiguration = content
+        cell.accessoryType = item.isFavorite ? .checkmark : .none
+        return cell
+    }
+}
+```
+
+页面需要持续持有 ItemDataSource 实例，因为 UITableView 不会通过 dataSource 属性强持有数据源。模型内容改变后，还需通过合适的表格更新接口刷新受影响的行。
+
+每次配置必须覆盖全部与数据相关的状态。若只在 isFavorite 为 true 时设置 checkmark，而 false 时不设置 none，上一行的勾选就可能残留。副标题、图片、颜色、显隐和随数据变化的约束也遵循相同规则。
+
+### prepareForReuse 与显示回调
+
+| 位置或方法 | 职责 |
+| --- | --- |
+| 初始化方法或 awakeFromNib() | 建立固定子视图、固定约束和不随数据变化的外观 |
+| cellForRowAt 中调用的配置方法 | 根据当前模型完整设置内容，包括没有图片或副标题的情况 |
+| prepareForReuse() | 重置与内容无关的临时状态，清理 Cell 自己持有的旧任务或动画 |
+| willDisplay | 响应 Cell 即将显示，可启动只在可见期间运行的动画 |
+| didEndDisplaying | 响应 Cell 已停止显示，可暂停只在可见期间运行的动画 |
+
+prepareForReuse() 在已有 Cell 被取出准备重用时调用，不是在 Cell 刚离屏时立即调用。重写该方法必须调用 super.prepareForReuse()。新建 Cell 不通过这个方法完成初始化。内容仍应由配置方法完整赋值，不能依赖 prepareForReuse() 先清空全部内容；reconfigureRows(at:) 更新已有 Cell 时不会调用 prepareForReuse()。
+
+收藏、展开或输入内容等需要长期保留的状态，应存到数据模型或按数据 ID 管理的状态中，不应只保存在可重用的 Cell 上。固定视图与约束的创建时机见[多元素 Cell 的配置成本](#多元素-cell-的配置成本)。
+
+### 预取与重用数量
+
+预取是提前准备可能即将需要的内容。UIKit 的 Cell 预取机制可能在 Cell 进入屏幕前调用数据源并配置 Cell。已配置的 Cell 可能最终没有显示；已停止显示的 Cell 也可能继续保留当前配置，随后再次显示同一行。因此，cellForRowAt、willDisplay、didEndDisplaying 和 prepareForReuse 不一定严格一一对应。
+
+1,000 行数据不要求同时保留 1,000 个 Cell，但创建数量也不固定等于可见行数或“可见行数加一”。数量受布局、预取和系统管理影响。兼容的视图结构应共享重用标识；不同结构可使用不同标识。为每行设置唯一标识会妨碍不同数据行共享已有 Cell。
+
+异步结果与 Cell 当前数据的匹配规则见[长列表性能与异步图片复用](#长列表性能与异步图片复用)。图片请求的共享、取消与结果校验见[长列表图片任务调度](image-loading-decoding-and-memory.md#长列表图片任务调度)。
+
 ## UICollectionView 的职责与复用
 
 UICollectionView 展示一组可滚动内容。Cell 展示单项；DataSource 提供数量与配置好的 Cell；Delegate 处理点击等交互；Layout 提供位置、尺寸等布局信息。数据按 section／item 组织，IndexPath 表示当前位置，不是永久业务身份。
@@ -319,7 +398,7 @@ View 持有协议类型的 ViewModel，可以降低 View 对某个具体实现�
 
 优化时先测量瓶颈，再选择：复用 Cell 并完整覆盖状态；避免滚动中全量刷新；稳定内容按 ID 缓存布局结果；按展示像素尺寸请求缩略图并下采样；在合适的后台路径解码；使用有容量限制的内存／磁盘缓存；合并重复请求、限制并发、预取即将可见内容并取消无用预取；离屏暂停动画／视频；合并同一帧内的 UI 更新。
 
-Cell 复用主要减少视图创建／销毁、重复布局对象和内存占用，不会自动取消网络请求或清空旧状态。异步赋图前需要在主线程检查当前绑定的内容 ID／请求标识，再连续完成赋值；只保留 Cell 引用并不能保证它仍代表原来的数据。
+Cell 复用主要减少视图创建／销毁、重复布局对象和内存占用，不会自动取消网络请求或清空旧状态。异步赋图前需要在主线程检查当前绑定的内容 ID／请求标识，再连续完成赋值；只保留 Cell 引用并不能保证它仍代表原来的数据。 例如 Cell A 为数据 X 发起图片请求，随后改为显示数据 Y；X 的旧回调若直接赋图，就会覆盖 Y 的图片。取消旧请求不能代替结果归属检查；[weak cell] 只避免强持有 Cell，不保证 Cell 仍显示原数据。也可以按稳定数据 ID 保存结果，再刷新当前对应的行，避免旧回调直接修改已重用的 Cell。
 
 ### 多元素 Cell 的配置成本
 

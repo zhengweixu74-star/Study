@@ -25,8 +25,8 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [Swift 语言基础](language/swift-basics.md) | 类型、属性、协议与泛型、闭包、集合和相等规则；Swift 与 C 接口互操作 |
-| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 对象布局、关联对象、方法派发、Objective-C 互操作与 KVO；+load 与自动注册 |
+| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、枚举与类型转换；属性、协议与泛型、闭包、集合和相等规则；Swift 与 C 接口互操作 |
+| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、Objective-C 互操作与 KVO；+load 与自动注册 |
 
 [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：类型标注与推断、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
 
@@ -53,7 +53,7 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、启动到首帧、UIWindow、触摸分发与键盘输入 |
-| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 生命周期、视图层级、布局、列表复用、ViewModel 与容器控制器 |
+| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 生命周期、视图层级、布局、UITableView 重用与预取、ViewModel 与容器控制器 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度 |
 | [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、线程安全、锁、RunLoop、Timer 与 CADisplayLink |
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
