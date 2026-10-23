@@ -116,6 +116,8 @@
 
 相关专题：[IPA、.app 与 Mach-O](engineering/xcode-and-testing.md#ipaapp-与-mach-o)；[Mach-O 的加载信息](engineering/xcode-and-testing.md#mach-o-的加载信息)；[预设虚拟地址、ASLR 与物理内存](engineering/xcode-and-testing.md#预设虚拟地址aslr-与物理内存)。内容范围：安装分发包与应用目录、可执行文件的加载信息、启动地址随机化，以及虚拟地址与物理地址的映射。
 
+相关专题：[Swift 编译优化选项与体积](language/swift-objc-runtime.md#swift-编译优化选项与体积)；[iOS 包体积优化](engineering/xcode-and-testing.md#ios-包体积优化)。内容范围：`-Osize` 与内联、Dead Code Stripping、资源与依赖精简、符号与 `dSYM`、资源变体和 App Thinning。
+
 ## 网络与存储
 
 | 文档 | 内容范围 |
