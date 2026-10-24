@@ -23,6 +23,8 @@
 
 基础语义与内存管理的小节：[闭包与 Delegate](#闭包与-delegate)。
 
+相关专题：[值类型方法中的 mutating](#值类型方法中的-mutating)；[weak 与 unowned 的使用条件](#weak-与-unowned-的使用条件)；[some 和 any 用于参数](#some-和-any-用于参数)；[默认捕获与捕获列表](#默认捕获与捕获列表)；[集合类型与 for-in 遍历](#集合类型与-for-in-遍历)。
+
 内存管理补充：[ARC 与 Android GC：引用计数、可达性与引用环](#arc-与-android-gc引用计数可达性与引用环)。
 
 内存管理补充：[结构体、枚举与值的生命周期](#结构体枚举与值的生命周期)。
@@ -44,6 +46,45 @@
 **实例 lazy。** 普通实例的 lazy 存储属性在首次读取时执行初始化并保存结果，后续读取已有值。它适合初始化有成本且未必使用的属性，不能直接套用 `static let` 的单次初始化保证。
 
 **错误处理。**`throws` 表示函数可能抛错；`try` 本身不捕获错误，应使用 `do-catch` 捕获或向外传播。`try?` 在抛错时得到 nil 并丢弃具体错误；`try!` 遇到抛错会触发运行时错误，不等于强制解包返回的 Optional。
+
+### 值类型方法中的 mutating
+
+`mutating` 表示值类型的实例方法可以修改当前实例的值，包括给存储属性赋值或替换整个 `self`。普通结构体和枚举的方法要执行这些修改时，需要声明为 `mutating`。类的方法修改对象属性时，不需要这个修饰符。
+
+```swift
+struct Counter {
+    var count = 0
+
+    mutating func increment() {
+        count += 1
+    }
+}
+
+var counter = Counter()
+counter.increment()
+counter.count = 10
+
+let fixed = Counter()
+// fixed.increment() // 编译错误：不能修改 let 保存的结构体值
+```
+
+`var count` 使属性可修改，`mutating` 允许方法修改当前结构体值，调用位置的 `var counter` 允许保存修改后的值。这三个条件分别约束属性、方法和调用位置。直接执行 `counter.count = 10` 不需要在赋值语句前写 `mutating`。
+
+```swift
+final class CounterObject {
+    var count = 0
+
+    func increment() {
+        count += 1
+    }
+}
+
+let object = CounterObject()
+object.increment() // 允许：对象中的 count 是可写属性
+// object = CounterObject() // 编译错误：let 不允许更换对象引用
+```
+
+类引用上的 `let` 限制变量改为指向另一个对象，不会把对象中的全部属性变成常量。若结构体属性保存类引用，非 `mutating` 方法也可以修改被引用对象的可写属性；该操作没有替换结构体保存的引用，也没有修改结构体自身的值。
 
 ### 普通函数参数与局部变量
 
@@ -193,6 +234,46 @@ let result = makePhoto()
 
 **值被返回或保存在外部。** `makePhoto()` 返回后，局部变量名 `photo` 已不可用，但返回的 `Photo` 值仍由 `result` 保存。`result` 中的 `image` 强引用仍可保持 `Image` 实例存活。如果值保存在对象的存储属性中，属性被替换或所属对象被销毁时会清理对应的旧值。如果一个离开当前作用域后仍然存活的闭包保留了值或捕获的变量存储，相关资源也可以继续存活。创建值的函数结束，不会自动清除这些外部保存关系。
 
+下面的 `Box` 保存一个值类型属性。把属性读出并赋给 `savedSize` 后，`savedSize` 保存独立的结构体值。
+
+```swift
+struct Size {
+    var width = 10
+}
+
+final class Box {
+    var size = Size()
+}
+
+var box: Box? = Box()
+let savedSize = box!.size
+box = nil // 示例中没有其他强引用，Box 可以销毁
+print(savedSize.width) // 10
+```
+
+`Box` 销毁时，`Box.size` 中那份值的生命周期结束，已经复制到 `savedSize` 的值仍然有效。值内部的类引用或数组共享存储是否释放，仍取决于这些资源是否被其他值或对象持有。
+
+### weak 与 unowned 的使用条件
+
+`weak` 和 `unowned` 都不通过强引用保持目标类实例存活。区别在于目标销毁后如何处理这条引用。
+
+| 声明 | 目标销毁后的行为 | 使用条件 |
+| --- | --- | --- |
+| `weak var target: T?` | 自动变成 `nil` | 允许目标先销毁，访问方需要处理目标不存在的情况 |
+| `unowned let target: T` | 不会自动变成 `nil`；访问已销毁目标会触发运行时错误 | 每次访问时都能保证目标仍然存在 |
+| `unowned var target: T?` | 可以主动赋为 `nil`，但不会在目标销毁时自动置空 | 程序必须保证每次读取时保存的是有效引用或 `nil` |
+
+`weak` 适合可能先于调用方销毁的委托对象，以及页面销毁后应跳过操作的闭包捕获。`unowned` 适合生命周期关系已经得到保证的反向引用。例如，辅助对象只在所属对象存活期间使用，且程序能保证辅助对象不会在所属对象销毁后访问该反向引用。仅仅由所属对象持有辅助对象，并不能证明这个条件成立。
+
+```swift
+// 在页面的实例方法中设置回调；loader 保存该闭包。
+loader.onFinish = { [weak self] in
+    self?.handleResult()
+}
+```
+
+页面已销毁时，闭包中的 `self` 为 `nil`，因此跳过 `handleResult()`。如果改成 `[unowned self]`，则必须保证闭包每次执行时页面都还活着。异步执行本身不要求一律使用弱引用；如果任务必须保持对象存活，强引用可能符合需要，但仍应检查是否形成无法解除的强引用环。
+
 ### 闭包与 Delegate
 
 #### 概念与职责
@@ -228,6 +309,51 @@ let result = makePhoto()
 
 **持有关系。** 组件保存闭包时，闭包可能强引用捕获的对象，因此需要检查循环引用。Delegate 属性通常声明为 weak，但 weak 不会保持委托对象存活，必须有其他对象负责持有委托对象。
 
+下面用按钮通知页面说明委托调用。`ButtonDelegate` 定义通知方法，`Page` 实现这个方法，`Button` 在点击时调用委托对象。`AnyObject` 的类类型限制见[协议继承与类继承的区别](#协议继承与类继承的区别)。
+
+```swift
+protocol ButtonDelegate: AnyObject {
+    func buttonDidTap(_ button: Button)
+}
+
+final class Button {
+    weak var delegate: (any ButtonDelegate)?
+
+    func tap() {
+        delegate?.buttonDidTap(self)
+    }
+}
+
+final class Page: ButtonDelegate {
+    let button = Button()
+
+    init() {
+        button.delegate = self
+    }
+
+    func buttonDidTap(_ button: Button) {
+        print("页面收到按钮点击事件")
+    }
+}
+```
+
+`Page.init()` 把页面设置为按钮的委托对象。调用 `button.tap()` 后，按钮读取 `delegate`；若委托对象存在，按钮调用页面的 `buttonDidTap`，并把按钮自身作为参数传入。页面收到通知后执行对应方法。`ButtonDelegate` 是协议，实际承担委托职责的对象是 `Page` 实例。
+
+页面强引用按钮，按钮通过 `weak delegate` 引用页面。如果去掉 `weak`，这两个对象就会相互强引用。外部释放页面后，这个强引用环仍会让两个对象保持存活。
+
+```swift
+var page: Page? = Page()
+let button = page!.button // 外部也持有这个按钮
+button.tap()             // 页面收到按钮点击事件
+
+page = nil               // 示例中没有其他强引用指向页面
+button.tap()             // 按钮还在，但 delegate 已为 nil
+```
+
+页面持有按钮，只能保证页面保持这条强引用期间按钮存活，不能反过来保证按钮存活时页面也存活。上例中，页面销毁后，外部变量仍持有按钮。
+
+如果把属性改成 `unowned var delegate: (any ButtonDelegate)? = nil`，页面销毁后 `delegate` 不会自动清空。随后调用 `button.tap()` 会在读取已失效的 `unowned` 引用时触发运行时错误。`delegate?.buttonDidTap(self)` 只能跳过值为 `nil` 的情况，不能保护已经失效的 `unowned` 引用。选择条件见[weak 与 unowned 的使用条件](#weak-与-unowned-的使用条件)。
+
 ### 协议继承与类继承的区别
 
 协议可以继承一个或多个协议。子协议在已有协议的要求之上增加要求或约束；遵循子协议的类型，也必须满足继承而来的要求和约束。
@@ -252,6 +378,18 @@ Stoppable 继承 Movable，因此 Cursor 需要满足 move() 和 stop() 两个�
 协议继承本身不会提供父类那样的实例存储和方法实现。协议扩展可以提供默认实现，但那属于协议扩展的能力，不能把“继承了协议”直接理解为“获得了实现”。类继承则可以继承父类的属性和方法实现。
 
 协议要求还需要区分必需和可选。普通 Swift 协议中的方法要求默认是必需的；适用 Objective-C 互操作的协议可以声明 optional 要求。UIKit 的 UICollectionViewDelegate、UIScrollViewDelegate 等协议包含可选回调，遵循协议不表示必须实现每一个回调。
+
+`AnyObject` 是 Swift 的特殊协议，不是类。所有类类型都自动符合 `AnyObject`，不需要显式声明遵循关系。
+
+```swift
+protocol ButtonDelegate: AnyObject {
+    func buttonDidTap(_ button: Button)
+}
+```
+
+这里沿用[按钮委托示例](#闭包与-delegate)中的类型声明。`ButtonDelegate: AnyObject` 把协议限制为只能由类遵循，因此普通结构体和枚举不能遵循 `ButtonDelegate`。这个写法没有为遵循者指定父类。
+
+`weak` 只能用于类实例的引用。`AnyObject` 约束使编译器能够确定 `any ButtonDelegate` 中保存的是类实例引用，因此允许声明 `weak var delegate: (any ButtonDelegate)?`。如果没有其他类类型限制，去掉 `AnyObject` 后，编译器就不能接受这条 `weak` 声明。
 
 ## 类型安全、值语义与动态能力
 
@@ -698,30 +836,106 @@ Swift 的 `extension` 可以添加实例计算属性，但不能添加实例存�
 
 ## 协议存在类型与泛型约束
 
-本节使用的 `Speaker` 协议，以及 `Dog`、`Cat` 类型，定义见[协议见证表示例](swift-objc-runtime.md#协议见证表与遵循关系)。
+协议定义类型必须满足的能力要求。泛型使用类型参数编写能够处理多种类型的代码；协议可以作为泛型参数的约束。两者可以共同使用，不是互相替代的机制。
+
+本节使用的 `Speaker` 协议，以及 `Dog`、`Cat` 类型，定义见[协议见证表示例](swift-objc-runtime.md#协议见证表与遵循关系)。`Speaker` 要求实现 `speak()`，`Dog` 和 `Cat` 是两个独立的结构体类型。
+
+### 泛型保留类型关系，any 隐藏具体静态类型
+
+`any Speaker` 是协议存在类型：变量可以保存任意遵循 `Speaker` 的值，但通过该变量使用时，编译器只按公开的协议约束检查操作。这里的类型擦除是隐藏接口上的具体静态类型关系，不是删除运行时的实际类型。
 
 ```swift
-func makeSound(_ value: any Speaker) {
+func makeGenericSound<T: Speaker>(_ value: T) -> T {
     value.speak()
+    return value
 }
 
-func makeGenericSound<T: Speaker>(_ value: T) {
+func makeSound(_ value: any Speaker) -> any Speaker {
     value.speak()
+    return value
 }
+
+let dog: Dog = makeGenericSound(Dog()) // 输入 Dog，返回类型仍是 Dog
+let result = makeSound(Dog())         // 静态类型为 any Speaker
+// let otherDog: Dog = result         // 编译错误：不能直接当作 Dog
+result.speak()                       // 仍然执行 Dog 的实现
 ```
 
-只传一个值并调用 speak 时，两者可以表现出相同结果。any Speaker 表示可以承载不同遵循类型的存在类型值；泛型 T 保留函数签名中具体类型之间的关系，函数对每个满足约束的 T 都适用。
-
-更容易看出区别的例子：
+泛型签名中的输入和输出使用同一个 `T`，因此调用方知道返回值与输入值具有相同类型。`makeSound` 的签名只承诺返回某个遵循 `Speaker` 的值，没有承诺与输入是同一个具体类型。运行时仍保存实际类型信息，需要时可以通过类型转换检查实际类型。
 
 ```swift
 func sameType<T: Speaker>(_ first: T, _ second: T) {}
 func possiblyDifferent(_ first: any Speaker, _ second: any Speaker) {}
+
+sameType(Dog(), Dog())
+// sameType(Dog(), Cat()) // 编译错误：两个独立结构体不能统一为同一个 T
+possiblyDifferent(Dog(), Cat()) // 允许
 ```
 
-前者要求两个参数能统一为同一个 T；对前面的两个独立 struct Dog 和 Cat，不能把它们直接作为同一个 T 传入。后者允许分别传入 Dog 和 Cat。泛型并不保证每次都静态派发，any 也不保证每次都发生堆分配，具体表示与优化有关。
+`sameType` 要求两个参数能统一为同一个 `T`；这个要求不等于任意场景下运行时类都必须完全相同，例如类可以通过共同父类统一。上例中的 `Dog`、`Cat` 是独立结构体，因此不能直接满足同一个 `T`。泛型函数体按声明的约束检查，不能因为某次调用传入 `Dog`，就在函数体里直接访问 `Speaker` 未要求的 `Dog` 专属成员。
 
-能否把 `any Speaker` 简写为 `Speaker`，取决于 Swift 版本、语言模式和 ExistentialAny 等设置，不能仅凭 Swift 6 版本号作判断。示例显式写 `any`，便于与泛型约束区分。
+### some 用于返回值和存储属性
+
+`some Speaker` 表示不公开具体名称、但保留类型身份的某个遵循类型，称为不透明类型。用于下面的非泛型返回值时，函数实现决定具体类型；所有返回路径必须使用同一个底层类型。
+
+```swift
+func makeDog() -> some Speaker {
+    Dog()
+}
+
+func chooseSpeaker(_ useDog: Bool) -> any Speaker {
+    if useDog { return Dog() }
+    return Cat()
+}
+
+var fixedSpeaker: some Speaker = Dog()
+// fixedSpeaker = Cat() // 编译错误：不能换成另一种遵循类型
+
+var flexibleSpeaker: any Speaker = Dog()
+flexibleSpeaker = Cat() // 允许
+
+let speakers: [any Speaker] = [Dog(), Cat()]
+```
+
+如果把 `chooseSpeaker` 的返回类型改成 `some Speaker`，两个返回分支分别使用 `Dog` 和 `Cat`，会违反底层类型一致的要求。泛型不透明返回值的底层类型可以依赖泛型参数；同一组泛型参数下仍需满足一致性要求。
+
+### some 和 any 用于参数
+
+```swift
+func show(_ value: some Speaker) {
+    value.speak()
+}
+
+// 对这个函数，等价于显式泛型写法：
+func showGeneric<T: Speaker>(_ value: T) {
+    value.speak()
+}
+
+show(Dog())
+show(Cat())
+```
+
+参数位置的 `some Speaker` 是匿名泛型参数的简写，调用方为每次调用确定具体类型。不同调用可以传入不同类型。返回值位置的 `some Speaker` 则由实现确定底层类型，不能把两种位置的决定方式混为一谈。
+
+```swift
+func showSome(_ value: some Speaker) {
+    var current = value
+    // current = Cat() // 编译错误：current 的类型是本次的泛型类型
+    current.speak()
+}
+
+func showAny(_ value: any Speaker) {
+    var current = value
+    current = Cat() // 允许：current 的类型是 any Speaker
+    current.speak()
+}
+```
+
+即使某次调用 `showSome(Cat())`，函数体也必须对所有满足约束的类型成立，所以仍不能写任意 `Cat` 赋给 `current`。若确实需要更换具体类型，可以在泛型函数中显式声明 `var current: any Speaker = value`。
+
+两个分别写成 `some Speaker` 的参数表示两个独立的匿名泛型参数，不自动要求类型相同。需要表达多个参数或返回值之间的同类型关系时，应使用显式的同一个 `T`。
+
+泛型不保证每次都使用静态派发，`any` 也不保证每次都发生堆分配；实际调用和存储方式受实现及编译优化影响。能否把 `any Speaker` 简写为 `Speaker`，取决于 Swift 版本、语言模式和 ExistentialAny 等设置，不能仅凭 Swift 6 版本号作判断。
 
 ## 逃逸闭包与执行时机
 
@@ -793,6 +1007,86 @@ actionHandler = { [weak self] item, selected in
 ```
 
 `[weak self]` 后面的 `in` 用于结束闭包头部。即使省略了显式参数名，只要写了捕获列表，这个 `in` 仍需保留。闭包体使用的外部变量属于捕获值，不会自动占用 `$0` 或 `$1` 的位置。
+
+### 默认捕获与捕获列表
+
+捕获使闭包能够在执行时访问定义位置的外部变量或值。对于下面会发生修改的局部 `var`，默认捕获让闭包和外部代码共享同一个变量的存储。默认捕获不等于在创建闭包时给闭包内部的同名变量赋一次值。
+
+```swift
+func captureVariable() {
+    var count = 0
+    let increment = { count += 1 }
+
+    count = 10
+    increment()
+    print(count) // 11
+}
+```
+
+`increment` 修改的就是外部 `count`。即使 `Int` 是值类型，也不能据此认为默认捕获一定复制创建闭包时的整数值。
+
+显式写 `[count]` 时，捕获列表在创建闭包时读取外部 `count`，并初始化闭包捕获的常量。这个动作只在创建该闭包时执行，不会在每次调用闭包时重新读取外部变量。
+
+```swift
+func captureValue() {
+    var count = 0
+    let printSaved = { [count] in
+        print(count)
+        // count += 1 // 编译错误：捕获列表中的 count 是常量
+    }
+
+    count = 10
+    printSaved() // 0
+}
+```
+
+### 捕获对象引用与对象内容
+
+当变量保存类实例引用时，`[object]` 保存创建闭包时的对象引用，不复制对象本身。默认捕获可变局部变量则继续访问该变量，能够看到变量随后改为指向的对象。
+
+```swift
+final class CapturedCounter {
+    var value = 0
+}
+
+func captureObject() {
+    var object = CapturedCounter() // 对象 A
+    let sharedVariable = { print(object.value) }
+    let savedReference = { [object] in print(object.value) }
+
+    object.value = 10
+    savedReference() // 10：捕获的是 A 的引用，不是 A 的内容快照
+
+    object = CapturedCounter() // 变量改为指向对象 B
+    object.value = 20
+    sharedVariable() // 20：读取外部变量当前指向的 B
+    savedReference() // 10：仍指向创建闭包时的 A
+}
+```
+
+`[object]` 中的常量限制闭包更换这条引用，不限制修改对象的可写属性。默认捕获和 `[object]` 都可以保持相关对象存活；`[weak object]` 不保持对象存活。`weak` 与 `unowned` 的访问条件见[weak 与 unowned 的使用条件](#weak-与-unowned-的使用条件)。
+
+如果外部是 `let object`，外部代码不能让这个名称改为指向另一对象。在上述访问对象的场景中，默认捕获和 `[object]` 指向相同对象，均能看到该对象属性的后续修改。
+
+### 捕获存储与函数返回
+
+闭包可以在创建它的函数返回后继续使用捕获内容。对于需要共享且会被修改的局部变量，编译器可以安排一块由闭包共同持有的存储，使变量的有效存储继续存在。不能将这种语义理解成闭包只保留原函数栈上一个随后失效的地址。
+
+```swift
+func makeIncrementer() -> () -> Int {
+    var count = 0
+    return {
+        count += 1
+        return count
+    }
+}
+
+let next = makeIncrementer()
+print(next()) // 1
+print(next()) // 2
+```
+
+共享存储是理解可变变量捕获的实现方式之一，不表示所有捕获都一定分配在堆上。编译器可以复制不再修改的值，或消除不必要的存储，只要保留程序可观察的行为。
 
 ## 多行字符串与脚本执行
 
@@ -884,34 +1178,52 @@ let likeCounts = collect(comments, by: \Comment.likeCount) // [2]
 
 如果函数内部固定写 `comment.text`，函数就固定读取 `text`，不能通过上述参数选择 `likeCount`。键路径适用于需要传递或复用属性访问方式的场景；单次读取固定属性不需要引入键路径。
 
-**容器与协议：**
+### 集合类型与 for-in 遍历
 
-Array、Set、Dictionary 都遵循 Sequence，也遵循 Collection。
+集合类型用于把多个数据元素组织成一个值，并提供保存、访问、遍历以及按类型规则修改元素的操作。`Array` 适合按位置保存一组元素，`Set` 适合去重和判断元素是否存在，`Dictionary` 适合通过键查找对应的值。
 
-| 类型 | 遍历得到的元素 | 顺序 |
-|-|-|-|
-| Array<Int> | 一个 Int | 按数组索引顺序 |
-| Set<Int> | 一个 Int | 不保证插入顺序或排序顺序 |
-| Dictionary<String, Int> | 一个 (key: String, value: Int) 元组 | 不保证插入顺序或排序顺序 |
+| 类型 | 保存规则 | 遍历得到的元素 | 遍历顺序 |
+| --- | --- | --- | --- |
+| `Array<Int>` | 允许重复元素，元素有明确位置 | 一个 `Int` | 按数组索引顺序 |
+| `Set<Int>` | 不保存重复元素 | 一个 `Int` | 不保证插入顺序或排序顺序 |
+| `Dictionary<String, Int>` | 键唯一，不同键可以对应相同的值 | 一个 `(key: String, value: Int)` 元组 | 不保证插入顺序或排序顺序 |
+
+`Sequence` 协议规定逐个遍历元素的能力，`for-in` 使用这种能力。`Collection` 协议在此基础上增加可多次遍历和按索引访问等约定。`Array`、`Set`、`Dictionary` 都遵循这两个协议，因此都支持 `for-in`。
 
 ```swift
-let ages = ["小明": 18, "小红": 20]
-for element in ages {
-    print(element.key)
-    print(element.value)
+let nums = [1, 2, 2]
+for num in nums {
+    print(num) // 依次输出 1、2、2
 }
 
-let numbers: Set<Int> = [1, 2, 3]
-let doubled = numbers.map { $0 * 2 }
-// doubled 是 [Int]，不保证按 2、4、6 排列
+let uniqueNums: Set<Int> = [1, 2, 2]
+for num in uniqueNums {
+    print(num) // 只包含 1 和 2，不保证输出顺序
+}
 
-let names = ages.map { $0.key }
-// names 是 [String]，不保证按插入顺序排列
+let scores = ["小明": 90, "小红": 95]
+for (name, score) in scores {
+    print(name, score)
+}
+
+for entry in scores {
+    print(entry.key, entry.value)
+}
 ```
 
-上面 map 的结果都是数组，不会自动维持输入的 Set 或 Dictionary 类型。Sequence 强调能够逐个遍历，不要求按插入顺序排列；“顺序不保证”也不等于同一容器每次遍历必然随机变化。
+字典每次提供一个键值元组。`(name, score)` 把元组的两个成员分别绑定到名称上；`entry.key` 和 `entry.value` 则通过元组标签访问同一组数据。元组与字典的结构区别见[元组、字典与空元组 Void](#元组字典与空元组-void)。
 
-`Sequence` 规定逐个遍历的能力；`Collection` 在此基础上增加可多次遍历和按索引访问等约定。`Set` 是保存不重复元素的具体类型。一般意义上的集合、Collection 协议与 Set 类型需要分开。
+“顺序不保证”不等于同一集合每次遍历必然随机变化。需要固定的排序结果时，可以先对元素或键排序，再遍历排序结果。
+
+```swift
+let doubled = uniqueNums.map { $0 * 2 }
+// doubled 是 [Int]，元素为 2 和 4，顺序不保证
+
+let names = scores.map { $0.key }
+// names 是 [String]，顺序不保证
+```
+
+上面 `map` 的结果都是数组，不会自动维持输入的 `Set` 或 `Dictionary` 类型。一般意义的集合、`Collection` 协议和 `Set` 类型是不同概念。“集合类型”描述数据组织用途，“值类型”描述赋值等操作的语义；`Array` 既是集合类型，也是结构体实现的值类型。
 
 ### 数组值语义、写时复制与返回值
 

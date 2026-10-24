@@ -16,6 +16,8 @@
 - [编译阶段、机器码与内联](#编译阶段机器码与内联)
 - [协议见证表与遵循关系](#协议见证表与遵循关系)
 - [Objective-C 互操作、Selector 与 IMP](#objective-c-互操作selector-与-imp)
+- [消息转发的接收者与执行过程](#消息转发的接收者与执行过程)
+- [Method Swizzling 与使用场景](#method-swizzling-与使用场景)
 - [Selector 字符串与方法映射](#selector-字符串与方法映射)
 - [@objcMembers 与 Objective-C 兼容限制](#objcmembers-与-objective-c-兼容限制)
 - [KVO 观察关系与属性访问](#kvo-观察关系与属性访问)
@@ -376,6 +378,65 @@ setter 修改 age
 KVO 改变查找起点及对应实现，selector 始终可以是同一个 setAge:，不存在“往 selector 里面放入新的 setter”。
 
 对于暴露给 OC、没有自定义访问器名称的普通 name 属性，getter 的 selector 是 `name`，setter 是 **`setName:`**。最后的冒号是名称的一部分，表示有一个显式参数，即要设置的新值；`setName` 与 `setName:` 是两个不同 selector。
+
+### 消息转发的接收者与执行过程
+
+消息转发是在普通方法查找和动态方法解析未解决调用时，由接收者提供进一步处理的机制。快速转发可以把消息交给另一个对象；完整转发则通过方法签名和 `NSInvocation` 表达并处理这次调用。
+
+假设对象 A 没有实现 `speak`，A 的 `speaker` 属性引用对象 B，且 B 实现了 `speak`。A 可以提供下面的方法，把 `speak` 消息交给 B。
+
+```objective-c
+- (id)forwardingTargetForSelector:(SEL)aSelector {
+    if (aSelector == @selector(speak)) {
+        return self.speaker;
+    }
+    return [super forwardingTargetForSelector:aSelector];
+}
+```
+
+调用方给 A 发送 `speak` 消息。正常查找和动态方法解析没有提供实现后，运行时调用 A 的 `forwardingTargetForSelector:`，传入 `speak` 对应的 Selector。A 返回 B，运行时随后把该消息交给 B，由 B 的 `speak` 实现执行。A 主动指定接收者，运行时不会自动遍历程序中所有对象寻找同名方法。
+
+若快速转发没有提供可处理的接收者，完整转发需要 `methodSignatureForSelector:` 提供方法的参数和返回值类型信息，再由 `forwardInvocation:` 处理调用。若最终仍未处理，默认会产生无法识别 Selector 的异常。消息转发可用于代理对象把不自行实现的接口交给实际工作对象；转发本身不表示切换线程。
+
+## Method Swizzling 与使用场景
+
+Method Swizzling 是在运行时交换或替换方法标识与实际实现之间对应关系的做法。`method_exchangeImplementations` 可以交换两个方法的实现。Selector 是调用时使用的方法标识，IMP 是实际实现的函数入口，定义见[Objective-C 互操作、Selector 与 IMP](#objective-c-互操作selector-与-imp)。
+
+假设同一个类中已有 `speak` 和 `trackedSpeak` 两个方法，其参数和返回类型一致。交换前后可以表示为：
+
+| Selector | 交换前的实现 | 交换后的实现 |
+| --- | --- | --- |
+| `speak` | 原始发声逻辑 | 记录调用并调用原始逻辑 |
+| `trackedSpeak` | 记录调用并调用原始逻辑 | 原始发声逻辑 |
+
+下面只展示“交换已经完成”后的包装方法逻辑，不是可独立使用的安装代码。
+
+```objective-c
+- (void)trackedSpeak {
+    NSLog(@"记录一次 speak 调用");
+    [self trackedSpeak]; // 交换后，这个 Selector 对应原始 speak 实现
+}
+```
+
+交换完成后，调用方仍发送 `speak` 消息。运行时找到的是包装实现，先记录，再通过 `trackedSpeak` 对应的实现执行原始逻辑。如果交换尚未完成就执行这个包装方法，`[self trackedSpeak]` 会再次调用自身，形成递归，因此不能脱离前提理解这个写法。
+
+消息转发主要解决“当前接收者无法直接处理这次消息”，可以改变接收者；Swizzling 则修改“某个方法标识对应哪个实现”。这两种机制的触发条件和修改对象不同。
+
+### 适用场景与直接修改方法的区别
+
+如果原方法源码由自己维护，直接在方法中加入记录或其他逻辑，通常就能完成需求。已有共同父类时，也可以通过父类实现或重写方法统一行为。增加统计本身不构成必须使用 Swizzling 的理由。
+
+| 场景 | 需要补充的行为 | 采用 Swizzling 的原因 |
+| --- | --- | --- |
+| 通用页面统计组件 | 在页面出现等方法执行时记录事件 | 组件无法逐个修改接入方页面的源码，且相关调用经过目标方法 |
+| 第三方集成组件 | 在应用回调发生时记录或转交信息 | 组件需要参与宿主已有回调，但不直接维护宿主实现 |
+| 方法调用诊断 | 记录调用次数、参数或同步执行耗时 | 目标实现无法直接编辑，需要在相应运行时入口补充逻辑 |
+
+直接修改源码和 Swizzling 都可以保持调用方的调用语句不变。关键区别是修改原始实现源码，还是修改运行时的方法映射。系统或已编译库通常不提供可编辑的方法实现；这时运行时机制才可能提供额外的接入方式。
+
+修改类的方法映射通常会影响所有经过该映射的调用，不只影响某一个实例。子类重写了方法且没有经过被修改的实现时，不会自动被覆盖。多个组件交换同一个方法还会相互影响调用顺序。选择这种机制前，需要明确目标类、方法、派发路径和交换时机。
+
+这些规则针对 Objective-C 消息派发。原生 Swift 的静态调用或虚方法表调用不会因为交换某个 Objective-C 方法实现就自动改变；`@objc` 与 `dynamic` 的作用见[Objective-C 互操作、Selector 与 IMP](#objective-c-互操作selector-与-imp)。Swift 与 Objective-C 的性能取决于具体代码和调用路径，不能仅根据语言名称判断谁一定更快。
 
 ## Selector 字符串与方法映射
 
