@@ -27,7 +27,7 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历；Swift 与 C 接口互操作 |
+| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法 |
 | [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVO、+load 与自动注册 |
 
 [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：类型标注与推断、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
@@ -46,6 +46,8 @@
 
 补充专题：[inout 与内存独占访问](language/swift-basics.md#inout-与内存独占访问)；[actor 的默认隔离与重入](language/swift-basics.md#actor-的默认隔离与重入)；[MainActor、主队列与异步调用](language/swift-basics.md#mainactor主队列与异步调用)；[数组值语义、写时复制与返回值](language/swift-basics.md#数组值语义写时复制与返回值)；[自定义 CoW 与引用唯一性检查](language/swift-basics.md#自定义-cow-与引用唯一性检查)；[ArraySlice 的存储保留与索引](language/swift-basics.md#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](language/swift-basics.md#类的两阶段初始化与-self-使用时机)。
 
+并发补充：[Task、Task.detached 与任务局部值](language/swift-basics.md#tasktaskdetached-与任务局部值)；[DispatchGroup 与 DispatchSemaphore](ios/threads-and-scheduling.md#dispatchgroup-与-dispatchsemaphore)。内容范围：任务与闭包、上下文继承、自动调度、完成通知、信号量初始值与配对规则。
+
 ## iOS 界面、事件与调度
 
 相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。
@@ -59,7 +61,7 @@
 | [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、启动到首帧、UIWindow、触摸分发与键盘输入 |
 | [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 生命周期、视图层级、布局、UITableView 重用与预取、ViewModel 与容器控制器 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度 |
-| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、线程安全、锁、RunLoop、Timer 与 CADisplayLink |
+| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息 |
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
 
 相关专题：[圆角、边界裁剪与离屏渲染](ios/rendering-and-performance.md#圆角边界裁剪与离屏渲染)。内容范围：cornerRadius、masksToBounds、clipsToBounds、离屏渲染条件、shadowPath，以及圆角图片与外部阴影的组合。
