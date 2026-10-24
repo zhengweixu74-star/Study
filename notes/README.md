@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 28 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 29 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -10,7 +10,7 @@
 
 | 分类 | 文档数 |
 | --- | --- |
-| [语言与运行时](language/) | 4 |
+| [语言与运行时](language/) | 5 |
 | [iOS 界面、事件与调度](ios/) | 8 |
 | [Android 界面与动画](android/) | 6 |
 | [跨平台与宿主通信](cross-platform/) | 2 |
@@ -22,6 +22,8 @@
 | [操作系统基础](operating-systems/README.md) | 1 |
 
 ## 语言与运行时
+
+[Kotlin 协程与 suspend](language/kotlin-coroutines-and-suspend.md)：协程与挂起函数、启动与顺序执行、挂起与阻塞的区别，以及与 Swift Task、async 和 await 的对应关系。
 
 | 文档 | 内容范围 |
 | --- | --- |
@@ -45,6 +47,8 @@
 补充专题：[inout 与内存独占访问](language/swift-basics.md#inout-与内存独占访问)；[actor 的默认隔离与重入](language/swift-basics.md#actor-的默认隔离与重入)；[MainActor、主队列与异步调用](language/swift-basics.md#mainactor主队列与异步调用)；[数组值语义、写时复制与返回值](language/swift-basics.md#数组值语义写时复制与返回值)；[自定义 CoW 与引用唯一性检查](language/swift-basics.md#自定义-cow-与引用唯一性检查)；[ArraySlice 的存储保留与索引](language/swift-basics.md#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](language/swift-basics.md#类的两阶段初始化与-self-使用时机)。
 
 ## iOS 界面、事件与调度
+
+相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。
 
 [iOS 进程间通信与应用扩展](ios/interprocess-communication-and-extensions.md)：App Extension、主要通信方式、App Groups 共享目录、Darwin 通知、UNIX domain socket 路径与数据传递，以及 XPC 的使用边界。
 
