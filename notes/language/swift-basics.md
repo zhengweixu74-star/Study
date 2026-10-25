@@ -6,6 +6,9 @@
 
 - [基础语义与内存管理](#基础语义与内存管理)
 - [类型安全、值语义与动态能力](#类型安全值语义与动态能力)
+
+- [Sendable 与 @Sendable](#sendable-与-sendable)
+- [Swift 6 的并发检查与版本条件](#swift-6-的并发检查与版本条件)
 - [类型、实例与对象引用](#类型实例与对象引用)
 - [符号引用与对象引用](#符号引用与对象引用)
 - [声明、定义、实现与引用](#声明定义实现与引用)
@@ -493,6 +496,24 @@ let result = double(3)
 
 方法引用和方法调用也需要区分：self.increment 取得绑定到 self 的方法值，不执行方法体；self.increment() 才调用方法。方法值可以在满足类型和隔离要求时保存或传递。若 increment() 受 MainActor 隔离，从该隔离范围外调用仍需按规则使用 await，取得方法值本身不会消除隔离要求。
 
+`函数类型`描述参数、返回值及相关属性。例如，`() -> Int` 表示不接收参数、返回 `Int` 的函数类型。`func` 声明的具名函数和 `{ ... }` 闭包表达式都可以提供这种类型的函数值。函数值可以保存、传递和返回；函数类型本身不是闭包表达式。
+
+```swift
+func makeReader(value: Int) -> () -> Int {
+    func read() -> Int {
+        value
+    }
+    return read
+}
+
+let reader = makeReader(value: 10)
+let number = reader() // 10
+```
+
+`makeReader` 返回的是函数值。`return read` 把内部函数交给调用方；`return read()` 会先执行内部函数并得到 `Int`，不符合外层函数要求的返回类型。`read` 的函数体只有一个表达式，因此可以省略 `return`。内部函数捕获 `value`，外层函数返回后，返回的函数值仍能使用这个值。
+
+将内部函数改写成闭包表达式时，外层函数体可以写为 `return { value }`，返回类型仍是 `() -> Int`。`@Sendable () -> Int` 在函数类型上增加并发传递要求；具名函数和闭包表达式都必须满足该要求，具体见 [Sendable 与 @Sendable](#sendable-与-sendable)。
+
 ### 运行时类型转换与安全边界
 
 Any 可以保存任意类型的值，但不能直接通过 Any 使用某个具体类型特有的成员。需要具体能力时，应确认实际类型。
@@ -514,9 +535,37 @@ actor 是 Swift 中保护共享可变状态的引用类型。可变状态是实�
 
 普通 actor 的实例存储属性、计算属性和实例方法默认受到该 actor 的隔离保护，不需要再为每个方法添加 isolated 关键字。async 表示函数可以执行异步操作，不负责声明 actor 隔离；同步实例方法同样可以默认受隔离。nonisolated 可以显式声明不受该 actor 隔离的成员，但这样的成员不能直接读写 actor 隔离的可变属性。
 
+执行器（Executor）是安排并运行任务中可执行代码的组件。串行执行器保证同一时刻只执行一个受其管理的代码片段。普通 actor 关联串行执行器，但默认不会为每个 actor 创建一条专用线程；线程是实际执行代码的资源，执行器与线程不是同一个对象。
+
+```swift
+actor Counter {
+    private var count = 0
+
+    func increment() {
+        count += 1
+    }
+
+    func getValue() -> Int {
+        count
+    }
+}
+
+let counter = Counter()
+Task {
+    await counter.increment()
+    print(await counter.getValue())
+}
+```
+
+从 `counter` 的隔离范围外调用 `increment()` 时，Swift 必须先满足 `counter` 的执行要求，再进入方法体。等待进入 actor 时，当前任务可能挂起，把线程的执行机会让给其他工作；运行时不保证发生线程切换。这个调用继续使用同一个任务，不会因为 `await` 自动创建另一个任务。返回后，任务按照调用方原有的隔离要求继续执行。
+
+串行保护覆盖同一个 actor 实例的全部受隔离成员，不是每个方法各自串行。任务 A 执行 `counter.increment()` 的同步方法体时，任务 B 不能同时执行同一实例的 `increment()` 或 `getValue()`。同步方法没有挂起点，其执行期间不会被同一 actor 上另一个任务的受隔离代码穿插。
+
+示例只有这一个修改任务时打印 `1`。如果其他任务也访问 `counter`，其他调用可以插在 `increment()` 返回与 `getValue()` 开始之间；两次独立调用不构成一次不可穿插的整体操作。
+
 await 标记可能挂起的位置。挂起表示任务暂时停止执行，等待条件满足后再继续，不等于创建新线程，也不保证每次 await 都实际暂停。actor 的异步方法挂起后，其他任务可以进入同一个 actor 执行受隔离代码。这种在一次方法调用尚未结束时允许其他调用推进的行为称为 actor 重入。
 
-actor 保证受隔离代码不会在同一实例上同时执行，但不保证一个跨越 await 的完整方法从头到尾不被其他调用穿插。不同 actor 实例之间也不存在共同的串行执行保证。
+actor 保证受隔离代码不会在同一实例上同时执行，但不保证一个跨越 await 的完整方法从头到尾不被其他调用穿插。方法实际挂起后，其他任务既可以进入其他方法，也可以再次进入同一个方法。此时是多个调用交错推进，不是多个受隔离代码片段同时执行。不同 actor 实例之间也不存在共同的串行执行保证。
 
 ```swift
 actor Quota {
@@ -551,7 +600,9 @@ func take(_ amount: Int) async -> Bool {
 
 MainActor 是 Swift 内置的全局 actor。全局 actor 是由程序各处共同使用的 actor，其隔离规则可以应用于不同类型中的方法和属性。@MainActor 声明代码和数据归 MainActor 管理；actor 隔离的基本含义见[actor 的默认隔离与重入](#actor-的默认隔离与重入)。
 
-在 iOS、macOS 应用中，MainActor 利用主队列安排受隔离代码在主线程执行。主线程是实际执行代码的线程；DispatchQueue.main 是 GCD 提供的串行队列；MainActor 是 Swift 的隔离机制，还让编译器检查访问是否合法。三者有关联，但不是同一个概念。
+在 iOS、macOS 应用中，MainActor 使用与主队列关联的串行执行器，安排受隔离代码在主线程执行。所有归属于 MainActor 的方法和属性共享这一隔离范围，不会为每个标有 @MainActor 的类型或实例分别创建执行器。MainActor 同样允许异步方法在挂起期间被其他调用进入。
+
+主线程是实际执行代码的线程；DispatchQueue.main 是 GCD 提供的串行队列；MainActor 是 Swift 的隔离机制，还让编译器检查访问是否合法。三者有关联，但不是同一个概念。
 
 #### 跨隔离调用与同步调用
 
@@ -625,6 +676,136 @@ nonisolated func backgroundCallback() {
 Task { ... } 创建新任务；@MainActor in 指定大括号中的代码归 MainActor 管理。新任务执行时已经处于 MainActor，所以可以直接调用同步的 updateUI()。
 
 backgroundCallback() 创建任务后继续执行，不等待新任务完成。仅凭这个示例不能保证“更新界面”和“回调继续执行”哪句先打印。需要等待界面更新结束再继续的异步流程，应在同一个任务中使用 await updateUI() 表达依赖关系。
+
+## Sendable 与 @Sendable
+
+`Sendable` 是表示类型的值能够安全跨并发隔离边界传递的标记协议，不要求实现某个固定方法。隔离边界指由不同 actor 或其他并发执行部分分别负责状态访问的分界。数据竞争指多个执行部分在没有必要同步的情况下访问同一块内存，且至少一个访问是写入。
+
+编译器检查类型及其使用是否符合并发安全规则，不是在运行时逐个监控实例。`Sendable` 声明本身不会添加锁，也不能让任意共享变量的并发读写自动安全。下面的类型检查示例以 Swift 6 语言模式、默认 actor 隔离为 `nonisolated` 为前提；显式标为 actor 隔离的类型另按隔离规则处理。
+
+### 结构体与类的检查条件
+
+```swift
+struct CounterSnapshot: Sendable {
+    var value: Int
+}
+```
+
+上述结构体可以遵循 `Sendable`，因为 `Int` 符合 `Sendable`，结构体按值语义使用。不同执行部分持有各自的结构体变量时，可以分别修改各自的 `value`；这不允许多个任务同时无保护地修改同一个 `CounterSnapshot` 变量。
+
+将同样的可写属性放入普通类，结果不同：
+
+```swift
+final class CounterSnapshot: Sendable {
+    var value: Int = 0 // 编译错误：普通 Sendable 类存在可写存储属性
+}
+```
+
+类引用被复制后，多个引用仍可指向同一个对象。`Int` 可以安全传递，不代表共享对象中的 `value` 属性可以被并发修改。对于编译器直接检查的普通、非 actor 隔离的类，通常需要 `final`、不可变且符合 `Sendable` 的存储属性；继承还受到限制，除 `NSObject` 外不能继承其他类。
+
+```swift
+final class CounterSnapshot: Sendable {
+    let value: Int
+
+    init(value: Int) {
+        self.value = value
+    }
+}
+```
+
+以上三个同名类型是替代示例，不应放在同一作用域一起声明。`final` 禁止继承，`let` 禁止重新赋值；如果 `let` 保存的是另一个类实例，该实例也必须满足相应的 `Sendable` 要求，不能仅凭 `let` 判断全部内容不可变。
+
+actor 自动符合 `Sendable`，其可变状态由 actor 隔离保护。受 `@MainActor` 等全局 actor 隔离的类型也可以通过隔离规则保护可变状态。`@unchecked Sendable` 表示由开发者自行保证安全性，编译器跳过通常的存储属性安全检查；该声明不会自行同步数据访问。
+
+### @Sendable 的捕获与执行要求
+
+`@Sendable` 是函数类型属性，表示函数值及其捕获环境可以安全地跨并发隔离边界传递。捕获环境是函数为之后执行而保存的外部局部变量或值。`@Sendable` 不会创建任务、切换线程或添加锁，函数体仍须遵守 actor 隔离和共享状态访问规则。
+
+对于没有 actor 隔离保护的 `@Sendable` 闭包，编译器要求捕获内容可以安全传递，并限制对外部可变局部变量共享存储的捕获。仅仅看到变量的类型符合 `Sendable`，不足以认定捕获安全。
+
+```swift
+func captureExample() {
+    var count = 0
+
+    // 不能把下面的闭包作为普通非隔离的 @Sendable 函数值：
+    // let change: @Sendable () -> Void = { count += 1 }
+
+    let read: @Sendable () -> Int = { [count] in
+        count
+    }
+
+    count = 10
+    print(read()) // 0
+}
+```
+
+`[count]` 在创建闭包时保存当时的整数值，不再与外部共享 `count` 变量的可变存储。捕获类实例时，`[object]` 只保存对象引用，不会深拷贝对象；对象仍需满足并发安全要求。捕获列表的基础机制见[默认捕获与捕获列表](#默认捕获与捕获列表)。
+
+可以捕获符合 `Sendable` 的 actor 引用，但访问 actor 的受隔离成员仍要满足隔离规则。例如，下列代码使用[前文的 Counter](#actor-的默认隔离与重入)：
+
+```swift
+func makeAction(counter: Counter) -> @Sendable () async -> Void {
+    return {
+        await counter.increment()
+    }
+}
+```
+
+`@Sendable` 本身不要求函数所有参数、返回值和函数内部新建的局部值都必须符合 `Sendable`。参数或结果实际跨越隔离边界时，编译器会另外检查该次传递是否安全，包括允许安全转移非 `Sendable` 值的规则。
+
+### 具名函数与方法引用
+
+`@Sendable` 同样适用于具名函数。嵌套函数可以捕获外层局部值，因此也需要接受捕获检查。
+
+```swift
+func makeReader(value: Int) -> @Sendable () -> Int {
+    @Sendable
+    func read() -> Int {
+        value
+    }
+    return read
+}
+
+let reader = makeReader(value: 10)
+print(reader()) // 10
+```
+
+`read` 捕获的 `value` 是不可变的 `Int`，符合传递要求。`return read` 返回函数值，不执行函数体；函数类型与调用写法见[函数签名与回调类型](#函数签名与回调类型)。闭包表达式写法 `return { value }` 也可以由返回类型推断为 `@Sendable`。
+
+Swift 6 可以推断全局函数、静态方法等函数引用的可发送性。普通非隔离的实例方法引用，例如 `object.read`，会绑定接收者 `object`；其能否作为 `@Sendable` 函数值使用，还取决于接收者是否符合 `Sendable`。显式添加 `@Sendable` 不能绕过不安全的 `self` 捕获，也不能消除方法原有的 actor 隔离要求。
+
+全局函数没有捕获调用方局部变量，不表示函数可以任意读写共享全局变量。编译器仍会检查函数体访问全局状态时的隔离与同步要求。
+
+## Swift 6 的并发检查与版本条件
+
+Swift 6 延续 Swift 5.5 引入的 `async`、`await`、Task 和 actor 模型。主要变化是更完整地检查数据竞争风险，并逐步调整并发代码的隔离和执行规则。必须区分编译器版本、语言模式与单独启用的特性：使用 Swift 6 编译器，不等于所有模块都已经启用 Swift 6 语言模式。
+
+| 版本或配置 | 变化与条件 |
+| --- | --- |
+| Swift 5.10，完整并发检查 | 可通过 `-strict-concurrency=complete` 提前检查隔离、捕获和共享状态；Swift 5 语言模式下相关迁移诊断通常是警告 |
+| Swift 6 语言模式 | 完整并发安全检查成为语言规则，相关违规通常按错误处理；检查范围不只包含 `async` 函数，还包括共享全局和静态状态等 |
+| Swift 6.0，区域隔离分析 | 编译器跟踪非 `Sendable` 值及其关联引用；能够证明传递后不会被两侧并发访问时，可以允许跨隔离传递 |
+| Swift 6.0，`sending` | 参数或返回值可以声明安全转移要求；调用方或返回方必须满足相应的后续访问限制 |
+| Swift 6.0，函数可发送性推断 | 更多具名函数和方法引用可以根据函数及接收者条件推断 `@Sendable` |
+| Swift 6.0，动态 actor 隔离检查 | 部分旧代码或 Objective-C 互操作等静态检查不充分的调用路径，会在运行时验证 actor 隔离；检查失败可能终止执行，不会自动改成异步切换 |
+
+区域隔离分析中的“区域”是编译器用来归组可能相互关联数据的分析单位，不是物理内存分区。一个非 `Sendable` 对象转移到另一个隔离范围后，如果原范围继续通过原变量或其他别名访问同一个对象，就可能破坏安全转移要求。别名是指向同一份数据的另一个访问入口。
+
+`Sendable` 描述一种类型支持安全传递的性质；`sending` 描述某次参数或返回值传递需要满足的转移约束。`sending` 不会把类型自动变为 `Sendable`，也不代表一定深拷贝对象。对于非 `Sendable` 数据，编译器需要确认传递两侧不会继续并发访问同一份状态。
+
+### Swift 6.2 的隔离与执行配置
+
+Swift 6.2 的以下行为依赖项目设置或显式声明，不能统一描述为“升级 Swift 6 后全部自动生效”。
+
+| 设置或声明 | 行为 |
+| --- | --- |
+| 默认 actor 隔离设为 `MainActor` | 符合推断规则、没有显式指定其他隔离方式的声明，默认归属于 MainActor；不是所有代码无条件变成主线程代码 |
+| 启用 `NonisolatedNonsendingByDefault` | 未显式选择其他执行行为的 `nonisolated async` 函数默认沿调用方的 actor 执行；调用方没有 actor 隔离时，也不会凭空获得 MainActor 隔离 |
+| 在异步函数上声明 `@concurrent` | 显式要求离开调用方 actor，使用并发执行器执行；不保证创建新任务或专用线程 |
+
+`nonisolated` 表示声明不固定归属于某个 actor。早期规则下，非 actor 隔离的异步函数在通用执行器上执行；启用上述新规则后，这类函数可以沿调用方 actor 执行。因此，判断一段异步代码在哪里运行，需要同时检查隔离声明、语言与编译器版本，以及启用的特性。
+
+迁移可以按模块推进。`@preconcurrency` 等兼容手段只调整检查或互操作行为，不能替代实际的数据同步，也不能把不安全访问自动变成安全访问。
 
 ## Task、Task.detached 与任务局部值
 

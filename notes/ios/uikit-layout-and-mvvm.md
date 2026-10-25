@@ -5,6 +5,8 @@
 ## 本文目录
 
 - [页面生命周期与布局补充](#页面生命周期与布局补充)
+
+- [viewDidLayoutSubviews 的调用时机与用途](#viewdidlayoutsubviews-的调用时机与用途)
 - [frame、Auto Layout 与 SnapKit](#frameauto-layout-与-snapkit)
 - [视图层级与父子关系](#视图层级与父子关系)
 - [UIView 子视图的回调与可见性](#uiview-子视图的回调与可见性)
@@ -30,6 +32,27 @@ Cell 自动高度通常需要 automaticDimension、合理的预估行高、多�
 Content Hugging 与 Compression Resistance 分别表达视图相对固有内容尺寸抵抗被拉大、被压小的优先级。空间富余时，较低 hugging 优先被拉大；空间不足时，较低 compression resistance 优先被压小。最终结果由整体约束共同决定，优先级改变的是视图尺寸倾向，不是文字字形。
 
 例如标题与价格水平排列，边距和间距约束已建立，且价格本身能放入容器时，可令价格抗压缩优先级为 750、标题为 749，并让标题单行尾部省略。
+
+### viewDidLayoutSubviews 的调用时机与用途
+
+`viewDidLayoutSubviews()` 是 `UIViewController` 的布局回调。UIKit 在控制器的根视图完成一次子视图布局后调用该方法。布局指根据当前尺寸、约束或手动布局代码，计算和更新子视图的位置与大小。
+
+一次相关布局过程的顺序可以表示为：`viewWillLayoutSubviews()` → 根视图执行子视图布局 → `viewDidLayoutSubviews()`。首次页面布局、旋转或分屏导致的尺寸变化，以及约束变化引起的根视图重新布局，都可能触发回调。布局回调可以多次执行，不等于页面已经完成显示，也不保证之后尺寸不再变化。
+
+`setNeedsLayout()` 把视图标记为需要布局，通常在后续布局周期处理。`layoutIfNeeded()` 在指定视图范围内执行当前待处理的布局；没有待处理布局时，不保证再次调用布局回调。仅有某个后代视图发生局部布局，也不能据此断言控制器一定收到根视图的布局回调。
+
+这个方法适合根据本次布局得到的 `bounds` 更新附加图层的 `frame`、圆角半径或阴影路径。下面假设 `gradientLayer` 已在 `viewDidLoad()` 中创建并加入 `view.layer`，且保持默认锚点、没有变换：
+
+```swift
+override func viewDidLayoutSubviews() {
+    super.viewDidLayoutSubviews()
+    gradientLayer.frame = view.bounds
+}
+```
+
+`viewDidLoad()` 表示根视图完成加载，适合一次性创建和配置对象，但不保证已有本次界面展示需要的布局尺寸。`viewDidLayoutSubviews()` 中的尺寸更新应能安全重复执行；不要在每次回调中重复添加图层、创建控件或发起与布局无关的网络请求。使用 Auto Layout 管理的子视图，应优先通过约束表达布局，避免在这里反复覆盖 `frame`。
+
+该回调只说明根视图完成了这一轮对子视图的布局，不保证所有后代视图都完成了各自的内部布局。需要读取某个后代视图内部的布局结果时，应在正确的视图范围和时机确认其布局已完成。
 
 ## frame、Auto Layout 与 SnapKit
 

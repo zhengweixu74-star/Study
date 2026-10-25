@@ -48,6 +48,8 @@
 
 并发补充：[Task、Task.detached 与任务局部值](language/swift-basics.md#tasktaskdetached-与任务局部值)；[DispatchGroup 与 DispatchSemaphore](ios/threads-and-scheduling.md#dispatchgroup-与-dispatchsemaphore)。内容范围：任务与闭包、上下文继承、自动调度、完成通知、信号量初始值与配对规则。
 
+并发与函数专题：[函数签名与回调类型](language/swift-basics.md#函数签名与回调类型)；[Sendable 与 @Sendable](language/swift-basics.md#sendable-与-sendable)；[Swift 6 的并发检查与版本条件](language/swift-basics.md#swift-6-的并发检查与版本条件)。内容范围：函数值、捕获检查、actor 串行执行器、MainActor，以及并发检查和执行规则的版本条件。
+
 ## iOS 界面、事件与调度
 
 相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。
@@ -65,6 +67,8 @@
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
 
 相关专题：[圆角、边界裁剪与离屏渲染](ios/rendering-and-performance.md#圆角边界裁剪与离屏渲染)。内容范围：cornerRadius、masksToBounds、clipsToBounds、离屏渲染条件、shadowPath，以及圆角图片与外部阴影的组合。
+
+布局与图层专题：[viewDidLayoutSubviews 的调用时机与用途](ios/uikit-layout-and-mvvm.md#viewdidlayoutsubviews-的调用时机与用途)；[anchorPoint、position 与图层几何](ios/rendering-and-performance.md#anchorpointposition-与图层几何)。内容范围：重复布局回调、按 bounds 更新图层、锚点与 position 的关系，以及改变锚点时的位移。
 
 相关专题：[内核、逻辑 CPU 与线程并发](ios/threads-and-scheduling.md#内核的职责与进程信息)；[进程创建时间与启动计时起点](ios/app-lifecycle-and-events.md#进程创建时间与启动计时起点)。
 
