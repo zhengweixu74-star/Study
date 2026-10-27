@@ -82,6 +82,8 @@
 
 补充专题：[优先级反转与优先级继承](ios/threads-and-scheduling.md#优先级反转与优先级继承)。
 
+相关专题：[事件穿透与重叠视图](ios/app-lifecycle-and-events.md#事件穿透与重叠视图的触摸目标)、[启动优化的三个方向](ios/app-lifecycle-and-events.md#启动优化的三个方向)、[约束复用与布局计算](ios/uikit-layout-and-mvvm.md#约束对象的创建激活与复用)、[Cell 高度缓存](ios/uikit-layout-and-mvvm.md#不同高度-cell-的测量与缓存)、[SDWebImage 两级缓存与 UIImage 解码](ios/image-loading-decoding-and-memory.md#sdwebimage-的图片加载与两级缓存)。
+
 ## Android 界面与动画
 
 [Android 分类目录](android/README.md)：6 篇文档。
@@ -138,6 +140,8 @@
 相关专题：[HTTP 请求方法与文件上传](network-and-storage/network-and-proxy.md#http-请求方法安全性与幂等性)。内容范围：HTTP 方法、安全性与幂等性、GET 与 POST、multipart 字段与 boundary、两层头部、服务端解析，以及 Swift URLSession 上传。
 
 相关专题：[请求正文格式与 JSON 字段](network-and-storage/network-and-proxy.md#请求正文格式与-json-字段)；[使用 JSON 上传文件](network-and-storage/network-and-proxy.md#使用-json-上传文件)；[gzip 压缩与抓包正文显示](network-and-storage/network-and-proxy.md#gzip-压缩与抓包正文显示)。内容范围：JSON 与 multipart 字段表示、Base64 文件上传、正文格式与 gzip 压缩的区别，以及抓包预览与原始字节。
+
+相关专题：[URLSession 请求流程](network-and-storage/network-and-proxy.md#urlsession-的职责与请求流程)、[会话配置与连接条件](network-and-storage/network-and-proxy.md#urlsessionconfiguration-与连接条件)、[代理与重定向](network-and-storage/network-and-proxy.md#urlsessiondelegate-与重定向决定)、[URLCache 与 HTTP 缓存规则](network-and-storage/network-and-proxy.md#urlcache-与-http-缓存规则)。
 
 ## 实验与统计
 

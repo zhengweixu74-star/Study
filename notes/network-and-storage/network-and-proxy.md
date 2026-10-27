@@ -25,6 +25,11 @@
 - [乱序缓存与流内等待](#乱序缓存与流内等待)
 - [QUIC、TLS 与 HTTPS](#quictls-与-https)
 
+- [URLSession 的职责与请求流程](#urlsession-的职责与请求流程)
+- [URLSessionConfiguration 与连接条件](#urlsessionconfiguration-与连接条件)
+- [URLSessionDelegate 与重定向决定](#urlsessiondelegate-与重定向决定)
+- [URLCache 与 HTTP 缓存规则](#urlcache-与-http-缓存规则)
+
 ## HTTP 请求方法、安全性与幂等性
 
 HTTP 是应用层的请求与响应协议。客户端在请求中指定目标资源和请求方法。服务端根据请求执行操作，并返回状态码、响应头和可选的响应体。请求方法表达客户端希望对目标资源执行的操作。
@@ -450,3 +455,123 @@ HTTP 请求和响应使用本次连接派生的对称密钥保护。在 TLS 1.3 
 4. 依据证据修复对应配置。例如，在准确系统时间下确认服务器证书过期，就更新服务端证书；确认未信任调试代理 CA，就修复客户端调试信任配置。
 
 双向 TLS 是客户端和服务端都提供证书供对方验证。启用双向 TLS 时，还要检查服务端是否拒绝了客户端证书。证据不足时，只能列出待验证原因。
+
+## URLSession 的职责与请求流程
+
+URLSession 是 Foundation 提供的网络会话对象，负责按配置创建和管理网络任务，并协调连接、传输、响应与结果交付。URLRequest 描述请求地址、方法、请求头和请求体；URLSessionTask 表示一次具体任务。多个请求可以复用同一个 session，无须每次请求都创建新会话。
+
+以 dataTask 为例：应用构造 URLRequest → session 创建尚未启动的任务 → 应用调用 resume() → 系统执行网络传输 → 收到响应并取得数据 → URLSession 调用应用传入的完成回调。网络等待期间不要求调用线程一直阻塞。缓存命中等情况可能跳过实际网络传输。
+
+下面的函数接收调用方提供的 URL，并分别判断任务错误、HTTP 状态和响应数据：
+
+```swift
+func fetchData(from url: URL) {
+    let task = URLSession.shared.dataTask(with: url) { data, response, error in
+        if let error {
+            print("任务失败：", error)
+            return
+        }
+        guard let response = response as? HTTPURLResponse else {
+            return
+        }
+        guard (200..<300).contains(response.statusCode) else {
+            print("HTTP 状态：", response.statusCode)
+            return
+        }
+        guard let data else { return }
+        print("收到字节数：", data.count)
+    }
+    task.resume()
+}
+```
+
+完成回调的 data 是响应内容字节，response 包含响应信息，error 表示传输或任务执行错误。HTTPURLResponse 是 HTTP 响应信息对象，statusCode 表示服务器返回的 HTTP 状态码。上例把 2xx 作为成功范围，具体接口还可以要求更严格的状态或内容条件。
+
+服务器完整返回 404 时，客户端可能已经成功完成连接、发送请求和接收响应，因此 error 可以是 nil。404 表示服务器没有找到请求的资源，属于 HTTP 层面的失败结果。断网、超时等可能使 error 非空；不能只判断 error == nil 就认为拿到了有效业务数据。404 响应中的 data 还可能是错误说明，不能直接当作图片或成功 JSON 处理。
+
+回调默认不保证在主线程执行。需要更新 UIKit 界面时，在主线程执行相应动作；数据转成 UIImage 也不保证完成像素解码，见 [iOS 图片加载、解码与内存](../ios/image-loading-decoding-and-memory.md)。
+
+## URLSessionConfiguration 与连接条件
+
+URLSessionConfiguration 保存会话的共同规则，例如网络使用限制、超时和缓存配置。应先配置，再创建 URLSession；会话创建时复制配置，之后修改原配置对象不会改变已经创建的会话。
+
+```swift
+let configuration = URLSessionConfiguration.default
+configuration.allowsCellularAccess = false
+configuration.waitsForConnectivity = true
+let session = URLSession(configuration: configuration)
+```
+
+蜂窝网络是手机的 4G、5G 数据网络。allowsCellularAccess = false 禁止这个会话使用蜂窝网络。若手机只有可用 5G，没有其他允许的网络，手机整体可以上网，但这个会话没有符合配置要求的连接条件；waitsForConnectivity = true 让任务先等待，之后连接到可用 Wi-Fi 时再开始建立连接。完全断网也是没有可用连接条件的一种情况。
+
+waitsForConnectivity 针对连接建立阶段，不表示服务器返回 404、500 时继续等待，也不保证已经建立的连接中断后自动重试。普通会话在该属性为 false 且连接条件不足时可以直接失败。等待仍受到任务取消和资源超时等条件约束。后台会话始终等待可用连接，不使用这个属性决定是否等待。
+
+## URLSessionDelegate 与重定向决定
+
+URLSessionDelegate 是协议，规定自定义代理对象可以实现哪些会话事件方法。应用创建遵循协议的对象，并在创建 URLSession 时把对象传入 delegate 参数；相关事件发生后，由 URLSession 调用代理方法。
+
+URLSessionDelegate 主要处理会话级事件和部分认证事件。URLSessionTaskDelegate 继承 URLSessionDelegate，定义任务级事件，包括 HTTP 重定向。URLSessionDataDelegate、URLSessionDownloadDelegate 则定义数据接收、下载等相应事件；不能把所有回调都归到基础协议。
+
+重定向是服务器要求客户端改为访问另一个地址。例如请求旧头像地址后，服务器返回 302 和新的位置。下面的代理接收系统准备的新请求，并决定继续访问：
+
+```swift
+final class RedirectDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        completionHandler(request)
+    }
+}
+
+let redirectDelegate = RedirectDelegate()
+let session = URLSession(
+    configuration: .default,
+    delegate: redirectDelegate,
+    delegateQueue: nil
+)
+```
+
+执行顺序是：服务器返回重定向响应 → URLSession 调用代理方法并传入新请求 → 代理调用 completionHandler(request) 表示继续 → URLSession 按新请求访问。传入 nil 表示拒绝本次重定向。这里的 completionHandler 是系统交给代理的决定回传函数，不是下载结束后才调用的通知函数。
+
+本例使用普通会话。delegateQueue: nil 表示由系统创建代理回调队列，不表示主队列。会话会持有代理对象；自建会话不再使用时，应按任务是否需要继续完成选择结束会话的方式，避免无意延长代理对象生命周期。
+
+## URLCache 与 HTTP 缓存规则
+
+URLCache 按请求查找并保存 CachedURLResponse。CachedURLResponse 包含响应信息和实际响应字节；对于 JPEG 图片，字节通常仍是 JPEG 格式，URLCache 不负责把数据解码为 UIImage。请求与缓存的匹配不能简单理解成只比较 URL 字符串，还受到 HTTP 匹配规则影响。
+
+```swift
+let cache = URLCache(
+    memoryCapacity: 10 * 1024 * 1024,
+    diskCapacity: 50 * 1024 * 1024,
+    directory: nil
+)
+
+let configuration = URLSessionConfiguration.default
+configuration.urlCache = cache
+configuration.requestCachePolicy = .useProtocolCachePolicy
+let session = URLSession(configuration: configuration)
+```
+
+memoryCapacity 和 diskCapacity 的单位是字节，分别设置内存和磁盘缓存容量；本例为 10 MiB 和 50 MiB。1 MiB = 1,048,576 字节。directory: nil 使用默认缓存目录。内存缓存保留响应对象及其实际字节，不只是保存 URL 和一个地址；磁盘缓存把相应内容保存为文件。缓存可能被淘汰，因此容量配置不保证某条记录一直存在。
+
+requestCachePolicy 是会话配置的默认缓存策略；useProtocolCachePolicy 是一个枚举值，表示采用对应网络协议实现的缓存规则。对于 HTTP 和 HTTPS，它结合请求、响应头和已有缓存判断：没有匹配缓存时访问服务器；缓存仍新鲜且规则允许时直接复用；过期或要求验证时联系服务器，确认能否继续使用旧内容，必要时重新获取。这里的网络协议不同于 Swift 中定义方法要求的协议。
+
+Cache-Control 是服务器在响应头中提供的缓存指令。新鲜期是响应在满足其他条件时可以直接复用的时间范围。以下以普通 GET 请求为例，并假设应用没有另外禁止存储：
+
+| 响应条件 | 是否允许保存 | 再次使用的条件 |
+| --- | --- | --- |
+| 200，Cache-Control: max-age=60 | 允许 | 在 60 秒的新鲜期内，满足其他规则时可直接复用 |
+| 200，Cache-Control: no-store | 不允许 | 不应保存这份响应用于后续请求 |
+| 200，Cache-Control: no-cache | 允许 | 复用前必须联系服务器并成功验证 |
+| 404，带有允许缓存的规则 | 也可能允许 | 可以复用“资源不存在”的响应，仍需遵守其有效期等条件 |
+| 没有明确的缓存时间 | 不能仅据此判断 | 系统可能根据其他响应信息决定缓存和有效期 |
+
+例如，第一次请求头像后，系统保存了允许缓存的响应。在 max-age=60 规定的新鲜期内再次发出匹配请求，可以省去这次网络访问；期限过后可能重新验证或下载，而不是到第 60 秒就保证自动删除缓存文件。
+
+no-cache 与 no-store 不相同。前者允许保存，但复用前必须验证；后者禁止保存。验证时，客户端可以携带服务器此前提供的版本标识，例如 ETag。ETag 是服务器用于标识资源版本的响应字段；若服务器确认内容未变，可以返回 304，让客户端继续使用已经缓存的正文，从而避免重新传输整张图片。没有合适的验证信息时，客户端可能需要重新取得响应。
+
+允许缓存不等于一定被保存，也不等于下一次一定读取缓存。请求方法、响应状态、缓存指令、应用策略和实际容量共同影响结果。200 不保证可缓存，404 不保证不可缓存。URLCache 与 SDWebImage 自有图片缓存的职责区别见 [SDWebImage 的图片加载与两级缓存](../ios/image-loading-decoding-and-memory.md#sdwebimage-的图片加载与两级缓存)。

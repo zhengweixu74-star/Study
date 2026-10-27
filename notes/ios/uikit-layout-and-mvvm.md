@@ -8,6 +8,8 @@
 
 - [viewDidLayoutSubviews 的调用时机与用途](#viewdidlayoutsubviews-的调用时机与用途)
 - [frame、Auto Layout 与 SnapKit](#frameauto-layout-与-snapkit)
+- [约束对象的创建、激活与复用](#约束对象的创建激活与复用)
+- [布局计算为什么可能耗时](#布局计算为什么可能耗时)
 - [视图层级与父子关系](#视图层级与父子关系)
 - [UIView 子视图的回调与可见性](#uiview-子视图的回调与可见性)
 - [容器控制器与子控制器](#容器控制器与子控制器)
@@ -95,6 +97,36 @@ container.layoutIfNeeded()
 两次布局使用同一组约束。父视图变宽后，Auto Layout 重新计算子视图宽度，使四边间距继续保持 20 点。直接设置一次 `frame` 只保存当时的位置和大小，不会单独建立这种持续的间距关系；后续适配需要代码重新计算，或由其他布局机制负责。
 
 这些计算结果依赖当前约束和尺寸条件。约束不足时，布局可能不唯一；约束冲突时，系统可能打破部分约束。存在非单位 `transform` 时，也不能直接用上述规则解释或设置 `frame`。
+
+### 约束对象的创建、激活与复用
+
+NSLayoutConstraint 表示一条布局关系。变量 widthConstraint 只是保存约束对象的引用；约束针对哪个视图，由创建约束时使用的锚点决定。锚点表示视图的某个几何属性，例如宽度或左边缘。
+
+```swift
+let badge = UIView()
+container.addSubview(badge)
+badge.translatesAutoresizingMaskIntoConstraints = false
+
+let widthConstraint = badge.widthAnchor.constraint(equalToConstant: 80)
+widthConstraint.isActive = true
+
+// 内容变化后修改同一个约束
+widthConstraint.constant = 120
+```
+
+本例假设 container 已存在。badge.widthAnchor 创建的约束表达 badge 的宽度等于 80 点。约束创建后默认未激活；isActive = true 让系统把约束加入布局计算。这个宽度约束不会独立决定 badge 的高度和位置，完整布局仍需要相应约束。
+
+把 constant 改成 120 是更新既有关系，不是创建第二条宽度约束。后续布局会使用新值；只有需要立即读取结果或组织布局动画时，才在覆盖相关约束的视图范围内调用 layoutIfNeeded()。需要跨方法更新时，可以把 widthConstraint 保存为拥有该视图的对象的属性。
+
+### 布局计算为什么可能耗时
+
+Auto Layout 根据当前约束和内容尺寸确定视图的位置与大小。文字换行、视图显隐和宽度变化可能改变布局输入，系统需要据此更新相关布局。约束之间依赖较多、文本测量较重，或者程序反复使布局失效时，相关工作可能占用较多主线程时间；不能把使用 Auto Layout 本身当作卡顿结论。
+
+例如，Cell 内容宽度为 343 点，正文左右各留 16 点，可用文字宽度就是 311 点。系统根据正文、字体和排版设置得到正文高度，再结合其他控件计算 Cell 高度：上边距 16 + 标题高 24 + 间距 8 + 正文高 96 + 间距 12 + 按钮高 40 + 下边距 16 = 212 点。正文变长或可用宽度变窄后，正文可能增加行数，Cell 高度也要重新确定。
+
+如果每次配置 Cell 都删除并重建全部约束，或者每修改一个约束就调用一次 layoutIfNeeded()，程序会增加约束维护或立即布局的次数。通常应一次性建立固定约束，内容变化时只更新必要的值，让 UIKit 合并可以延后执行的布局请求。
+
+不必要的容器也会增加视图和约束维护成本。例如 contentView → A → B → C → titleLabel 中，A、B、C 都与父视图四边重合，没有背景、裁剪、交互或独立布局职责，只有 titleLabel 距 C 左边 16 点。若这些容器确实没有其他用途，可以直接把 titleLabel 放入 contentView，并保留相同的 16 点边距。这里不是让三个容器各加 16 点；后者会累计成 48 点，不能直接改成 16 点。
 
 ## 视图层级与父子关系
 
@@ -437,7 +469,29 @@ Cell 中固定的子视图和约束通常在初始化时建立。复用配置时
 
 缓存需要依据稳定的数据 ID，并区分内容版本、可用宽度、字体或字号、展开状态等实际影响高度的条件。IndexPath 表示当前位置，插入、删除或重排后可能变化，不适合直接作为数据项的永久身份。
 
-例如，数据项 A 在当前宽度和字号下测得 180 point。滚动回来时，如果内容和布局条件都没有变化，可以复用 180。文字变化、宽度变化、字号变化、展开状态变化，或图片加载后改变布局比例时，应使对应缓存失效并重新计算。
+例如，数据项 A 在当前条件下测得 180 点。A 离屏后，原 Cell 可以被复用来显示 B，但 A 的模型和高度缓存可以继续存在。用户滚动回来，列表再次需要 A 的高度时，不管此时取得的是哪个 Cell，都可以按 A 的数据标识查缓存。这就是滑动过程中再次遇到同一内容和布局条件的场景；并不要求两个不同数据项的正文相同。
+
+应用通过构造包含布局输入的缓存键判断能否复用，不依赖 Cell 自己记住上次的值。下面的示例假设列表统一使用一套排版配置，并由数据层维护内容版本：
+
+```swift
+struct HeightCacheKey: Hashable {
+    let itemID: UUID
+    let contentVersion: Int
+    let availableWidth: CGFloat
+    let typographyVersion: Int
+    let isExpanded: Bool
+    let layoutVersion: Int
+}
+
+// 通常作为列表控制器或布局管理对象的属性
+var heightCache: [HeightCacheKey: CGFloat] = [:]
+```
+
+contentVersion 在正文、图片比例等影响高度的内容改变时更新。typographyVersion 在字体、字号、行距、换行或行数设置改变时更新。layoutVersion 在边距、控件排列等布局规则改变时更新。availableWidth 使用本次实际参与测量的宽度，isExpanded 使用当前展开状态。版本号必须由对应数据或配置的修改路径维护，不会自动变化；不能只用数据 ID 就声称所有输入未变。
+
+例如，A 的内容版本为 3、宽度为 343、排版版本为 1、未展开、布局版本为 1。第一次测量后，把该键对应的高度保存为 180。滚动回来时构造出的键完全相同，就读取 180；正文更新后内容版本变为 4，新键查不到旧高度，因此重新测量并保存。
+
+缓存放在列表控制器或布局管理对象中，可以独立于 Cell 生命周期保存。采用手动行高时，tableView(_:heightForRowAt:) 应按当前键查缓存，未命中时测量并写入，然后返回结果。继续使用 UITableView.automaticDimension 时，系统仍负责尺寸计算，应用自己的字典不会自动接管测量。更复杂的输入应继续纳入键，或者在相关配置变化时主动清理受影响的缓存。
 
 列表自适应高度与手动高度缓存是两种需要明确协调的尺寸来源。接入缓存时应确认当前布局实际使用哪一个结果，避免认为保存了高度就一定减少测量次数。
 
