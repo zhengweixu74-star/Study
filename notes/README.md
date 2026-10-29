@@ -27,7 +27,7 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法 |
+| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历与数组 last；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法 |
 | [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVO、+load 与自动注册 |
 
 [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：类型标注与推断、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
