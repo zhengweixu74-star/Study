@@ -22,6 +22,7 @@
 - [多行字符串与脚本执行](#多行字符串与脚本执行)
 - [map、KeyPath、Sequence、Collection 与 Set](#mapkeypathsequencecollection-与-set)
   - [数组的 last 属性](#数组的-last-属性)
+  - [数组反转：reverse() 与 reversed()](#数组反转reverse-与-reversed)
 - [元组、字典与空元组 Void](#元组字典与空元组-void)
 - [相等规则与对象身份](#相等规则与对象身份)
 - [defer 与作用域退出](#defer-与作用域退出)
@@ -1602,6 +1603,33 @@ let lastInterval: [Int]? = result.last // 包含 [10, 11]
 ```
 
 直接使用 `result[result.count - 1]` 读取末尾元素时，必须先保证数组非空；空数组的这个下标无效。`result.last` 可以用 `nil` 表达空数组，但使用其中的值前需要解包，即从可选值中取出内部值。可选类型的定义见[可选类型、状态表达与并发支持](#可选类型状态表达与并发支持)，读取后继续判断的写法见[可选绑定、条件逗号与逻辑与](#可选绑定条件逗号与逻辑与)。
+
+### 数组反转：reverse() 与 reversed()
+
+反转是把元素的先后顺序颠倒。对 `Array` 而言，`reverse()` 修改调用数组的元素顺序；`reversed()` 保持原数组不变，返回一个按相反顺序访问元素的集合。
+
+`reverse()` 会修改数组值，因此调用数组必须可写，例如使用 `var` 声明。方法返回 `Void`，表示不返回数组结果。
+
+```swift
+var nums = [1, 2, 3]
+nums.reverse()
+print(nums) // [3, 2, 1]
+```
+
+`reversed()` 不修改原数组，因此可以对 `let` 声明的数组调用。对于 `[Int]`，返回值类型是 `ReversedCollection<[Int]>`，不是 `[Int]`。`ReversedCollection` 包装原集合，按相反顺序提供元素访问。需要新的数组时，使用 `Array(nums.reversed())`。
+
+```swift
+let nums = [1, 2, 3]
+let reversedNumbers = nums.reversed()
+
+for number in reversedNumbers {
+    print(number) // 依次输出 3、2、1
+}
+
+let newNumbers: [Int] = Array(nums.reversed())
+print(newNumbers) // [3, 2, 1]
+print(nums)       // [1, 2, 3]
+```
 
 ### 数组值语义、写时复制与返回值
 
