@@ -18,7 +18,69 @@
 
 ## NotificationCenter 与通知回调
 
-NotificationCenter 通过 `addObserver` 建立观察关系，通过 `post` 发送通知。闭包观察者的 queue 为 nil 时，回调在发送线程同步执行；注册线程不决定回调线程。UI 更新需要满足主线程要求，指定 main 也不能解释为所有投递都必然异步。
+`NotificationCenter` 是 Foundation 提供的进程内通知分发对象。发送方把事件交给通知中心，通知中心调用符合条件的观察者回调。回调是观察者注册时提供、由通知中心在事件发生时执行的代码。
+
+一次通知由 `Notification` 表示，主要包含三个字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| `name` | 通知名称，用于区分事件 |
+| `object` | 与事件关联的对象，通常由发送方传入自身；也可以为 `nil` |
+| `userInfo` | 可选的附加数据字典，例如新的标题 |
+
+### 注册、匹配与分发
+
+观察者调用 `addObserver(forName:object:queue:using:)`，提交名称、对象过滤条件、执行队列和回调闭包。通知中心保存这次观察关系，并返回用于移除观察关系的标识对象，通常称为 token。
+
+发送方调用同一个通知中心的 `post`。通知中心匹配已注册的观察关系，然后调用对应回调。注册时指定 `name` 就只接收该名称；指定 `object` 就只接收与该对象匹配的通知。两项都指定时，两项都要匹配。某项为 `nil` 表示不按该项过滤。
+
+可以把这套机制理解为“保存观察关系 → 接收通知 → 按条件查找 → 执行回调”。这只是工作模型，不能据此断言系统内部一定使用某一种哈希表。不同的 `NotificationCenter` 实例各自管理观察关系；向一个实例发送通知，不会自动通知另一个实例中的观察者。
+
+普通的通知观察关系不会补发注册之前的历史通知。需要接收某次通知时，应在发送之前完成注册。
+
+### 回调在哪个线程执行
+
+使用上述闭包接口且 `queue` 为 `nil` 时，通知中心在发送通知的线程上同步调用回调。同步表示回调完成后，当前这次 `post` 才返回。注册观察者的线程不决定回调线程；在主线程注册，也可能在后台线程收到回调。
+
+`queue` 的类型是 `OperationQueue?`，用于指定回调的执行队列。传入 `.main` 表示让回调在主队列执行，但不能据此认定 `post` 一定立即返回或所有通知都会异步投递。需要理解任务队列和线程的区别时，见[线程与任务调度](threads-and-scheduling.md#operation-与-operationqueue)。更新 UIKit 界面的代码需要在主线程执行。
+
+下面的示例只有一个匹配的观察者，且回调没有再次发送通知：
+
+```swift
+import Foundation
+
+let center = NotificationCenter.default
+let sender = NSObject()
+let name = Notification.Name("titleDidChange")
+
+let token = center.addObserver(
+    forName: name,
+    object: sender,
+    queue: nil
+) { notification in
+    if let title = notification.userInfo?["title"] as? String {
+        print("收到通知：\(title)")
+    }
+}
+
+print("发送前")
+center.post(
+    name: name,
+    object: sender,
+    userInfo: ["title": "新标题"]
+)
+print("发送后")
+
+center.removeObserver(token)
+```
+
+输出顺序为“发送前 → 收到通知：新标题 → 发送后”。回调较耗时时，同步发送的线程也会等待；回调再次发送通知时，还可能产生嵌套调用。多个观察者的执行顺序不应作为业务逻辑的前提。
+
+### 移除观察关系与闭包捕获
+
+对于这个闭包接口，通知中心会持有观察者 token 和回调闭包。仅把自己保存的 token 设为 `nil`，不会自动取消观察。应在不再需要接收事件时，对注册时使用的通知中心调用 `removeObserver(token)`。
+
+如果闭包强引用了某个对象，通知中心持有闭包也会间接延长该对象的生命周期。例如闭包强引用 `self` 时，不能只依赖 `self` 的 `deinit` 来移除观察，因为该对象可能一直无法释放。可以根据需要使用 `[weak self]`，并在明确的生命周期结束点移除观察关系。弱捕获只改变对象的持有关系，不会自动取消观察。
 
 ## 响应式关系与 OpenCombine
 
@@ -241,7 +303,7 @@ CombineX 与 OpenCombine 是不同的开源 Combine 兼容实现。下文使用 
 
 句柄是调用方用来间接标识、访问或控制某个资源的值。句柄不限定为整数、指针或内存地址。在订阅场景中，把 `AnyCancellable` 称为取消句柄，是强调调用方可以通过该对象取消订阅。
 
-`AnyCancellable` 在调用 `cancel()` 或对象销毁时执行取消动作。需要持续接收事件时，应保留 `sink` 返回的对象，例如保存为属性或存入 `Set<AnyCancellable>`。传统闭包式 `NotificationCenter.addObserver` 返回的观察者令牌使用另一套生命周期规则，应通过 `removeObserver` 移除观察关系，不能把令牌释放直接等同于自动取消。
+`AnyCancellable` 在调用 `cancel()` 或对象销毁时执行取消动作。需要持续接收事件时，应保留 `sink` 返回的对象，例如保存为属性或存入 `Set<AnyCancellable>`。传统闭包式 `NotificationCenter.addObserver` 返回的 token 使用不同的生命周期规则，见[移除观察关系与闭包捕获](#移除观察关系与闭包捕获)。
 
 ## CombineX 与 NotificationCenter 的选择
 

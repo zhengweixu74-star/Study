@@ -151,6 +151,8 @@ s.source_files = 'Sources/**/*.swift'
 
 `s` 是 podspec 的配置对象。`Sources/**/*.swift` 匹配 `Sources` 目录及其子目录中的 Swift 文件。修改源码规则后，需要检查实际匹配到的文件集合。源码文件存在于磁盘中，不等于已经被构建配置纳入编译范围。
 
+Podfile 的执行方式、依赖解析、锁文件和工具版本管理，见[CocoaPods、Podfile 与依赖管理](cocoapods-and-podfile.md)。
+
 ### iOS JoJo 工程磁盘清理规则
 
 - 处理任意 iOS 项目的磁盘清理时，默认按 JoJo 工程处理；清理前必须停止 Xcode、XcodeMate、MBox/JoJo 的 install、index 和 build 任务，并先用 `df -h /System/Volumes/Data`、`du -sh <候选目录>` 记录空间，只删除已核实用途的精确目录。

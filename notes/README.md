@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 29 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 30 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -14,7 +14,7 @@
 | [iOS 界面、事件与调度](ios/) | 8 |
 | [Android 界面与动画](android/) | 6 |
 | [跨平台与宿主通信](cross-platform/) | 2 |
-| [软件设计与工程工具](engineering/) | 2 |
+| [软件设计与工程工具](engineering/) | 3 |
 | [网络与存储](network-and-storage/) | 2 |
 | [实验与统计](statistics/) | 1 |
 | [AI 辅助开发](ai/) | 1 |
@@ -84,6 +84,8 @@
 
 相关专题：[事件穿透与重叠视图](ios/app-lifecycle-and-events.md#事件穿透与重叠视图的触摸目标)、[启动优化的三个方向](ios/app-lifecycle-and-events.md#启动优化的三个方向)、[约束复用与布局计算](ios/uikit-layout-and-mvvm.md#约束对象的创建激活与复用)、[Cell 高度缓存](ios/uikit-layout-and-mvvm.md#不同高度-cell-的测量与缓存)、[SDWebImage 两级缓存与 UIImage 解码](ios/image-loading-decoding-and-memory.md#sdwebimage-的图片加载与两级缓存)。
 
+相关专题：[通知注册、分发与观察关系清理](ios/reactive-programming.md#notificationcenter-与通知回调)；[未设置约束的子视图与 autoresizingMask](ios/uikit-layout-and-mvvm.md#添加子视图但不设置约束)；[调整同级顺序与更换父视图](ios/uikit-layout-and-mvvm.md#调整同级视图的前后顺序)。
+
 ## Android 界面与动画
 
 [Android 分类目录](android/README.md)：6 篇文档。
@@ -119,6 +121,7 @@
 | --- | --- |
 | [设计模式与 Swift 实践](engineering/design-patterns.md) | 策略、工厂、单例、建造者，以及 Swift 示例与独立验证 |
 | [Xcode 工程管理与自动化测试](engineering/xcode-and-testing.md) | 源码编辑与搜索、工程与构建、XCTest、Swift Testing 与测试计划 |
+| [CocoaPods、Podfile 与依赖管理](engineering/cocoapods-and-podfile.md) | Ruby DSL、依赖声明与版本范围、Molinillo 与 Xcodeproj、锁文件、YAML、Gemfile，以及用 Python 读取 Podfile |
 
 相关专题：[耦合与解耦](engineering/design-patterns.md#耦合与解耦)；[依赖反转与依赖注入](engineering/design-patterns.md#依赖反转与依赖注入)。内容范围：耦合的含义、解耦目的与三个实例、源码依赖方向、模块边界，以及依赖反转与依赖注入的区别。
 

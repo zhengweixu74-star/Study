@@ -8,10 +8,14 @@
 
 - [viewDidLayoutSubviews 的调用时机与用途](#viewdidlayoutsubviews-的调用时机与用途)
 - [frame、Auto Layout 与 SnapKit](#frameauto-layout-与-snapkit)
+- [添加子视图但不设置约束](#添加子视图但不设置约束)
+- [autoresizingMask 与约束转换](#autoresizingmask-与约束转换)
 - [固有内容尺寸、抗压缩与约束优先级](#固有内容尺寸抗压缩与约束优先级)
 - [约束对象的创建、激活与复用](#约束对象的创建激活与复用)
 - [布局计算为什么可能耗时](#布局计算为什么可能耗时)
 - [视图层级与父子关系](#视图层级与父子关系)
+- [调整同级视图的前后顺序](#调整同级视图的前后顺序)
+- [更换父视图与移除子视图](#更换父视图与移除子视图)
 - [UIView 子视图的回调与可见性](#uiview-子视图的回调与可见性)
 - [容器控制器与子控制器](#容器控制器与子控制器)
 - [分栏界面与详情控制器生命周期](#分栏界面与详情控制器生命周期)
@@ -94,6 +98,60 @@ container.layoutIfNeeded()
 两次布局使用同一组约束。父视图变宽后，Auto Layout 重新计算子视图宽度，使四边间距继续保持 20 点。直接设置一次 `frame` 只保存当时的位置和大小，不会单独建立这种持续的间距关系；后续适配需要代码重新计算，或由其他布局机制负责。
 
 这些计算结果依赖当前约束和尺寸条件。约束不足时，布局可能不唯一；约束冲突时，系统可能打破部分约束。存在非单位 `transform` 时，也不能直接用上述规则解释或设置 `frame`。
+
+### 添加子视图但不设置约束
+
+`addSubview(_:)` 只建立父子视图关系，不会自动把子视图放大或铺满父视图。没有显式约束时，结果取决于已有的 `frame` 和实际负责布局的机制。
+
+下面假设没有其他代码、约束或容器布局修改子视图尺寸：
+
+```swift
+let container = UIView(
+    frame: CGRect(x: 0, y: 0, width: 300, height: 200)
+)
+let child = UIView()
+child.backgroundColor = .red
+container.addSubview(child)
+// child.frame 为 .zero，红色背景没有可见面积。
+
+child.frame = CGRect(x: 20, y: 30, width: 100, height: 50)
+// child 有了 100 × 50 点的区域，不需要显式约束也能采用手动布局。
+```
+
+第二种情况下，红色区域能否实际显示，还取决于容器是否已显示、视图是否隐藏、透明度和裁剪等条件。普通 `UIView()` 的初始尺寸为零，不代表所有控件在任何布局环境下都会保持零尺寸。例如 `UIStackView` 可以安排其 `arrangedSubviews` 的布局，某些控件也能报告固有内容尺寸。
+
+### autoresizingMask 与约束转换
+
+`autoresizingMask` 指定父视图尺寸变化时，子视图的宽高或四周边距中哪些部分允许随之变化。这套机制基于已有几何信息，不会根据“希望显示内容”自动推断初始尺寸。
+
+通过代码创建的普通 `UIView`，`translatesAutoresizingMaskIntoConstraints` 默认是 `true`。在 Auto Layout 布局中，UIKit 可以把当前 `frame` 和 `autoresizingMask` 所表达的布局关系转换成约束。没有手写约束，不等于系统没有生成约束。
+
+当 `child.frame` 是 `.zero`，且宽高固定时，转换后的约束可以表达“宽度等于 0、高度等于 0”。零是确定的尺寸值，不是尚未填写的尺寸。约束能够确定一个零面积区域，因此“存在约束”和“存在可见面积”没有必然关系。
+
+```text
+已有尺寸：宽度 0，高度 0
+转换所表达的尺寸要求：宽度 = 0，高度 = 0
+布局结果：尺寸仍然可以是 0 × 0
+```
+
+上面只表达约束的效果，不表示系统生成约束的具体数量或日志格式。
+
+设置 `translatesAutoresizingMaskIntoConstraints = false` 只会关闭这项转换，不会自动创建新的布局规则。若采用 Auto Layout，应通过显式约束、固有内容尺寸及容器提供的布局关系共同确定位置和大小；若采用手动布局，仍可由代码设置 `frame`。不能仅凭这个属性为 `false` 就断言视图一定不可见。
+
+例如，下面先加入父视图，再关闭转换并激活四边约束。在父视图尺寸已经确定、没有其他冲突约束的条件下，子视图会在后续布局中保持四边各 20 点的间距：
+
+```swift
+let child = UIView()
+container.addSubview(child)
+child.translatesAutoresizingMaskIntoConstraints = false
+
+NSLayoutConstraint.activate([
+    child.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
+    child.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
+    child.topAnchor.constraint(equalTo: container.topAnchor, constant: 20),
+    child.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -20)
+])
+```
 
 ### 固有内容尺寸、抗压缩与约束优先级
 
@@ -208,7 +266,49 @@ Auto Layout 根据当前约束和内容尺寸确定视图的位置与大小。�
 
 `superview` 指向当前视图的直接父视图，没有父视图时为 `nil`。`subviews` 是当前视图的直接子视图数组，不包含孙视图等更深层的后代。递归访问每个子视图的 `subviews`，才能遍历整个视图子树。
 
-同级视图使用默认的图层深度设置时，`subviews` 中索引较小的视图位于后方，索引较大的视图位于前方。`addSubview(_:)` 通常把视图加入数组末尾；`insertSubview`、`bringSubviewToFront(_:)` 和 `sendSubviewToBack(_:)` 可以调整顺序。这里描述的是公开接口中的组织关系，不推断 UIKit 内部使用了哪一种存储实现。
+同级视图使用默认的图层深度设置时，`subviews` 中索引较小的视图位于后方，索引较大的视图位于前方。前方视图是否完全遮住后方视图，还取决于重叠区域、透明度等显示条件。这里描述的是公开接口中的组织关系，不推断 UIKit 内部的存储实现。
+
+### 调整同级视图的前后顺序
+
+以下操作都由父视图调用。`bringSubviewToFront(_:)` 和 `sendSubviewToBack(_:)` 的参数应是该父视图的直接子视图；相对插入方法中的参照视图也必须是该父视图的直接子视图。
+
+| 操作 | 结果 |
+| --- | --- |
+| `parent.addSubview(child)` | 加入子视图，位于同级视图的最前方；已是该父视图的子视图时会移到前方 |
+| `parent.bringSubviewToFront(child)` | 把现有子视图移到最前方 |
+| `parent.sendSubviewToBack(child)` | 把现有子视图移到最后方 |
+| `parent.insertSubview(child, aboveSubview: sibling)` | 把子视图放在参照视图前方 |
+| `parent.insertSubview(child, belowSubview: sibling)` | 把子视图放在参照视图后方 |
+| `parent.insertSubview(child, at: index)` | 把子视图放到指定的合法索引处 |
+| `parent.exchangeSubview(at: first, withSubviewAt: second)` | 交换两个合法索引处的子视图 |
+
+例如下面两个普通视图相互重叠。使用默认图层深度时，后加入的蓝色视图先位于前方；调整顺序后，红色视图位于前方：
+
+```swift
+let red = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+let blue = UIView(frame: CGRect(x: 20, y: 20, width: 100, height: 100))
+red.backgroundColor = .red
+blue.backgroundColor = .blue
+parent.addSubview(red)
+parent.addSubview(blue)
+parent.bringSubviewToFront(red)
+```
+
+对普通 `UIView` 调整同级顺序不会直接修改 `frame` 或已有约束。前后顺序的改变也只作用于该父视图内部。例如 A 和 B 是根视图的子视图，B 位于 A 前方；把 A 的某个子视图移到 A 内部最前方，不能让该子视图越过 B 所在的整个视图分支。需要改变跨分支的遮挡关系时，应调整共同父视图下相关分支的顺序，或重新组织父子关系。
+
+### 更换父视图与移除子视图
+
+调用 `newParent.addSubview(child)` 时，如果 `child` 已有其他父视图，UIKit 会先解除旧的父子关系，再把 `child` 加入 `newParent`。不需要先手动调用一次 `removeFromSuperview()`。只想移除时，则调用 `child.removeFromSuperview()`。
+
+更换父视图后，`frame` 使用新父视图的坐标系。若希望保持屏幕上的位置，应在移动前转换坐标。下面假设两个父视图处于同一窗口中、相关视图没有旋转或缩放，并且 `child` 使用手动布局：
+
+```swift
+let frameInNewParent = child.convert(child.bounds, to: newParent)
+newParent.addSubview(child)
+child.frame = frameInNewParent
+```
+
+使用 Auto Layout 时，原来连接子视图与旧父视图或旧分支的约束不能直接用来约束新父视图中的位置。应根据新的父子关系重新配置相关约束；如果仍由 Auto Layout 控制布局，单次设置 `frame` 可能在后续布局时被覆盖。视图层级和布局修改应在主线程执行。
 
 ### UIStackView 与 UIScrollView 的继承和职责
 
