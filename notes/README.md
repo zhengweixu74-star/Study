@@ -52,6 +52,8 @@
 
 ## iOS 界面、事件与调度
 
+第三方库用法：[Kingfisher：网络图片与占位图](ios/image-loading-decoding-and-memory.md#kingfisher网络图片与占位图)；[RxSwift：输入组合与按钮状态绑定](ios/reactive-programming.md#rxswift输入组合与按钮状态绑定)。
+
 相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。
 
 [iOS 进程间通信与应用扩展](ios/interprocess-communication-and-extensions.md)：App Extension、主要通信方式、App Groups 共享目录、Darwin 通知、UNIX domain socket 路径与数据传递，以及 XPC 的使用边界。
@@ -117,6 +119,8 @@
 
 ## 软件设计与工程工具
 
+[Swift 第三方库与依赖接入](engineering/xcode-and-testing.md#swift-第三方库与依赖接入)：UIKit 与第三方库的区别、Swift Package Manager 接入，以及 Alamofire、Kingfisher、RxSwift 的分类导航。
+
 | 文档 | 内容范围 |
 | --- | --- |
 | [设计模式与 Swift 实践](engineering/design-patterns.md) | 策略、工厂、单例、建造者，以及 Swift 示例与独立验证 |
@@ -134,6 +138,8 @@
 相关专题：[Swift 编译优化选项与体积](language/swift-objc-runtime.md#swift-编译优化选项与体积)；[iOS 包体积优化](engineering/xcode-and-testing.md#ios-包体积优化)。内容范围：`-Osize` 与内联、Dead Code Stripping、资源与依赖精简、符号与 `dSYM`、资源变体和 App Thinning。
 
 ## 网络与存储
+
+第三方库用法：[Alamofire：请求与响应模型](network-and-storage/network-and-proxy.md#alamofire请求与响应模型)。
 
 | 文档 | 内容范围 |
 | --- | --- |

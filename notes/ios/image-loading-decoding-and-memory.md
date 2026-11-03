@@ -49,6 +49,28 @@ SDWebImage 的默认加载流程通常会提前完成普通静态图片的显示
 
 默认缓存键通常来自图片 URL，调用方也可以配置键生成规则或图片变换。相同 URL 的内容改变后，不应假定 SDWebImage 自有缓存一定自动按 HTTP 新鲜期刷新；应采用带内容版本的地址或明确的刷新策略。HTTP 缓存规则见 [网络请求与代理](../network-and-storage/network-and-proxy.md#urlcache-与-http-缓存规则)。
 
+### Kingfisher：网络图片与占位图
+
+Kingfisher 是 Swift 网络图片加载库，适用于头像、商品图片和列表封面。调用方提供图片地址和 UIImageView，Kingfisher 协调下载、缓存和显示。缓存是保留已经获取的数据供后续重复使用；通用加载顺序见本节的共享加载服务流程。
+
+下面假设页面已有 avatarImageView，url 是调用方提供的有效图片地址；代码在主线程执行，且项目已引入 Kingfisher。
+
+```swift
+import UIKit
+import Kingfisher
+
+avatarImageView.kf.setImage(
+    with: url,
+    placeholder: UIImage(systemName: "person.crop.circle")
+)
+```
+
+`.kf` 是 Kingfisher 为 UIImageView 提供的功能入口。`placeholder` 指定目标图片尚未取得时显示的占位图。默认配置下，Kingfisher 先查可用缓存；没有可用缓存时才下载图片。下载成功后，库显示图片，并缓存到内存和磁盘。磁盘写入可以异步完成，图片显示不代表磁盘写入已经结束。
+
+例如，第一次打开头像时没有缓存，需要下载；再次使用同一地址时，若缓存仍然有效，就可以复用图片。缓存过期或被清除后仍可能重新下载。缓存复用不等于缓存永久存在。
+
+依赖接入见 [Swift 第三方库与依赖接入](../engineering/xcode-and-testing.md#swift-第三方库与依赖接入)。
+
 ## 下载数据与解码像素
 
 下载得到的 JPEG、PNG 等文件数据仍然采用相应图片格式的编码。解码是把这些数据转换成可供显示的像素数据。文件下载完成不代表解码已经完成，创建 UIImage 对象也不一定立即完成解码。

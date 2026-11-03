@@ -4,6 +4,7 @@
 
 ## 本文目录
 
+- [RxSwift：输入组合与按钮状态绑定](#rxswift输入组合与按钮状态绑定)
 - [NotificationCenter 与通知回调](#notificationcenter-与通知回调)
 - [响应式关系与 OpenCombine](#响应式关系与-opencombine)
 - [事件值、失败与流结束](#事件值失败与流结束)
@@ -372,3 +373,45 @@ subject.send(1) // 输出 1
 
 subscription.cancel()
 ```
+
+## RxSwift：输入组合与按钮状态绑定
+
+RxSwift 是组合和处理事件流的 Swift 库，适用于表单校验、搜索输入和多个控件联动。事件流是随时间产生的一系列事件，例如文本依次变成 a、ab、abc。RxCocoa 是同一项目中提供 UIKit 控件相关能力的配套模块。通用响应式关系见 [响应式关系与 OpenCombine](#响应式关系与-opencombine)；不同库的类型和接口不能直接混用。
+
+下面要求用户名非空，密码至少包含 6 个字符；两个条件都满足时，登录按钮才可以点击。示例省略控件布局，仅展示数据与按钮状态的关系。
+
+```swift
+import UIKit
+import RxSwift
+import RxCocoa
+
+final class LoginViewController: UIViewController {
+    let usernameField = UITextField()
+    let passwordField = UITextField()
+    let loginButton = UIButton(type: .system)
+    private let disposeBag = DisposeBag()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        Observable.combineLatest(
+            usernameField.rx.text.orEmpty,
+            passwordField.rx.text.orEmpty
+        ) { username, password in
+            !username.isEmpty && password.count >= 6
+        }
+        .bind(to: loginButton.rx.isEnabled)
+        .disposed(by: disposeBag)
+    }
+}
+```
+
+`.rx.text.orEmpty` 提供初始文本及后续用户输入变化，并将 nil 转为字符串空值。不能据此假定直接给 text 属性赋值也一定发出同样的输入事件。
+
+`combineLatest` 等两个来源都提供值后，每当任一来源产生新值，就用两边的最新文本执行闭包。闭包产生 Bool 值，`bind(to:)` 建立接收关系，将每次结果写入按钮的 isEnabled。
+
+例如用户名为 xiaoming、密码为 123 时，结果为 false；密码输入为 123456 后，结果为 true；再清空用户名，结果重新变为 false。这个规则只判断输入是否符合示例条件，不能验证账号密码是否正确，实际登录仍需服务器验证。
+
+订阅是接收事件流所建立的关系。`disposed(by:)` 将本次订阅的取消对象交给 DisposeBag 管理。示例将 DisposeBag 保存为控制器属性；控制器和 DisposeBag 释放后，DisposeBag 取消所管理的订阅。页面离开屏幕不一定表示控制器已经释放。将 DisposeBag 仅声明为短生命周期的局部变量，会让订阅过早被取消。
+
+依赖接入时，需要同时添加 RxSwift 和 RxCocoa，见 [Swift 第三方库与依赖接入](../engineering/xcode-and-testing.md#swift-第三方库与依赖接入)。

@@ -4,6 +4,7 @@
 
 ## 本文目录
 
+- [Alamofire：请求与响应模型](#alamofire请求与响应模型)
 - [HTTP 请求方法、安全性与幂等性](#http-请求方法安全性与幂等性)
 - [请求正文格式与 JSON 字段](#请求正文格式与-json-字段)
 - [使用 JSON 上传文件](#使用-json-上传文件)
@@ -575,3 +576,38 @@ Cache-Control 是服务器在响应头中提供的缓存指令。新鲜期是响
 no-cache 与 no-store 不相同。前者允许保存，但复用前必须验证；后者禁止保存。验证时，客户端可以携带服务器此前提供的版本标识，例如 ETag。ETag 是服务器用于标识资源版本的响应字段；若服务器确认内容未变，可以返回 304，让客户端继续使用已经缓存的正文，从而避免重新传输整张图片。没有合适的验证信息时，客户端可能需要重新取得响应。
 
 允许缓存不等于一定被保存，也不等于下一次一定读取缓存。请求方法、响应状态、缓存指令、应用策略和实际容量共同影响结果。200 不保证可缓存，404 不保证不可缓存。URLCache 与 SDWebImage 自有图片缓存的职责区别见 [SDWebImage 的图片加载与两级缓存](../ios/image-loading-decoding-and-memory.md#sdwebimage-的图片加载与两级缓存)。
+
+## Alamofire：请求与响应模型
+
+Alamofire 是 Swift 网络请求库，适用于获取用户资料、提交表单和上传文件。调用方提供请求地址、参数和结果闭包；库负责发送请求，并提供响应校验和数据转换接口。请求基础见 [URLSession 的职责与请求流程](#urlsession-的职责与请求流程)。
+
+下面假设服务器返回 JSON 对象 `{"id": 1, "name": "小明"}`。`Decodable` 协议表示类型可以从编码数据中还原实例。示例函数接收实际接口地址，调用前需要将 Alamofire 添加到 App 目标。
+
+```swift
+import Foundation
+import Alamofire
+
+struct User: Decodable {
+    let id: Int
+    let name: String
+}
+
+func loadUser(from url: URL) {
+    AF.request(url, method: .get)
+        .validate(statusCode: 200..<300)
+        .responseDecodable(of: User.self) { response in
+            switch response.result {
+            case .success(let user):
+                print("用户名：\(user.name)")
+            case .failure(let error):
+                print("请求失败：\(error.localizedDescription)")
+            }
+        }
+}
+```
+
+执行顺序是：发起 GET 请求 → 收到响应 → 校验状态码 → 将响应数据转换为 User → 调用结果闭包。`validate(statusCode:)` 接受 200 到 299 的状态码；`responseDecodable` 默认使用 JSONDecoder，字段结构和类型必须符合 User 的声明。网络请求、状态码校验或数据转换失败时，结果进入 failure 分支。
+
+请求异步执行。`loadUser` 返回不表示已经取得用户资料。依赖 user 的操作必须在成功取得 user 后执行。满足示例响应条件时，成功分支打印“用户名：小明”。HTTP 成功和解码成功也不自动表示接口约定的所有业务条件都满足。
+
+依赖接入见 [Swift 第三方库与依赖接入](../engineering/xcode-and-testing.md#swift-第三方库与依赖接入)。

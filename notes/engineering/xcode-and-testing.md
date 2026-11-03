@@ -4,6 +4,7 @@
 
 ## 本文目录
 
+- [Swift 第三方库与依赖接入](#swift-第三方库与依赖接入)
 - [源码编辑与搜索](#源码编辑与搜索)
 - [工程与构建](#工程与构建)
 - [自动化测试](#自动化测试)
@@ -458,3 +459,15 @@ Scheme 是构建、运行、测试等操作的执行方案。Scheme 和 Target �
 `twoSum([2, 7, 11, 15], 9)` 只依赖输入值；前面的评论查找示例也使用测试自己构造的数组。因此这两个例子都没有逻辑上必须依赖宿主 App 的理由。**设置宿主不等于提供真实评论数据。** 数据从哪里来由测试代码决定，可以是构造值、文件、Mock 或真实接口。
 
 点击某个测试方法的菱形只限定执行哪项测试，构建仍需准备测试 Target、所需依赖，以及 Scheme 中为 Test 启用的其他目标；不能理解成只编译被点击的函数。
+
+## Swift 第三方库与依赖接入
+
+UIKit 是 Apple 官方界面框架，不属于第三方库。SnapKit 是第三方布局库。其他常见第三方库按职责分别记录在以下笔记中，示例和执行流程以对应章节为准：
+
+- [Alamofire：请求与响应模型](../network-and-storage/network-and-proxy.md#alamofire请求与响应模型)：获取用户资料、提交表单和上传文件。
+- [Kingfisher：网络图片与占位图](../ios/image-loading-decoding-and-memory.md#kingfisher网络图片与占位图)：头像、商品图片和列表封面的加载与缓存。
+- [RxSwift：输入组合与按钮状态绑定](../ios/reactive-programming.md#rxswift输入组合与按钮状态绑定)：表单校验、搜索输入和多个控件联动。
+
+Swift Package Manager 是 Swift 的包与依赖管理工具。在 Xcode 中添加库的包依赖，填写所选库的仓库地址，选择兼容项目工具链和最低系统版本的版本，再把需要的库产品添加到 App 目标。目标及模块的含义见 [Target、模块与构建产物](#target模块与构建产物)。
+
+Alamofire 示例需要 Alamofire 产品，Kingfisher 示例需要 Kingfisher 产品。RxSwift 的 UIKit 示例需要同时添加 RxSwift 和 RxCocoa 产品，然后在源文件中使用对应的 import。`import` 只导入模块，不负责下载或安装依赖。
