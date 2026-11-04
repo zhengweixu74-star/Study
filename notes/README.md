@@ -28,7 +28,7 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法 |
-| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVO、+load 与自动注册 |
+| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVO、+load、+initialize 与按需初始化 |
 
 [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：类型标注与推断、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
 
@@ -62,7 +62,7 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、启动到首帧、UIWindow、触摸分发与键盘输入 |
+| [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、启动到首帧、动态库数量与无用代码优化、UIWindow、触摸分发与键盘输入 |
 | [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 生命周期、视图层级、布局、UITableView 重用与预取、ViewModel 与容器控制器 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度 |
 | [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息 |
@@ -80,7 +80,7 @@
 
 相关专题：[长列表图片任务调度](ios/image-loading-decoding-and-memory.md#长列表图片任务调度)；[Operation 与 OperationQueue](ios/threads-and-scheduling.md#operation-与-operationqueue)。内容范围：下载与解码分别限流、预取回调、共享任务取消、快速滚动的启动控制，以及任务队列的并发限制与协作式取消。
 
-相关专题：[main 之前的启动工作与 dyld](ios/app-lifecycle-and-events.md#main-之前的启动工作与-dyld)；[UIApplication 与主线程 RunLoop](ios/app-lifecycle-and-events.md#uiapplication-与主线程-runloop)。内容范围：pre-main 初始化、UIApplication 单例、主事件循环与主线程事件处理。
+相关专题：[main 之前的启动工作与 dyld](ios/app-lifecycle-and-events.md#main-之前的启动工作与-dyld)；[动态库数量与启动开销](ios/app-lifecycle-and-events.md#动态库数量与启动开销)；[删除无用代码与地址修正成本](ios/app-lifecycle-and-events.md#删除无用代码与地址修正成本)；[UIApplication 与主线程 RunLoop](ios/app-lifecycle-and-events.md#uiapplication-与主线程-runloop)。内容范围：pre-main 初始化、UIApplication 单例、主事件循环与主线程事件处理。
 
 补充专题：[优先级反转与优先级继承](ios/threads-and-scheduling.md#优先级反转与优先级继承)。
 
@@ -124,14 +124,14 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [设计模式与 Swift 实践](engineering/design-patterns.md) | 策略、工厂、单例、建造者，以及 Swift 示例与独立验证 |
-| [Xcode 工程管理与自动化测试](engineering/xcode-and-testing.md) | 源码编辑与搜索、工程与构建、XCTest、Swift Testing 与测试计划 |
+| [Xcode 工程管理与自动化测试](engineering/xcode-and-testing.md) | 源码编辑与搜索、工程与构建、静态与动态链接取舍、Rebase 与 Binding、XCTest、Swift Testing 与测试计划 |
 | [CocoaPods、Podfile 与依赖管理](engineering/cocoapods-and-podfile.md) | Ruby DSL、依赖声明与版本范围、Molinillo 与 Xcodeproj、锁文件、YAML、Gemfile，以及用 Python 读取 Podfile |
 
 相关专题：[耦合与解耦](engineering/design-patterns.md#耦合与解耦)；[依赖反转与依赖注入](engineering/design-patterns.md#依赖反转与依赖注入)。内容范围：耦合的含义、解耦目的与三个实例、源码依赖方向、模块边界，以及依赖反转与依赖注入的区别。
 
 [Xcode：界面预览与 Android 布局预览](engineering/xcode-and-testing.md#界面预览与-android-布局预览)：Xcode 预览能力与 UIKit 接入条件。
 
-相关专题：[编译、链接、嵌入与装载](engineering/xcode-and-testing.md#编译链接嵌入与装载)；[静态库的目标文件提取与代码裁剪](engineering/xcode-and-testing.md#静态库的目标文件提取与代码裁剪)；[动态库的打包、启动装载与延迟装载](engineering/xcode-and-testing.md#动态库的打包启动装载与延迟装载)。
+相关专题：[编译、链接、嵌入与装载](engineering/xcode-and-testing.md#编译链接嵌入与装载)；[静态库的目标文件提取与代码裁剪](engineering/xcode-and-testing.md#静态库的目标文件提取与代码裁剪)；[动态库的打包、启动装载与延迟装载](engineering/xcode-and-testing.md#动态库的打包启动装载与延迟装载)；[静态链接与动态链接的取舍](engineering/xcode-and-testing.md#静态链接与动态链接的取舍)；[Rebase 与 Binding：地址修正](engineering/xcode-and-testing.md#rebase-与-binding地址修正)。
 
 相关专题：[IPA、.app 与 Mach-O](engineering/xcode-and-testing.md#ipaapp-与-mach-o)；[Mach-O 的加载信息](engineering/xcode-and-testing.md#mach-o-的加载信息)；[预设虚拟地址、ASLR 与物理内存](engineering/xcode-and-testing.md#预设虚拟地址aslr-与物理内存)。内容范围：安装分发包与应用目录、可执行文件的加载信息、启动地址随机化，以及虚拟地址与物理地址的映射。
 
