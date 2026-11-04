@@ -21,6 +21,7 @@
 - [闭包参数、捕获列表与可选回调](#闭包参数捕获列表与可选回调)
 - [多行字符串与脚本执行](#多行字符串与脚本执行)
 - [map、KeyPath、Sequence、Collection 与 Set](#mapkeypathsequencecollection-与-set)
+  - [stride 的步长、方向与边界](#stride-的步长方向与边界)
   - [数组的 last 属性](#数组的-last-属性)
   - [数组反转：reverse() 与 reversed()](#数组反转reverse-与-reversed)
 - [元组、字典与空元组 Void](#元组字典与空元组-void)
@@ -1582,6 +1583,69 @@ let names = scores.map { $0.key }
 ```
 
 上面 `map` 的结果都是数组，不会自动维持输入的 `Set` 或 `Dictionary` 类型。一般意义的集合、`Collection` 协议和 `Set` 类型是不同概念。“集合类型”描述数据组织用途，“值类型”描述赋值等操作的语义；`Array` 既是集合类型，也是结构体实现的值类型。
+
+### stride 的步长、方向与边界
+
+`stride` 是 Swift 标准库函数，用于生成按指定步长变化的序列。步长是相邻两次取值之间的差。`stride` 返回的序列可以用 `for-in` 遍历，不会预先创建保存全部结果的数组。以下示例使用 `Int`。
+
+```swift
+let right = 4
+let left = 1
+
+for i in stride(from: right, through: left, by: -1) {
+    print(i)
+}
+// 依次输出：4、3、2、1
+```
+
+`from`、`through`、`to` 和 `by` 是参数标签，用于说明各个参数的含义。调用时使用 `through:` 或 `to:` 中的一种。
+
+| 参数 | 含义 |
+| --- | --- |
+| `from:` | 起点；起点满足边界条件时，起点就是第一个值 |
+| `through:` | 结束边界；允许包含终点 |
+| `to:` | 结束边界；不包含终点 |
+| `by:` | 步长；正数表示递增，负数表示递减，不能为 `0` |
+
+`through:` 与 `to:` 的区别是是否允许取到终点。下面用 `Array(...)` 把序列中的值收集成数组，便于展示结果；普通 `for-in` 遍历不需要这一步。
+
+```swift
+Array(stride(from: 4, through: 1, by: -1)) // [4, 3, 2, 1]
+Array(stride(from: 4, to: 1, by: -1))      // [4, 3, 2]
+
+Array(stride(from: 1, through: 4, by: 1))  // [1, 2, 3, 4]
+Array(stride(from: 1, to: 4, by: 1))       // [1, 2, 3]
+```
+
+生成的值必须满足以下边界条件，起点也不例外。判断方向由步长的正负决定，与变量叫 `right` 还是 `left` 无关。
+
+| 步长 | `through: end` 的取值条件 | `to: end` 的取值条件 |
+| --- | --- | --- |
+| 正数 | 当前值 `<= end` | 当前值 `< end` |
+| 负数 | 当前值 `>= end` | 当前值 `> end` |
+
+例如，`stride(from: right, through: left, by: -1)` 要求当前值大于或等于 `left`。当 `right == left` 时，起点满足条件，序列只包含这个值，循环执行一次。当 `right < left` 时，起点已经低于下限，序列为空，循环不执行；这不是语法错误，也不会仅因这个大小关系而报错。
+
+```swift
+Array(stride(from: 2, through: 2, by: -1)) // [2]
+Array(stride(from: 1, through: 2, by: -1)) // []
+Array(stride(from: 2, to: 2, by: -1))      // []
+```
+
+如果把步长改成 `1`，`through: left` 对应的条件就是当前值小于或等于 `left`。起点等于终点时仍取值一次；起点大于终点时序列为空。使用 `to:` 时，无论步长是正数还是负数，起点等于终点都会得到空序列。
+
+```swift
+Array(stride(from: 2, through: 4, by: 1)) // [2, 3, 4]
+Array(stride(from: 2, through: 2, by: 1)) // [2]
+Array(stride(from: 4, through: 2, by: 1)) // []
+Array(stride(from: 2, to: 2, by: 1))      // []
+```
+
+`through:` 允许包含终点，但不会为了包含终点而改变步长。只有按步长递进恰好到达终点时，序列才会包含终点。
+
+```swift
+Array(stride(from: 1, through: 4, by: 2)) // [1, 3]，不会额外加入 4
+```
 
 ### 数组的 last 属性
 
