@@ -7,6 +7,7 @@
 - [TypeScript 与 JavaScript 的关系](#typescript-与-javascript-的关系)
 - [Node.js 与浏览器运行环境](#nodejs-与浏览器运行环境)
 - [类型标注、类型推断、接口与泛型](#类型标注类型推断接口与泛型)
+  - [JavaScript number 与 Swift Int、Double](#javascript-number-与-swift-intdouble)
 - [类型擦除与运行时检查](#类型擦除与运行时检查)
 - [线程、事件循环与异步](#线程事件循环与异步)
 - [Worker 消息通信与回调执行位置](#worker-消息通信与回调执行位置)
@@ -77,7 +78,45 @@ let count = 20; // 推断为 number
 count = "hello"; // 类型检查报错
 ```
 
-这里的报错来自静态类型检查，不是 TypeScript 为变量插入了运行时拦截器。Swift 的 `var age: Int = 20` 和 `var age = 20` 也分别体现显式标注与类型推断；JavaScript 的 `number` 与 Swift 的 `Int` 并不是同一种数值类型。
+这里的报错来自静态类型检查，不是 TypeScript 为变量插入了运行时拦截器。Swift 的 `var age: Int = 20` 和 `var age = 20` 也分别体现显式标注与类型推断。这个类比只说明类型标注与类型推断的写法。
+
+### JavaScript number 与 Swift Int、Double
+
+JavaScript 的 `number` 可以表示整数值和小数值，Swift 的 `Int` 只能表示整数。按数值表示方式比较，`number` 更接近 Swift 的 `Double`。
+
+“值是整数”和“类型是整数类型”是两个概念。`20` 是整数值，但程序既可以用整数类型保存 `20`，也可以用浮点类型保存 `20`。浮点类型用有限位数表示数值，可以表示小数，但不能精确表示所有小数。
+
+| 类型 | 数值表示方式 | 示例 |
+| --- | --- | --- |
+| JavaScript `number` | 64 位二进制浮点数 | `20`、`20.5` 都属于 `number` |
+| Swift `Int` | 有固定表示范围的整数，可以表示正数、负数和零；位数由平台决定 | 可以保存 `20`，不能保存 `20.5` |
+| Swift `Double` | 64 位二进制浮点数 | 可以保存 `20` 和 `20.5` |
+
+JavaScript 中：
+
+```javascript
+let age = 20;        // 当前值的类型是 number
+age = 20.5;         // 仍然是 number
+
+console.log(5 / 2);  // 2.5
+```
+
+`age` 从 `20` 变为 `20.5` 时，值的类型没有改变。TypeScript 的 `number` 也描述这种数值类型，因此把变量声明为 `age: number` 不会将变量限制为只能保存整数。
+
+Swift 中：
+
+```swift
+var age = 20         // 编译器将 age 推断为 Int
+// age = 20.5       // 编译错误：不能把小数赋给 Int
+
+var value: Double = 20
+value = 20.5        // 合法
+
+print(5 / 2)        // 2：两个 Int 做整数除法
+print(5.0 / 2.0)    // 2.5：两个 Double 做浮点除法
+```
+
+整数除法会舍去商的小数部分，向零取整。因此，上面两种语言中的 `5 / 2` 得到不同结果。`number` 与 `Double` 使用相同的浮点表示格式，但 JavaScript 和 Swift 各自的类型检查、类型推断和转换规则仍然不同。
 
 ### 接口描述对象的结构
 
