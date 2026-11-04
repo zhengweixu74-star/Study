@@ -5,6 +5,7 @@
 ## 本文目录
 
 - [TypeScript 与 JavaScript 的关系](#typescript-与-javascript-的关系)
+- [Node.js 与浏览器运行环境](#nodejs-与浏览器运行环境)
 - [类型标注、类型推断、接口与泛型](#类型标注类型推断接口与泛型)
 - [类型擦除与运行时检查](#类型擦除与运行时检查)
 - [线程、事件循环与异步](#线程事件循环与异步)
@@ -18,6 +19,40 @@ TypeScript 在 JavaScript 的基础上增加静态类型检查和相关语法。
 JavaScript 运行环境是执行 JavaScript 代码并提供定时器、网络等能力的系统，例如浏览器或 Node.js。TypeScript 不提供独立于 JavaScript 的线程模型；代码移除类型语法后，由相应 JavaScript 运行环境执行。
 
 JavaScript 语法通常也可以写在 TypeScript 中，但 TypeScript 可能对这些代码报告类型错误。语法兼容不等于所有 JavaScript 代码都能通过 TypeScript 检查。
+
+## Node.js 与浏览器运行环境
+
+Node.js 是让 JavaScript 在浏览器之外运行的运行环境，常用于编写服务器程序、命令行工具和自动化脚本。JavaScript 是编程语言；Node.js 是执行 JavaScript 代码并提供系统功能的软件。
+
+V8 是负责解析和执行 JavaScript 代码的软件组件，属于 JavaScript 引擎。Node.js 使用 V8 执行 JavaScript 代码。Node.js 还提供文件读写、网络通信和进程管理等接口，让 JavaScript 程序可以使用这些系统能力。
+
+浏览器也能运行 JavaScript，但浏览器和 Node.js 提供的功能不同：
+
+| 运行环境 | 典型能力 | 常见用途 |
+| --- | --- | --- |
+| 浏览器 | 操作网页内容、响应按钮点击 | 实现网页交互 |
+| Node.js | 读写本地文件、接收和响应网络请求 | 编写服务器程序和本地工具 |
+
+例如，将下面的代码保存为 `hello.js`：
+
+```javascript
+const name = "小明";
+console.log(`你好，${name}`);
+```
+
+安装 Node.js 后，在终端中进入 `hello.js` 所在目录，再执行：
+
+```bash
+node hello.js
+```
+
+Node.js 读取并执行 `hello.js`。代码先将字符串 `"小明"` 保存到 `name`，再通过 `console.log` 在终端输出：
+
+```text
+你好，小明
+```
+
+整个过程不需要打开浏览器。
 
 ## 类型标注、类型推断、接口与泛型
 
