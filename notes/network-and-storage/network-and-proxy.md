@@ -5,6 +5,8 @@
 ## 本文目录
 
 - [Alamofire：请求与响应模型](#alamofire请求与响应模型)
+  - [响应容器、Result 与模型值](#响应容器result-与模型值)
+  - [请求信息、HTTP 响应与正文](#请求信息http-响应与正文)
 - [HTTP 请求方法、安全性与幂等性](#http-请求方法安全性与幂等性)
 - [请求正文格式与 JSON 字段](#请求正文格式与-json-字段)
 - [使用 JSON 上传文件](#使用-json-上传文件)
@@ -593,7 +595,7 @@ struct User: Decodable {
 }
 
 func loadUser(from url: URL) {
-    AF.request(url, method: .get)
+    AF.request(url, method: .get, headers: ["Accept": "application/json"])
         .validate(statusCode: 200..<300)
         .responseDecodable(of: User.self) { response in
             switch response.result {
@@ -609,5 +611,65 @@ func loadUser(from url: URL) {
 执行顺序是：发起 GET 请求 → 收到响应 → 校验状态码 → 将响应数据转换为 User → 调用结果闭包。`validate(statusCode:)` 接受 200 到 299 的状态码；`responseDecodable` 默认使用 JSONDecoder，字段结构和类型必须符合 User 的声明。网络请求、状态码校验或数据转换失败时，结果进入 failure 分支。
 
 请求异步执行。`loadUser` 返回不表示已经取得用户资料。依赖 user 的操作必须在成功取得 user 后执行。满足示例响应条件时，成功分支打印“用户名：小明”。HTTP 成功和解码成功也不自动表示接口约定的所有业务条件都满足。
+
+### 响应容器、Result 与模型值
+
+以前例的 `User` 为目标类型，Alamofire 传给结果闭包的 `response` 是响应结果容器。容器同时保存请求、HTTP 响应信息、正文数据和最终结果，不能把整个容器当作 `User` 使用。
+
+| 表达式或变量 | 类型 | 含义 |
+| --- | --- | --- |
+| `response` | `AFDataResponse<User>` | 响应结果容器 |
+| `response.result` | `Result<User, AFError>` | 成功时携带 `User`，失败时携带错误 |
+| `.success(let user)` 中的 `user` | `User` | 已经解码得到的模型值 |
+| `.failure(let error)` 中的 `error` | `AFError` | Alamofire 定义的错误值 |
+
+`AFDataResponse<User>` 是 `DataResponse<User, AFError>` 的类型别名，即同一种类型的另一种名称。`AFError` 是 Alamofire 用来表示请求、校验或响应数据转换等错误的类型。
+
+成功路径中，Alamofire 先通过解码器得到 `User`，再把模型放入 `.success`，最后把包含这个结果的响应容器传入闭包。`case .success(let user)` 只提取已有模型，不会在匹配时重新解码。枚举关联值与 `Result` 的含义见 [可选类型、状态表达与并发支持](../language/swift-basics.md#可选类型状态表达与并发支持)。
+
+`response.result` 的 `result` 是属性名，而 `.success(let result)` 中的 `result` 可以只是调用方声明的局部常量名。二者即使同名也不是同一个值；将局部常量命名为 `user` 或 `apiResponse`，可以更清楚地表达所取出的模型。
+
+### 请求信息、HTTP 响应与正文
+
+下面假设前例请求的地址为 `https://example.com/profile`，方法为 `GET`，并设置请求头 `Accept: application/json`。URL 指定目标地址；请求方法表达本次操作；请求头是描述请求及其可接受内容等条件的具名信息。这里的 `Accept` 表示客户端接受 JSON 格式的响应正文。该请求没有请求正文；需要提交数据的请求还可以在正文中携带数据。
+
+假设服务器返回下面的内容。为便于阅读，这里使用 HTTP/1.1 的文本形式，省略与示例无关的响应头：
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"id":1,"name":"小明"}
+```
+
+HTTP 状态码说明这次 HTTP 请求的结果。响应头是描述响应及其正文的一组字段，例如 `Content-Type: application/json` 声明正文采用 JSON 格式。响应正文承载实际返回的数据，在本例中是用户资料的 JSON 文本。基础协议概念见 [HTTP 请求方法、安全性与幂等性](#http-请求方法安全性与幂等性)。
+
+| 容器属性 | 类型 | 本例保存的内容 |
+| --- | --- | --- |
+| `response.request` | `URLRequest?` | 请求地址、GET 方法、Accept 请求头等请求信息 |
+| `response.response` | `HTTPURLResponse?` | 状态码 200、Content-Type 响应头等响应信息 |
+| `response.data` | `Data?` | `{"id":1,"name":"小明"}` 对应的正文字节 |
+
+`response.response` 中，外层 `response` 是闭包参数名，后面的 `.response` 是容器属性。`HTTPURLResponse` 保存状态码和响应头等信息，正文另存于 `data`。这些属性是可选值，不能假定每次失败时也一定存在，例如尚未收到 HTTP 响应就发生错误时，响应信息可能为 `nil`。
+
+这里的原始数据是相对于尚未转换为 `User` 的正文而言，不包含 HTTP 状态码和响应头。解码成功后，`data` 中的正文字节和 `.success` 中的模型值可以同时存在。
+
+以下代码可放在前例的结果闭包中，用于查看不同层次的信息：
+
+```swift
+print(response.request?.url as Any)
+print(response.request?.httpMethod as Any)
+print(response.request?.value(forHTTPHeaderField: "Accept") as Any)
+
+print(response.response?.statusCode as Any)
+print(response.response?.value(forHTTPHeaderField: "Content-Type") as Any)
+
+if let data = response.data,
+   let text = String(data: data, encoding: .utf8) {
+    print(text)
+}
+```
+
+`value(forHTTPHeaderField:)` 按字段名获取对应的头字段值；本例读取 `Content-Type` 时得到 `application/json`。示例通过 `if let` 取出正文字符串再打印；UTF-8 解码、JSON 排版和可选字符串的输出差异见 [Data、字符串解码与打印](../language/swift-basics.md#data字符串解码与打印)。
 
 依赖接入见 [Swift 第三方库与依赖接入](../engineering/xcode-and-testing.md#swift-第三方库与依赖接入)。

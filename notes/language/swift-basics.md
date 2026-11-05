@@ -20,6 +20,9 @@
 - [逃逸闭包与执行时机](#逃逸闭包与执行时机)
 - [闭包参数、捕获列表与可选回调](#闭包参数捕获列表与可选回调)
 - [多行字符串与脚本执行](#多行字符串与脚本执行)
+- [Data、字符串解码与打印](#data字符串解码与打印)
+  - [UTF-8 解码与 JSON 模型解码](#utf-8-解码与-json-模型解码)
+  - [可选字符串的打印与换行](#可选字符串的打印与换行)
 - [map、KeyPath、Sequence、Collection 与 Set](#mapkeypathsequencecollection-与-set)
   - [stride 的步长、方向与边界](#stride-的步长方向与边界)
   - [数组的 last 属性](#数组的-last-属性)
@@ -460,7 +463,9 @@ case .failure(let message):
 }
 ```
 
-switch 必须覆盖所有可能情况。对于上面的自定义枚举，遗漏情况且没有 default 时，编译器会报告错误。以后新增情况时，没有 default 的相关 switch 也能提示需要补充处理。
+switch 必须覆盖所有可能情况。对于上面的自定义枚举，遗漏情况且没有 default 时，编译器会报告错误。以后新增情况时，没有 default 的相关 switch 也能提示需要补充处理。在 `case .success(let content)` 中，Swift 取出该情况已经携带的字符串，并绑定到局部常量 `content`；这一步不会创建原始结果，也不会执行数据解码。`content` 是调用方选择的名称，可以改名而不改变取值行为。
+
+Swift 标准库的 `Result<Success, Failure>` 用 `.success(Success)` 和 `.failure(Failure)` 表示成功或失败，其中 `Failure` 必须遵循 `Error` 协议。`Result` 值与成功情况携带的值是不同层次：例如 `Result<String, SomeError>` 是结果类型，匹配 `.success(let text)` 后，`text` 的类型才是 `String`。这里的 `SomeError` 表示调用方定义的、遵循 `Error` 的错误类型。网络响应中的应用见 [Alamofire：请求与响应模型](../network-and-storage/network-and-proxy.md#alamofire请求与响应模型)。
 
 async/await 用语言语法表达可挂起的异步调用流程，减少多层回调对执行关系的遮蔽。await 表示可能挂起的位置，不保证新建线程，也不保证工作在后台执行。actor 通过隔离其可变状态限制外部并发访问；跨越 await 后，其他任务可能改变状态。这些能力不自动保证程序更快或没有逻辑错误，细节见[actor 的默认隔离与重入](#actor-的默认隔离与重入)。
 
@@ -1466,6 +1471,57 @@ let script = "window.receiveProduct(\"123\");"
 ```
 
 普通字符串中，`\"` 表示内容里的双引号，避免被当作 Swift 字符串的结束标记。两种写法在此示例中得到相同的字符串内容。创建这个字符串不会执行 JS，调用 `evaluateJavaScript` 后才由 WebKit 执行，见[Native 调用前端](../cross-platform/webview-and-lynx-bridge.md#wkwebviewnative-执行-javascript)。
+
+## Data、字符串解码与打印
+
+`Data` 是 Foundation 用来保存字节数据的类型。字符编码规定文字与字节序列之间的对应规则。编码把文字转换为字节；解码按指定规则把字节转换为文字。UTF-8 是一种字符编码，例如字符 `A` 对应字节 `0x41`。
+
+### UTF-8 解码与 JSON 模型解码
+
+`String(data:encoding:)` 按指定字符编码把 `Data` 解码为字符串。`encoding: .utf8` 指定解释字节的规则，不表示执行从文字到字节的转换。这个初始化方法返回 `String?`；数据无法按指定规则解码时，结果为 `nil`。
+
+```swift
+import Foundation
+
+let data = Data([0x41])
+if let text = String(data: data, encoding: .utf8) {
+    print(text) // A
+}
+```
+
+JSON 是一种文本数据格式。把包含 JSON 的 `Data` 转换为 `String`，只得到 JSON 文本，不会自动生成业务模型，也不会检查文本是否是合法 JSON。`JSONDecoder` 则按照 JSON 结构和目标类型构建模型；Alamofire 的具体调用过程见 [响应容器、Result 与模型值](../network-and-storage/network-and-proxy.md#响应容器result-与模型值)。
+
+### 可选字符串的打印与换行
+
+`String(data:encoding:)` 只解码字节，不会自动为 JSON 添加缩进或换行。JSON 可以采用单行排版，也可以在结构之间包含换行和空格。直接打印普通 `String` 时，`print` 输出字符串原有的字符；控制台根据实际换行字符换行。
+
+直接打印 `String?` 时，Swift 使用可选值的调试表示：有值时显示 `Optional("…")`，没有值时显示 `nil`。字符串内部的实际换行字符会显示为可见的 `\n`，双引号会显示为 `\"`。
+
+```swift
+let value: String? = "A\nB"
+print(value as Any) // Optional("A\nB")
+
+if let text = value {
+    print(text)
+}
+```
+
+这里的 `as Any` 显式把可选值传给 `print`，避免隐式转换提示，不会解包或修改字符串。`if let` 取出字符串之后，第二次打印输出：
+
+```text
+A
+B
+```
+
+`if let` 只取出原有值，不会替换任何字符。前后输出的区别来自可选值的调试表示与普通字符串的直接输出，字符串内容始终相同。可选绑定的条件和作用域见 [可选绑定、条件逗号与逻辑与](#可选绑定条件逗号与逻辑与)。
+
+源码中的 `"A\nB"` 包含一个实际换行字符；`"A\\nB"` 包含反斜杠和字母 `n` 两个普通字符。后一种内容不会因为解包或打印而自动变成换行：
+
+```swift
+print("A\\nB") // A\nB，A 和 B 在同一行
+```
+
+如果 JSON 的某个字符串字段使用 `\n` 表示字段值中的换行，`String(data:encoding:)` 得到的 JSON 文本仍保留这两个字符；需要 JSON 解码器解析该字段，才会得到含实际换行字符的字段值。这与 JSON 结构之间用于排版的实际换行不同。
 
 ## map、KeyPath、Sequence、Collection 与 Set
 

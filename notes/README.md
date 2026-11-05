@@ -27,7 +27,7 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历、stride 步长与边界、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法 |
+| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历、stride 步长与边界、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法；Result 与关联值提取；Data、UTF-8 解码、可选字符串打印与换行 |
 | [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVO、+load、+initialize 与按需初始化 |
 
 [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：Node.js 运行环境与浏览器的区别、类型标注与推断、number 与 Int、Double 的区别、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
@@ -143,7 +143,7 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任 |
+| [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；Alamofire 响应容器、Result 与模型值；请求信息、HTTP 响应头与正文 |
 | [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份边界 |
 | [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件存储、Keychain、SQLite、Core Data 与 SwiftData；编码与磁盘写入的区别 |
 
