@@ -52,7 +52,7 @@
 
 ## iOS 界面、事件与调度
 
-第三方库用法：[Kingfisher：网络图片与占位图](ios/image-loading-decoding-and-memory.md#kingfisher网络图片与占位图)；[RxSwift：输入组合与按钮状态绑定](ios/reactive-programming.md#rxswift输入组合与按钮状态绑定)。
+第三方库用法：[Kingfisher：网络图片与占位图](ios/image-loading-decoding-and-memory.md#kingfisher网络图片与占位图)；[RxSwift：输入组合、事件序列与搜索订阅](ios/reactive-programming.md#rxswiftobservable-与订阅)。
 
 相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。
 
@@ -64,7 +64,7 @@
 | --- | --- |
 | [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、启动到首帧、动态库数量与无用代码优化、UIWindow、触摸分发与键盘输入 |
 | [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 生命周期、视图层级、布局、UITableView 重用与预取、ViewModel 与容器控制器 |
-| [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度 |
+| [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
 | [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息 |
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
 

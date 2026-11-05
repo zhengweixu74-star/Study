@@ -5,6 +5,10 @@
 ## 本文目录
 
 - [RxSwift：输入组合与按钮状态绑定](#rxswift输入组合与按钮状态绑定)
+- [RxSwift：Observable 与订阅](#rxswiftobservable-与订阅)
+- [RxSwift：debounce 与 distinctUntilChanged](#rxswiftdebounce-与-distinctuntilchanged)
+- [RxSwift：observe(on:) 与回调线程](#rxswiftobserveon-与回调线程)
+- [RxSwift：flatMapLatest 与 flatMap](#rxswiftflatmaplatest-与-flatmap)
 - [NotificationCenter 与通知回调](#notificationcenter-与通知回调)
 - [响应式关系与 OpenCombine](#响应式关系与-opencombine)
 - [事件值、失败与流结束](#事件值失败与流结束)
@@ -412,6 +416,182 @@ final class LoginViewController: UIViewController {
 
 例如用户名为 xiaoming、密码为 123 时，结果为 false；密码输入为 123456 后，结果为 true；再清空用户名，结果重新变为 false。这个规则只判断输入是否符合示例条件，不能验证账号密码是否正确，实际登录仍需服务器验证。
 
-订阅是接收事件流所建立的关系。`disposed(by:)` 将本次订阅的取消对象交给 DisposeBag 管理。示例将 DisposeBag 保存为控制器属性；控制器和 DisposeBag 释放后，DisposeBag 取消所管理的订阅。页面离开屏幕不一定表示控制器已经释放。将 DisposeBag 仅声明为短生命周期的局部变量，会让订阅过早被取消。
+`disposed(by:)` 将本次订阅的取消对象交给 DisposeBag 管理。示例将 DisposeBag 保存为控制器属性；控制器和 DisposeBag 释放后，DisposeBag 取消所管理的订阅。页面离开屏幕不一定表示控制器已经释放。将 DisposeBag 仅声明为短生命周期的局部变量，会让订阅过早被取消。
 
 依赖接入时，需要同时添加 RxSwift 和 RxCocoa，见 [Swift 第三方库与依赖接入](../engineering/xcode-and-testing.md#swift-第三方库与依赖接入)。
+
+## RxSwift：Observable 与订阅
+
+`Observable<Element>` 是 RxSwift 表示可观察事件序列的泛型类。`Element` 指定每次普通数据事件携带的值类型。序列表示按时间先后发生的事件，不要求产生多个值，也不等于数组。
+
+`Observable<[String]>` 的 `Element` 是 `[String]`。一次普通数据事件可以携带完整数组，例如 `["Swift 入门", "Swift 并发"]`。接收回调在一次调用中取得整个数组，不会因为数组包含两项而自动执行两次。
+
+RxSwift 用 `Event<Element>` 表示事件。一次订阅可以收到零次或多次 `.next`，随后正常结束、失败结束，或者持续等待后续事件。
+
+| 事件 | 含义 | 闭包式订阅的接收位置 |
+| --- | --- | --- |
+| `.next(value)` | 发送一个 `Element` 类型的值 | `onNext`，参数为 `value` |
+| `.error(error)` | 以错误结束事件序列 | `onError`，参数为错误 |
+| `.completed` | 正常结束事件序列 | `onCompleted`，没有结果参数 |
+
+`.error` 和 `.completed` 都是结束事件。结束事件之后，同一次订阅不能继续收到 `.next`。搜索返回空数组仍然是一次 `.next([])`，不等于没有事件，也不等于 `.completed`。
+
+订阅是建立“事件产生后通知哪个观察者”的关系。观察者是接收事件的一方。调用 `subscribe(onNext:onError:onCompleted:)` 时，RxSwift 用调用方传入的闭包建立观察者；事件到达观察者后，RxSwift 调用匹配的闭包，并传入数据或错误。页面通常通过接收闭包使用结果，`Observable` 不会代替页面执行显示逻辑。
+
+下面的示例模拟一次结果发送，不执行网络请求。示例仅说明执行关系，未编译运行。
+
+```swift
+import RxSwift
+
+let resultEvents: Observable<[String]> = Observable.create { observer in
+    print("开始产生结果")
+    observer.onNext(["Swift 入门", "Swift 并发"])
+    observer.onCompleted()
+    return Disposables.create()
+}
+
+let subscription = resultEvents.subscribe(
+    onNext: { items in
+        print(items)
+    },
+    onCompleted: {
+        print("搜索结束")
+    }
+)
+```
+
+创建 `resultEvents` 时，`Observable.create` 保存产生事件的闭包。调用 `resultEvents.subscribe(...)` 后，RxSwift 执行产生事件的闭包。`observer.onNext(...)` 发送数组，并触发 `onNext`；`observer.onCompleted()` 随后触发 `onCompleted`。示例没有安排异步执行，因此接收闭包可以在 `subscribe(...)` 返回之前执行。
+
+只有把请求启动代码放在订阅时执行的逻辑中，才能说“订阅后才发出请求”。仅凭返回类型 `Observable<[String]>`，无法确定 `search(keyword:)` 是否延迟启动请求、是否共享请求、是否重放已有结果，以及总共发送多少个数组。
+
+`subscribe(...)` 返回遵循 `Disposable` 协议的取消凭据。调用取消凭据的 `dispose()` 会结束本次订阅并执行相应清理。`DisposeBag` 的管理方式见 [RxSwift：输入组合与按钮状态绑定](#rxswift输入组合与按钮状态绑定)。释放一个普通 `Disposable` 变量不应被当作已经调用 `dispose()`。
+
+## RxSwift：debounce 与 distinctUntilChanged
+
+`debounce` 按事件间隔决定何时发送最近值。`distinctUntilChanged` 按值的比较结果过滤连续重复值。操作符是接收一个事件序列、返回经过转换或筛选的新事件序列的方法；上游是向操作符发送事件的一方，下游是接收操作符输出的一方。
+
+```swift
+let keywords = searchText
+    .debounce(.milliseconds(300), scheduler: MainScheduler.instance)
+    .distinctUntilChanged()
+```
+
+示例假设 `searchText` 的类型是 `Observable<String>`，并且 `keywords` 已经被订阅。调度器决定工作在什么执行环境、什么时机运行。`MainScheduler.instance` 把定时到期后的工作安排到主线程。
+
+### debounce 的发送时机
+
+上游保持有效期间，每次新文本事件到达，`debounce` 都会保留新文本并重新开始等待 300 毫秒。等待期间再次收到文本事件时，`debounce` 放弃上一份待发送文本。等待时间到期且没有更新的文本事件时，`debounce` 发送最近文本一次。实际执行可能因为主线程繁忙而延后。
+
+例如，0 毫秒输入 `s`，100 毫秒输入 `sw`，200 毫秒输入 `swift`。假设计时任务正常执行，`debounce` 在约 500 毫秒发送 `swift`。之后没有新事件时，`debounce` 不会每隔 300 毫秒重复发送 `swift`。判断依据是有没有新事件，不是文本框的外观是否变化；上游重复发送相同文本也属于新事件。
+
+上述等待规则针对仍在产生事件的上游。上游正常完成时，RxSwift 的 `debounce` 会先发送尚未发送的最近值，再发送完成事件；上游失败时，`debounce` 丢弃待发送值并转发错误。
+
+### distinctUntilChanged 的比较范围
+
+无参数的 `distinctUntilChanged()` 要求元素类型遵循 `Equatable`，即支持相等比较。`distinctUntilChanged()` 过滤连续相同的值，不保存全部历史值。每次新订阅有各自的比较状态。
+
+| 实际到达 distinctUntilChanged 的值 | 输出 |
+| --- | --- |
+| `swift → swift → swift` | `swift` |
+| `swift → swiftq → swift` | `swift → swiftq → swift` |
+| `sw → swift → swift` | `sw → swift` |
+
+`swift → swiftq → swift` 中的最后一个 `swift` 会被发送，因为最后一次比较面对的是 `swiftq`。通用的连续去重机制见 [removeDuplicates() 与连续重复值](#removeduplicates-与连续重复值)；`removeDuplicates()` 和 `distinctUntilChanged()` 属于不同库的 API，不能混写。
+
+当 `debounce` 位于 `distinctUntilChanged` 前面时，比较范围是 `debounce` 已经发送的值。例如第一个 `swift` 已经发送，用户随后快速输入 `swiftq` 又删除 `q`，中间没有停顿 300 毫秒。`debounce` 不会发送短暂出现的 `swiftq`；`distinctUntilChanged` 实际收到 `swift → swift`，因此过滤第二个 `swift`。
+
+如果把 `distinctUntilChanged` 放到 `debounce` 前面，短暂出现的 `swiftq` 也会参与比较；相同文本事件是否重新启动等待也可能改变。操作符顺序会影响行为，不能仅凭原始输入判断最终输出。
+
+## RxSwift：observe(on:) 与回调线程
+
+`observe(on:)` 返回一个新的 `Observable`，将经过 `observe(on:)` 的事件通知安排到指定调度器。`observe(on: MainScheduler.instance)` 让接收这些事件的后续代码在主线程执行，直到后续代码再次改变调度方式。
+
+```swift
+search(keyword: keyword)
+    .observe(on: MainScheduler.instance)
+    .subscribe(onNext: { items in
+        print(items)
+    })
+    .disposed(by: disposeBag)
+```
+
+示例假设 `search(keyword:)` 返回 `Observable<[String]>`，`disposeBag` 由页面持有。调用 `search(keyword:)` 取得搜索序列。订阅建立后，搜索序列发送结果数组。`observe(on:)` 将结果通知交给主线程执行，随后 RxSwift 调用 `onNext`，并传入数组。
+
+切换的是事件通知的执行位置，不是 `subscribe(...)` 方法调用本身。`observe(on:)` 也不会把已经位于上游的请求启动、网络传输或数据解析自动搬到主线程。订阅和取消订阅动作的调度由 `subscribe(on:)` 控制；网络库自己使用的回调队列仍由网络库的配置决定。
+
+`observe(on:)` 的位置也会影响转换代码在哪个线程执行。例如 `map` 是对每个值调用转换闭包的方法：放在 `observe(on:)` 后面的 `map` 闭包随事件在指定调度器执行；放在 `observe(on:)` 前面的 `map` 闭包不受后面的调度切换影响。
+
+`MainScheduler.instance` 在主队列上且满足立即执行条件时，可以直接执行任务，不能把 `observe(on: MainScheduler.instance)` 一概理解为“下一轮才执行”。Combine 系列的调度行为另见 [receive(on:) 与主队列异步调度](#receiveon-与主队列异步调度)，不能把不同库的具体调度实现视为相同。
+
+## RxSwift：flatMapLatest 与 flatMap
+
+`flatMapLatest` 对收到的每个输入值执行转换闭包。转换闭包返回一个事件序列。`flatMapLatest` 订阅新返回的序列，并解除对上一个返回序列的订阅；随后只转发当前订阅的事件。`flatMap` 也执行转换和订阅，但会保留尚未结束的旧订阅，并转发所有仍有效搜索的结果。
+
+### 返回类型与闭包执行时机
+
+下面的示例假设 `searchText` 是 `Observable<String>`，`search(keyword:)` 返回 `Observable<[String]>`。示例还假设每次搜索在被订阅时启动，成功时发送一个结果数组并正常完成。示例展示组合关系，省略搜索函数实现，未编译运行。
+
+```swift
+let latestResults: Observable<[String]> = searchText
+    .debounce(.milliseconds(300), scheduler: MainScheduler.instance)
+    .distinctUntilChanged()
+    .flatMapLatest { keyword -> Observable<[String]> in
+        let requestResults = search(keyword: keyword)
+            .observe(on: MainScheduler.instance)
+        return requestResults
+    }
+
+latestResults
+    .subscribe(onNext: { items in
+        print(items)
+    })
+    .disposed(by: disposeBag)
+```
+
+`flatMapLatest(...)` 返回一个新的 `Observable<[String]>`，并把原始输入序列和转换闭包组合起来。`latestResults` 保存组合后的序列。每次转换闭包执行时，局部变量 `requestResults` 保存本次关键词对应的搜索序列；不同闭包调用中的 `requestResults` 可以指向不同搜索序列。
+
+`flatMapLatest` 将搜索序列发出的数组转交给页面，所以页面收到 `[String]`，不是搜索序列。返回类型是 `Observable<[String]>`，不是 `Observable<Observable<[String]>>`。调用 `flatMapLatest` 组装关系时，不会仅因此执行每个关键词的转换闭包；转换闭包在订阅建立且关键词到达后执行。
+
+在同一次页面订阅中，执行顺序为：
+
+1. 页面订阅 `latestResults`，RxSwift 建立输入处理和结果接收关系。
+2. `sw` 通过 `debounce` 与 `distinctUntilChanged`，RxSwift 用 `sw` 调用转换闭包，取得并订阅 `sw` 搜索序列。
+3. `swift` 随后通过两个过滤步骤，RxSwift 用 `swift` 调用转换闭包，解除 `sw` 搜索订阅并订阅 `swift` 搜索序列。
+4. `swift` 搜索发送数组，结果通知经过主线程调度。`flatMapLatest` 转发数组，页面的 `onNext` 接收数组。
+
+`latestResults` 不需要重新赋值。变化发生在当前页面订阅所管理的搜索订阅中。“最新”指已经到达 `flatMapLatest` 的关键词；如果 `swift` 仍在等待 `debounce`，`flatMapLatest` 仍可能转发 `sw` 的结果。切换之前已经转发的 `sw` 结果不会被撤回。
+
+若两个搜索分别发送一次数组，`flatMap` 可以让 `onNext` 接收两次结果，顺序取决于结果到达顺序。`flatMapLatest` 也不保证整个页面生命周期只接收一次：旧结果可能在切换前已经发送，后续搜索也可以继续发送结果。任意一个仍有效的搜索失败且没有被处理时，错误会结束组合后的序列，之后的关键词不再触发本次订阅的搜索。
+
+### 每次订阅的内部状态
+
+以下内部类名用于说明 RxSwift 的实现分工，属于库的内部实现，不是调用方应依赖的公开接口；不同版本可能调整内部结构。
+
+调用 `flatMapLatest` 得到的组合序列，与订阅建立时创建的状态管理实例，需要分别理解。一个组合序列可以被订阅多次；没有额外共享操作时，各次订阅分别管理自己的当前搜索，不会共用唯一的当前搜索属性。
+
+| 操作符 | 订阅时创建的内部实例 | 搜索订阅的管理方式 |
+| --- | --- | --- |
+| `flatMapLatest` | `MapSwitchSink`，继承 `SwitchSink` | 从 `SwitchSink` 继承 `innerSubscription: SerialDisposable`，替换当前取消凭据时取消旧搜索订阅 |
+| `flatMap` | `FlatMapSink`，继承 `MergeSink` | 使用 `group: CompositeDisposable` 管理多个取消凭据，新搜索不会自动取消尚未结束的旧搜索订阅 |
+
+`SerialDisposable` 是保存单个当前取消凭据的容器。给 `SerialDisposable.disposable` 赋新值时，容器对旧凭据调用 `dispose()`。`CompositeDisposable` 是管理多个取消凭据的容器，可以一起取消所管理的订阅。
+
+`MapSwitchSink` 负责收到关键词后创建并切换搜索订阅。每次搜索对应一个 `SwitchSinkIter`，`SwitchSinkIter` 接收本次搜索事件并检查是否仍应转发。转发到最终观察者的数组会成为页面 `onNext` 的参数。
+
+### 取消订阅、取消请求与编号检查
+
+解除搜索订阅表示结束对应的事件接收关系。底层网络任务是否停止，取决于搜索实现是否在取消逻辑中调用网络任务的取消方法。即使网络任务继续运行，也不代表已经取消的页面订阅应该继续收到网络结果。
+
+`flatMapLatest` 的内部实现还保存最新搜索编号。每次搜索的 `SwitchSinkIter` 保存创建时的编号。结果到达后，`SwitchSinkIter` 比较本次搜索编号与最新编号；编号不一致时，`SwitchSinkIter` 不转发结果。
+
+编号检查用于拒绝切换过程中到达的旧事件。更新最新编号与取消旧订阅是分开的步骤。根据执行顺序，在关键词事件和搜索结果事件来自不同线程时，可能出现以下交错：
+
+1. 线程 A 收到 `swift`，把最新编号从 `1` 更新为 `2`，随后释放保护编号的锁。
+2. 线程 A 尚未执行取消 `sw` 订阅的代码。
+3. 线程 B 把 `sw` 结果交给编号为 `1` 的 `SwitchSinkIter`。
+4. `SwitchSinkIter` 发现 `1 != 2`，丢弃 `sw` 结果。
+5. 线程 A 继续取消 `sw` 订阅，并订阅 `swift` 搜索。
+
+这是一种并发执行的可能顺序，不表示每次切换都会出现，也不表示必须在取消完成后才检查编号。取消动作也不能撤回已经开始执行的回调。
+
+如果事件通知和取消订阅都在同一个串行调度器上执行，取消操作返回后，被取消的订阅不会再调用接收回调。串行调度器让安排的工作依次执行；当关键词通知、搜索结果通知和取消动作都在主线程执行时，上述两线程交错不适用。
