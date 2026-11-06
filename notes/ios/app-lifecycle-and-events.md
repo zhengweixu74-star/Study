@@ -5,6 +5,7 @@
 ## 本文目录
 
 - [UIApplication、AppDelegate、UIWindow 与 UIView 的职责](#uiapplicationappdelegateuiwindow-与-uiview-的职责)
+- [应用运行状态与生命周期回调](#应用运行状态与生命周期回调)
 - [AppDelegate 生命周期下，从启动到首帧显示](#appdelegate-生命周期下从启动到首帧显示)
 - [UIApplication 的使用场景：打开应用设置](#uiapplication-的使用场景打开应用设置)
 - [为什么一个应用可以有多个 UIWindow](#为什么一个应用可以有多个-uiwindow)
@@ -23,7 +24,7 @@
 - [启动优化的三个方向](#启动优化的三个方向)
 - [事件穿透与重叠视图的触摸目标](#事件穿透与重叠视图的触摸目标)
 
-分类：iOS 界面、事件与调度。本文整理应用启动、窗口职责、事件分发和文本输入；以传统 AppDelegate 生命周期为主要背景。
+分类：iOS 界面、事件与调度。本文整理应用运行状态、生命周期回调、应用启动、窗口职责、事件分发和文本输入；以传统 AppDelegate 生命周期为主要背景，并说明 Scene 生命周期的适用边界。
 
 ## UIApplication、AppDelegate、UIWindow 与 UIView 的职责
 
@@ -38,6 +39,116 @@ UIApplication 是 UIKit 提供的应用对象，负责应用级事件分发、�
 
 UIApplication 与 AppDelegate 是不同对象。UIKit 调用 AppDelegate 的回调方法，让开发者在指定时机执行代码；普通按钮触摸并不需要先交给 AppDelegate 处理。
 
+## 应用运行状态与生命周期回调
+
+应用生命周期是应用从启动、进入不同运行状态，到进程终止的过程。生命周期回调是 UIKit 在指定阶段调用的代理方法；应用在回调中执行初始化、暂停、恢复或保存等工作。
+
+下面先按传统 AppDelegate 生命周期说明应用状态与调用顺序。AppDelegate 中名称以 application 开头的回调接收 UIApplication 参数，表示当前应用对象。采用 Scene 生命周期时，界面状态变化由对应 SceneDelegate 接收，适用边界见本节的“Scene 生命周期与应用生命周期”。
+
+### 五种运行状态
+
+| 状态 | 含义 | 关键边界 |
+| --- | --- | --- |
+| Not Running（未运行） | 应用进程尚未启动，或应用进程已经终止 | 再次打开应用需要重新启动进程 |
+| Inactive（未激活） | 应用在前台运行，但不接收触摸等用户交互事件 | 应用仍可执行代码，也可能处理网络完成等其他事件；不能理解为所有事件都停止 |
+| Active（已激活） | 应用在前台运行，并接收用户交互事件 | 应用具备交互条件，不代表网络数据加载或首帧显示已经完成 |
+| Background（后台） | 应用不处于前台交互状态，但在系统允许的时间内仍可执行代码 | 普通应用通常在完成必要收尾后被挂起；特定后台能力只允许符合条件的工作继续执行 |
+| Suspended（挂起） | 应用进程仍被保留，但应用不执行代码 | 内存中的状态不是持久保存；系统可以终止挂起的进程以回收资源 |
+
+前台包含 Inactive 和 Active，因此“进入前台”不等于“已经激活”。后台与挂起也不同：后台执行阶段仍可运行代码，挂起阶段不能运行代码。音频、定位等后台能力受系统规则和配置约束，不表示应用中的任意任务都可以无限运行。
+
+上述五种状态用于解释生命周期，并非 UIApplication.State 中有五个枚举值。UIApplication.applicationState 提供 active、inactive、background 三种值。应用在未运行或挂起时，不能通过执行自身代码查询当时状态。
+
+### AppDelegate 的主要回调
+
+| 回调 | UIKit 调用的阶段 | 常见用途 |
+| --- | --- | --- |
+| application(_:didFinishLaunchingWithOptions:) | 启动初始化接近完成，应用即将继续进入运行阶段 | 初始化启动必需的服务；按界面配置方式准备窗口 |
+| applicationWillResignActive(_:) | 应用即将从 Active 变为 Inactive | 暂停依赖用户交互的任务，按需停止计时器或降低画面更新频率 |
+| applicationDidEnterBackground(_:) | 应用已经进入 Background | 保存尚未保存的必要状态，释放可重建的资源，并结束不需要继续的工作 |
+| applicationWillEnterForeground(_:) | 应用即将从后台返回前台，进入 Inactive 阶段 | 检查后台期间的数据变化，按需重新加载资源或刷新数据 |
+| applicationDidBecomeActive(_:) | 应用已经从 Inactive 进入 Active | 恢复因失去激活状态而暂停的任务或计时器 |
+| applicationWillTerminate(_:) | 系统在能够通知应用的终止路径上告知应用即将结束 | 执行短时间清理；不能把回调作为必然发生的保存机会 |
+
+UIKit 只负责调用回调。计时器是否暂停、数据是否刷新，由应用在回调中执行的代码决定。applicationWillResignActive 不表示应用一定会进入后台；短暂中断结束后，应用也可以直接恢复为 Active。
+
+启动初始化与首帧显示的具体过程见[AppDelegate 生命周期下，从启动到首帧显示](#appdelegate-生命周期下从启动到首帧显示)。
+
+### 进入前台与进入激活状态的区别
+
+applicationWillEnterForeground 关注“应用即将从后台返回前台”。applicationDidBecomeActive 关注“应用已经进入可接收用户交互的状态”。应用可以在没有进入后台的情况下失去并重新获得激活状态，因此两个回调并不总是成对出现。
+
+| 场景：采用传统 AppDelegate 生命周期 | applicationWillEnterForeground | applicationDidBecomeActive |
+| --- | --- | --- |
+| 应用从未运行状态直接启动到前台，并正常激活 | 不调用 | 调用 |
+| 应用进程仍存在，从后台返回前台，并正常激活 | 先调用 | 后调用 |
+| 应用仅暂时变为 Inactive，没有进入后台，随后恢复 Active | 不调用 | 调用 |
+
+“每次从后台返回时刷新数据”可以放在 applicationWillEnterForeground。“每次恢复交互时恢复已暂停任务”可以放在 applicationDidBecomeActive。选择取决于任务需要的触发条件，不是两个回调之间存在固定的数据加载分工。
+
+如果 applicationWillEnterForeground 发起异步网络请求，UIKit 不会等待网络请求完成后才调用 applicationDidBecomeActive。两个生命周期回调的先后顺序，不保证异步数据已经准备完成；应用可以先显示已有数据，再在请求完成后更新界面。
+
+### 常见状态变化与调用顺序
+
+以下流程限定为应用正常完成对应转换。系统中断、后台启动或进程终止可能使应用走其他路径。
+
+**从未运行状态直接启动到前台。** UIKit 执行启动回调，然后在应用进入 Active 时调用 applicationDidBecomeActive。由于应用没有从后台返回，UIKit 不调用 applicationWillEnterForeground。
+
+```text
+Not Running → 启动初始化 → Inactive → Active
+主要回调：willFinishLaunchingWithOptions
+       → didFinishLaunchingWithOptions
+       → applicationDidBecomeActive
+```
+
+**从前台进入后台，再返回前台。** 应用先失去激活状态，再进入后台。应用未被终止且正常返回时，UIKit 先通知进入前台，再通知已经激活。
+
+```text
+离开前台：Active → Inactive → Background → 可能进入 Suspended
+主要回调：applicationWillResignActive → applicationDidEnterBackground
+
+返回前台：若已挂起，先恢复执行；随后 Background → Inactive → Active
+主要回调：applicationWillEnterForeground → applicationDidBecomeActive
+```
+
+挂起不是一个必须经过的固定步骤。若系统已经终止后台进程，用户再次打开应用会重新启动进程，不会沿原进程的“后台返回”流程继续。
+
+**只发生前台短暂中断。** 例如，打开后关闭控制中心；如果应用期间只进入 Inactive，没有进入 Background，UIKit 只通知失去激活状态和恢复激活状态。
+
+```text
+Active → Inactive → Active
+主要回调：applicationWillResignActive → applicationDidBecomeActive
+```
+
+不能仅凭“出现来电”或“弹出系统界面”判断必然进入后台。回调取决于实际发生的状态转换。
+
+### Scene 生命周期与应用生命周期
+
+Scene 是应用中的一个界面实例，具有独立的前后台与激活状态。对于 UIKit 窗口界面，UIWindowScene 管理相关窗口。SceneDelegate 是开发者提供的场景代理对象，通过 UISceneDelegate 协议接收场景状态回调。一个应用进程可以拥有多个 Scene。
+
+iOS 13 引入 Scene 生命周期。应用启用 Scene 生命周期后，UIKit 把下列界面状态变化交给对应的 SceneDelegate，不再调用 AppDelegate 中对应的四个方法。SceneDelegate 回调接收 UIScene 参数，表示正在发生状态变化的场景。
+
+| AppDelegate 回调 | SceneDelegate 对应回调 |
+| --- | --- |
+| applicationWillResignActive(_:) | sceneWillResignActive(_:) |
+| applicationDidEnterBackground(_:) | sceneDidEnterBackground(_:) |
+| applicationWillEnterForeground(_:) | sceneWillEnterForeground(_:) |
+| applicationDidBecomeActive(_:) | sceneDidBecomeActive(_:) |
+
+AppDelegate 仍负责应用级启动等工作。SceneDelegate 管理特定 Scene 的界面状态；一个 Scene 进入后台，不等于整个应用的所有 Scene 都进入后台。
+
+**首次进入前台的条件不同。** sceneWillEnterForeground 既可以在已有 Scene 从后台返回时调用，也可以在新创建并连接的 Scene 首次进入前台时调用。因此，不能把“首次直接启动时不调用 applicationWillEnterForeground”套用到 sceneWillEnterForeground。
+
+应用、Scene 和 UIViewController 分别描述不同范围的生命周期。页面出现或消失，不等于应用进入前台或后台；页面层面的说明见[UIKit 布局、列表与 MVVM](uikit-layout-and-mvvm.md#页面生命周期与布局补充)。
+
+### 挂起、终止与数据保存
+
+系统挂起应用时，应用停止执行代码。系统可以在应用挂起期间直接终止进程，应用没有机会在 applicationWillTerminate 中补做保存。用户从应用切换器关闭应用时，也不能假定系统一定调用 applicationWillTerminate。
+
+持久保存是把需要跨进程保留的数据写入文件、数据库等可持续保存的存储。重要数据应在产生或修改后的合适时机保存；进入后台时可以补充保存尚未完成的必要状态，但不能把任何单个生命周期回调当作唯一保障。具体存储方式见[iOS 数据持久化](../network-and-storage/ios-data-persistence.md)。
+
+例如，用户编辑一段文本后，应用按保存策略写入草稿。系统随后即使在挂起阶段终止应用，重新启动的应用仍可读取已经保存的草稿；只保存在内存中的未保存修改不能依靠终止回调保证恢复。
+
 ## AppDelegate 生命周期下，从启动到首帧显示
 
 适用条件：应用采用传统 AppDelegate 生命周期，以代码创建界面，并从未运行的状态进入前台。这里不包含系统预热、状态恢复等额外路径。若应用仍在运行，从后台回到前台不会重新执行整套启动流程。
@@ -49,7 +160,7 @@ UIApplication 与 AppDelegate 是不同对象。UIKit 调用 AppDelegate 的回�
 5. 显示窗口会促使 UIKit 加载所需的视图。视图控制器的视图尚未加载时，UIKit 通过 loadView 创建视图，并在加载完成后调用 viewDidLoad。UIKit 随显示流程执行必要的布局和绘制。
 6. 应用提交准备好的界面内容，系统完成渲染和合成后显示首帧。首帧是用户第一次看到的应用界面，不代表网络请求和所有业务数据已经完成加载。
 
-didFinishLaunchingWithOptions 返回、makeKeyAndVisible() 返回，都不能单独证明首帧已经显示。applicationDidBecomeActive(\_:) 表示应用进入活动状态，也不是精确的首帧显示回调。采用 Storyboard 自动创建界面时，窗口与根控制器的创建方式会不同。
+didFinishLaunchingWithOptions 返回、makeKeyAndVisible() 返回，都不能单独证明首帧已经显示。applicationDidBecomeActive(\_:) 也不是精确的首帧显示回调。采用 Storyboard 自动创建界面时，窗口与根控制器的创建方式会不同。
 
 ### main 之前的启动工作与 dyld
 
