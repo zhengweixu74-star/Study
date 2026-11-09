@@ -17,6 +17,7 @@
 - [静态派发、动态派发与虚方法表](#静态派发动态派发与虚方法表)
 - [编译阶段、机器码与内联](#编译阶段机器码与内联)
 - [协议见证表与遵循关系](#协议见证表与遵循关系)
+  - [扩展方法与协议要求的派发](#扩展方法与协议要求的派发)
 - [Objective-C 互操作、Selector 与 IMP](#objective-c-互操作selector-与-imp)
 - [消息转发的接收者与执行过程](#消息转发的接收者与执行过程)
 - [Method Swizzling 与使用场景](#method-swizzling-与使用场景)
@@ -360,7 +361,83 @@ Cat 遵循 Speaker：speak 要求 → 对应 Cat 实现的入口
 
 同一类型遵循不同协议，对应不同的遵循信息；不同类型遵循同一协议也各有对应信息。实际还涉及泛型、继承和共享等实现细节，不必机械估算最终二进制中表的数量。
 
-在泛型或协议存在类型上调用协议要求时，可以通过见证表找到实现；入口也可能是转接代码。泛型特化等优化可消除部分间接调用。这里只讨论声明在协议中的要求，不能把它直接推广为所有“仅写在协议 extension 里的方法”的派发规则。
+在泛型或协议存在类型上调用协议要求时，可以通过见证表找到实现；入口也可能是转接代码。泛型特化等优化可消除部分间接调用。协议要求与扩展新增方法的区别见下节。
+
+### 扩展方法与协议要求的派发
+
+派发也称分发，指一次方法调用如何确定要执行的实现。静态派发在编译时确定实现；动态派发在运行时通过方法表或运行时查找确定实现。具体机制与优化见[静态派发、动态派发与虚方法表](#静态派发动态派发与虚方法表)。
+
+`extension` 本身不决定调用方式。需要同时检查扩展的类型、方法是否满足协议要求、方法修饰符，以及调用位置能使用的类型信息。下表讨论普通 Swift 调用，不包含特殊动态替换机制。
+
+| 方法与调用条件 | 派发规则 |
+| --- | --- |
+| `struct`、`enum` 或 `class` 扩展中的普通方法，通过具体类型直接调用，且不涉及 `@objc`、`dynamic` 或协议要求调用 | 静态派发；类扩展中的普通非 `@objc` 方法不能被子类重写 |
+| 方法只在协议扩展中添加，不属于协议要求；通过协议类型或只以该协议为约束的泛型调用 | 编译器选择可见的协议扩展实现，不通过协议见证表选择具体类型的同名方法 |
+| 方法属于协议要求；通过协议类型或受协议约束的泛型调用 | 可以经协议见证表动态派发；满足要求的实现可以写在具体类型、具体类型扩展或协议扩展中 |
+| 类扩展中的方法标记为 `@objc dynamic`，运行环境支持 Objective-C 互操作 | 通过 Objective-C 运行时动态派发 |
+
+**协议要求与扩展新增方法。** 协议要求是协议声明中规定的成员要求。下面的 `speak()` 属于协议要求，`describe()` 只由协议扩展添加，不属于协议要求。
+
+```swift
+protocol Speaker {
+    func speak()
+}
+
+extension Speaker {
+    func speak() {
+        print("默认 speak")
+    }
+
+    func describe() {
+        print("默认 describe")
+    }
+}
+
+struct Person {}
+
+extension Person: Speaker {
+    func speak() {
+        print("Person speak")
+    }
+
+    func describe() {
+        print("Person describe")
+    }
+}
+
+let person = Person()
+let speaker: any Speaker = person
+
+person.speak()      // Person speak
+person.describe()   // Person describe
+speaker.speak()     // Person speak
+speaker.describe()  // 默认 describe
+```
+
+`person` 的编译时类型是 `Person`，编译器可以直接选择 `Person` 扩展中的两个方法。`speaker` 的类型是 `any Speaker`，表示可以保存任意遵循 `Speaker` 的值。`speaker.speak()` 按协议要求调用，在未被优化为直接调用时，通过 `Person: Speaker` 的见证表找到对应实现。`speaker.describe()` 不属于协议要求，编译器选择 `Speaker` 扩展的实现，不会在运行时搜索 `Person.describe()`。
+
+| `Person: Speaker` 中的方法要求 | 见证表中的概念性对应关系 |
+| --- | --- |
+| `speak()` | 有方法条目，调用最终进入 `Person.speak()` |
+| `describe()` | 不是协议要求，没有用于派发 `describe()` 的方法条目 |
+
+见证表的方法条目记录协议要求对应的实现入口，入口可能包含转接代码，不是保存方法源码。若删除 `Person` 自行提供的 `speak()`，`Person: Speaker` 仍有 `speak()` 的方法条目，调用最终进入协议扩展提供的默认实现。决定是否有方法条目的是协议要求，而不是实现写在哪里。
+
+同样的区别也适用于只以 `Speaker` 为约束的泛型函数：
+
+```swift
+func inspect<T: Speaker>(_ value: T) {
+    value.speak()
+    value.describe()
+}
+
+inspect(Person())
+// 依次打印：Person speak、默认 describe
+```
+
+`inspect` 的函数体依据 `Speaker` 约束检查成员。`describe()` 没有协议要求对应的条目，因此 `inspect(Person())` 不会改为调用 `Person.describe()`。编译器可能优化部分间接调用，但不能改变语言规则要求的方法选择结果。
+
+同一个 `Person.speak()` 实现可以被具体类型直接调用，也可以作为协议要求的实现被调用。判断派发方式时必须看具体调用路径，不能仅凭方法位于扩展中就认定所有调用都是静态派发。
 
 ## Objective-C 互操作、Selector 与 IMP
 

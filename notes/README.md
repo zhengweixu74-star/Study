@@ -27,8 +27,8 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历、stride 步长与边界、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法；Result 与关联值提取；Data、UTF-8 解码、可选字符串打印与换行 |
-| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVO、+load、+initialize 与按需初始化 |
+| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历、stride 步长与边界、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法；Result 与关联值提取；Data、UTF-8 解码、可选字符串打印与换行；声明、定义与实现及 C++ 对照；函数、方法、函数值与闭包表达式 |
+| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVO、+load、+initialize 与按需初始化；扩展方法、协议要求与协议见证表条目 |
 
 [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：Node.js 运行环境与浏览器的区别、类型标注与推断、number 与 Int、Double 的区别、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
 
