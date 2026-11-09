@@ -21,6 +21,7 @@
 - [Method Swizzling 与使用场景](#method-swizzling-与使用场景)
 - [Selector 字符串与方法映射](#selector-字符串与方法映射)
 - [@objcMembers 与 Objective-C 兼容限制](#objcmembers-与-objective-c-兼容限制)
+- [KVC 按键访问属性](#kvc-按键访问属性)
 - [KVO 观察关系与属性访问](#kvo-观察关系与属性访问)
 - [自动 KVO 的动态子类机制](#自动-kvo-的动态子类机制)
 - [KVO 通知选项与自动通知](#kvo-通知选项与自动通知)
@@ -573,6 +574,29 @@ final class ProductBox: NSObject {
 “Swift 的值类型一律不能暴露给 OC”不成立，`String` 等类型有既定桥接支持。另一方面，某个类型可桥接，不代表其任意组合形式都能导出；例如普通 `Int?` 属性不能像 `String?` 一样直接暴露为 OC 属性。应以实际声明是否满足编译器的互操作规则为准。
 
 `@objcMembers` 也不等于 `dynamic`。对派发的影响见[@objc、selector 与 IMP](#objective-c-互操作selector-与-imp)。
+
+## KVC 按键访问属性
+
+KVC（Key-Value Coding，键值编码）是通过字符串键在运行时读取或设置对象属性的机制。`NSObject` 提供 `value(forKey:)` 和 `setValue(_:forKey:)` 的默认实现。自定义 Swift 属性需要能够被 Objective-C 访问；显式标记 `@objc` 是明确的做法，属性类型也必须满足互操作要求。仅使用 KVC 不要求 `dynamic`；KVO 的访问要求见下文。
+
+```swift
+import Foundation
+
+class Person: NSObject {
+    @objc var name: String = ""
+    @objc var age: Int = 0
+}
+
+let person = Person()
+person.setValue("小明", forKey: "name")
+let name = person.value(forKey: "name") as? String
+```
+
+`setValue(_:forKey:)` 收到 `"name"` 后，默认实现按命名规则查找 setter；示例中的属性对应 Objective-C 的 `setName:`。读取时，`value(forKey:)` 查找 getter，并以 `Any?` 返回结果，所以调用方需要检查或转换类型。若找不到访问方法，并且类允许直接访问实例变量，默认实现还会查找符合规则的实例变量。找不到键时，默认实现引发未定义键异常，不会因为返回类型是 `Any?` 就安全地返回 `nil`；向不可接收 `nil` 的数值属性传 `nil` 也会引发异常。
+
+`key` 是单个属性名称；`keyPath` 是用点连接的属性路径，例如 `"address.city"`。`value(forKeyPath:)` 会沿路径逐级访问支持 KVC 的对象。`#keyPath(Person.name)` 在编译时检查 Objective-C 可见属性并生成字符串；手写 `"name"` 没有此项检查。Swift 原生 `\Person.name` 则是带根类型和结果类型的 [KeyPath](swift-basics.md#mapkeypathsequencecollection-与-set)，不等同于 KVC 字符串，原生 `KeyPath` 也可用于 Swift 值类型。
+
+KVC 负责按键读写属性。KVO 负责在属性变化时调用已注册的观察回调；传统 Swift KVO 通常要求被观察属性为 `@objc dynamic`。
 
 ## KVO 观察关系与属性访问
 

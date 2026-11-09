@@ -20,6 +20,7 @@
 - [容器控制器与子控制器](#容器控制器与子控制器)
 - [分栏界面与详情控制器生命周期](#分栏界面与详情控制器生命周期)
 - [UITableView 的重用机制](#uitableview-的重用机制)
+- [UITableView 的行删除与批量更新](#uitableview-的行删除与批量更新)
 - [UICollectionView 的职责与复用](#uicollectionview-的职责与复用)
 - [页面、列表与 Cell ViewModel](#页面列表与-cell-viewmodel)
 - [MVVM 的输入、状态输出与界面刷新](#mvvm-的输入状态输出与界面刷新)
@@ -501,6 +502,38 @@ prepareForReuse() 在已有 Cell 被取出准备重用时调用，不是在 Cell
 1,000 行数据不要求同时保留 1,000 个 Cell，但创建数量也不固定等于可见行数或“可见行数加一”。数量受布局、预取和系统管理影响。兼容的视图结构应共享重用标识；不同结构可使用不同标识。为每行设置唯一标识会妨碍不同数据行共享已有 Cell。
 
 异步结果与 Cell 当前数据的匹配规则见[长列表性能与异步图片复用](#长列表性能与异步图片复用)。图片请求的共享、取消与结果校验见[长列表图片任务调度](image-loading-decoding-and-memory.md#长列表图片任务调度)。
+
+## UITableView 的行删除与批量更新
+
+`UITableView` 展示数据源中的行，不负责从数据模型中删除元素。左滑删除时，`UITableView` 调用数据源的 `tableView(_:commit:forRowAt:)`，并把删除前的 `IndexPath` 传给 `indexPath` 参数。数据源先删除对应模型，再调用 `deleteRows(at:with:)` 通知表格删除旧位置的行。`IndexPath.section` 和 `IndexPath.row` 表示分区及分区内行号；删除前的行号用于定位退出的行，不要求在修改后的数组中再次查找同一元素。
+
+```swift
+// 假设单分区数据源的 items 初始为 ["A", "B", "C"]，行数由 items.count 提供。
+func tableView(_ tableView: UITableView,
+               commit editingStyle: UITableViewCell.EditingStyle,
+               forRowAt indexPath: IndexPath) {
+    guard editingStyle == .delete else { return }
+    items.remove(at: indexPath.row)
+    tableView.deleteRows(at: [indexPath], with: .left)
+}
+```
+
+用户删除第二行时，`UITableView` 传入的 `indexPath.row` 为 `1`。`items.remove(at: 1)` 把数据源变成 `["A", "C"]`；`deleteRows(at:)` 使用更新前的行位置 `1`，让原先显示 `B` 的行退出。行删除是表格位置更新，Cell 对象由表格管理并可能重用。一次只删除一行时，直接调用 `deleteRows(at:with:)` 即可。
+
+`performBatchUpdates(_:completion:)` 是应用主动调用的 `UITableView` 方法。应用在更新闭包中修改数据源并调用行更新方法，表格将多项更新组成一次动画；动画结束时，表格调用传入的 `completion`。`tableView(_:commit:forRowAt:)` 则是表格在用户确认删除时主动调用的数据源回调。批量更新中，删除位置按更新前状态解释，插入位置按删除后的结果解释：
+
+```swift
+// 假设单分区 items 初始为 ["A", "B", "C"]。
+tableView.performBatchUpdates({
+    items.remove(at: 1)
+    items.append("D")
+    tableView.deleteRows(at: [IndexPath(row: 1, section: 0)], with: .left)
+    tableView.insertRows(at: [IndexPath(row: 2, section: 0)], with: .fade)
+}, completion: nil)
+// 更新后 items 为 ["A", "C", "D"]。
+```
+
+数据源的行数变化必须与通知表格的插入、删除操作一致。`reloadData()` 让表格重新读取数据源的分区、行数和可见行内容；`reloadData()` 不修改模型，也不指定某个旧行的退出动画。使用 `deleteRows(at:with:)` 或批量更新执行删除时，不在同一次更新中调用 `reloadData()`。
 
 ## UICollectionView 的职责与复用
 
