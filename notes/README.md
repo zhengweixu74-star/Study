@@ -52,6 +52,8 @@
 
 ## iOS 界面、事件与调度
 
+并发、动画与圆角专题：[单线程并发与挂起恢复的触发者](language/swift-basics.md#单线程并发与挂起恢复的触发者)；[transform 与 bounds、center、frame](ios/uikit-layout-and-mvvm.md#transform-与-boundscenterframe)；[UIViewPropertyAnimator 的正向、反向与暂停](ios/rendering-and-performance.md#uiviewpropertyanimator-的正向反向与暂停)；[shouldRasterize 与位图缓存](ios/rendering-and-performance.md#shouldrasterize-与位图缓存)；[静态图片的圆角预处理](ios/rendering-and-performance.md#静态图片的圆角预处理)。内容范围：主线程任务交替执行、挂起与恢复的职责、显示变换与布局、可暂停的缩放动画，以及圆角裁剪和缓存的性能边界。
+
 第三方库用法：[Kingfisher：网络图片与占位图](ios/image-loading-decoding-and-memory.md#kingfisher网络图片与占位图)；[RxSwift：输入组合、事件序列与搜索订阅](ios/reactive-programming.md#rxswiftobservable-与订阅)。
 
 相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。

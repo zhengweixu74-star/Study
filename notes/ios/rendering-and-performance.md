@@ -5,10 +5,13 @@
 ## 本文目录
 
 - [图层动画与渲染管线](#图层动画与渲染管线)
+- [UIViewPropertyAnimator 的正向、反向与暂停](#uiviewpropertyanimator-的正向反向与暂停)
 
 - [anchorPoint、position 与图层几何](#anchorpointposition-与图层几何)
 
 - [圆角、边界裁剪与离屏渲染](#圆角边界裁剪与离屏渲染)
+- [shouldRasterize 与位图缓存](#shouldrasterize-与位图缓存)
+- [静态图片的圆角预处理](#静态图片的圆角预处理)
 
 - [回调 FPS 与卡顿监测](#回调-fps-与卡顿监测)
 - [Time Profiler 的采样与统计边界](#time-profiler-的采样与统计边界)
@@ -68,6 +71,55 @@ FMP 边界仍适用：willDisplay、布局和事务提交完成，都不能直�
 仅承担视觉展示和动画的部分可以使用独立图层。需要 UIKit 的触摸事件、手势或无障碍交互时，通常由 `UIView` 承担。独立 `CALayer` 不属于 UIKit 的事件响应对象链；虽然图层提供几何命中检测方法，也不会自动获得 `UIView` 的事件处理能力。
 
 额外添加的图层不会自动获得 UIView 的 Auto Layout 约束能力。父视图尺寸变化时，应根据布局更新需要调整子图层的尺寸和路径。拆分图层有助于独立控制视觉部分，但图层越多并不意味着渲染一定更快。
+
+### UIViewPropertyAnimator 的正向、反向与暂停
+
+UIViewPropertyAnimator 是 UIKit 中可控制播放方向、暂停状态和进度的视图动画对象。图片从小变大、再从当前位置缩小，可以用同一个动画对象控制 transform。transform 的几何含义见 [transform 与 bounds、center、frame](uikit-layout-and-mvvm.md#transform-与-boundscenterframe)。
+
+下面的示例适用于 iOS 11 及以上，使用线性曲线在两秒内从 50% 大小放大到原始大小。页面创建一次 ImageScaleAnimation 并用属性持有，三个按钮分别调用 playForward、playBackward 和 pause，不要在初始化中连续调用这三个方法。
+
+```swift
+import UIKit
+
+@MainActor
+final class ImageScaleAnimation {
+    private let animator: UIViewPropertyAnimator
+
+    init(imageView: UIImageView) {
+        imageView.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
+        animator = UIViewPropertyAnimator(duration: 2, curve: .linear) {
+            imageView.transform = .identity
+        }
+        animator.pausesOnCompletion = true
+    }
+
+    func playForward() {
+        play(reversed: false)
+    }
+
+    func playBackward() {
+        play(reversed: true)
+    }
+
+    func pause() {
+        if animator.isRunning {
+            animator.pauseAnimation()
+        }
+    }
+
+    private func play(reversed: Bool) {
+        pause()
+        animator.isReversed = reversed
+        animator.startAnimation()
+    }
+}
+```
+
+pauseAnimation() 保留当前动画位置。isReversed = false 向原始大小的终点播放，true 向 50% 大小的起点播放。startAnimation() 首次启动动画；动画已经激活且暂停时，调用它继续播放。
+
+pausesOnCompletion = true 让动画到达端点后保持激活并暂停，便于再次改变方向。动画正常结束变为非激活状态后，不能直接把原对象当作仍可继续的动画复用。示例只使用暂停和继续，不调用 stopAnimation 或 finishAnimation；页面退出且不再需要动画时应结束并释放这项控制。
+
+例如，正向播放到中间大小时点击暂停，图片保留当前大小。再点击反向，图片从当前大小开始缩小，不会先跳到最大尺寸。这个例子由按钮选择方向，不会自动往返；它只改变显示缩放，不修改布局约束或驱动周围视图重新排版。
 
 ## anchorPoint、position 与图层几何
 
@@ -129,6 +181,10 @@ imageView.layer.masksToBounds = true
 | `cornerRadius = 12`，`masksToBounds = false` | 可以呈现圆角 | 不因该圆角被裁剪；仍可能受其他裁剪影响 |
 | `cornerRadius = 12`，`masksToBounds = true` | 可以呈现圆角 | 按包含圆角的边界裁剪 |
 
+如果图层实际只有普通背景和边框，没有图片、子图层或其他复杂效果，即使开启裁剪，现代系统通常也能直接绘制，不一定需要离屏渲染。关闭裁剪的意义是当前需求不需要该行为；如果开关前后渲染工作相同，不一定有可测量的性能收益，不能声称关闭就能减少掉帧。
+
+“只需要背景和边框圆角”描述需求，不等于图层实际没有图片或子图层。如果这些内容存在，开启裁剪会同时影响它们。应根据实际内容决定是否需要裁剪，不能仅按需求名称推断性能。
+
 ### clipsToBounds 与 masksToBounds 的关系
 
 `clipsToBounds` 是 `UIView` 提供的裁剪开关，`masksToBounds` 是 `CALayer` 提供的裁剪开关。对普通 UIKit 视图，设置视图的 `clipsToBounds` 会对应到支撑图层的边界裁剪。设置图片圆角时，通常选择下面的一种写法即可，不需要重复设置两个开关。
@@ -159,11 +215,80 @@ imageView.clipsToBounds = true
 
 额外的中间绘制会增加像素计算、临时图像和读写开销。开销是否导致卡顿，还取决于绘制面积、发生频率和当时的渲染负载；发现离屏绘制不等于已经证明卡顿原因。
 
+关注的是每帧需要完成的额外工作，不是程序累计触发了多少次。新画面没有赶上显示期限时，旧画面可能继续显示，表现为滚动或动画掉帧。主线程及时提交变化，也不能保证渲染服务或 GPU 按时完成画面。
+
+较大的临时图像和较多的像素读写会增加内存与数据传输压力，持续的绘制负载还可能增加耗电和发热。临时缓冲区可以被系统复用或释放，不等于内存泄漏；过热导致运行频率下降时，流畅度可能进一步受影响。固定 60／120 Hz 的显示间隔约为 16.67／8.33 ms，完整流水线的时序边界见 [图层动画与渲染管线](#图层动画与渲染管线)。
+
 合成指按层级、位置和透明度把多个图像组合为一个结果。例如，组透明度先把重叠子图层组合，再对整体应用一次透明度；逐个修改子图层透明度可能得到不同的重叠颜色，因此不能随意关闭组透明度来替代相同效果。仅设置 `alpha < 1` 或 `opacity < 1`，也不足以证明一定发生离屏绘制。
 
-`shouldRasterize` 的缓存适合某些内容稳定、需要反复合成的图层组合。内容频繁变化会使位图重新生成，可能增加开销，不能把开启光栅化当作通用性能优化。这里的光栅化指把图层内容转换为像素位图。
-
 通过 `draw(_:)` 或图像绘制接口在 CPU 侧生成图像，与这里讨论的 Core Animation GPU 离屏绘制不是同一个阶段。某个视图实现了 `draw(_:)`，不能单独证明该视图还会触发 GPU 离屏绘制。
+
+### shouldRasterize 与位图缓存
+
+栅格化是把图层内容转换为像素位图。shouldRasterize = true 要求 Core Animation 把图层及子图层的绘制结果生成位图，并尝试复用结果。它不是圆角属性；对于复杂但稳定的圆角组合，位图可以包含裁剪后的效果，缓存可复用时就有机会减少重复绘制和合成。
+
+生成位图本身会引入离屏工作，收益来自后续复用，而不是关闭离屏渲染。系统可以使缓存失效或回收缓存，不能保证只生成一次。图片、文字、尺寸或内部效果频繁变化时，反复生成位图可能增加开销，因此不应默认开启。
+
+例如，图片和文字固定的卡片仅随列表移动时，缓存可能有收益；卡片不断替换图片或更新布局时，缓存可能需要重建。动画类型、尺寸和缓存是否可复用都需要在目标设备上验证。
+
+开启时还应设置 rasterizationScale，使缓存位图每个 point 对应的像素数量匹配目标显示环境。比例不足可能让内容模糊；位图尺寸较大则增加内存。这个缓存由 Core Animation 管理，不会向应用返回可自行保存的 UIImage。
+
+### 静态图片的圆角预处理
+
+如果测量确认静态图片的重复裁剪是渲染超时的重要来源，可以提前生成圆角图片并缓存，显示时关闭相应图层的圆角裁剪。位图是由像素组成的图像；输出仍是矩形图片，视觉圆角来自四个角透明的像素。
+
+图片处理流程在后台按最终显示尺寸生成结果，再由主线程设置 imageView.image。缓存标识应包含原图标识、目标尺寸、圆角半径和像素比例。缓存大小和复用时的过期结果校验见 [iOS 图片加载、解码与内存](image-loading-decoding-and-memory.md)。
+
+下面的函数仅生成图片，不自动切换线程或缓存。输入图片和 size 的宽高、scale 均须大于零；radius 使用 point，应在目标矩形允许的圆角范围内。scale 是每个 point 对应的像素数量，由调用方传入目标显示环境的比例。
+
+```swift
+func makeRoundedImage(
+    _ image: UIImage,
+    size: CGSize,
+    radius: CGFloat,
+    scale: CGFloat
+) -> UIImage {
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = scale
+    format.opaque = false
+    let renderer = UIGraphicsImageRenderer(size: size, format: format)
+
+    return renderer.image { _ in
+        let bounds = CGRect(origin: .zero, size: size)
+        UIBezierPath(roundedRect: bounds, cornerRadius: radius).addClip()
+
+        let ratio = max(
+            size.width / image.size.width,
+            size.height / image.size.height
+        )
+        let drawSize = CGSize(
+            width: image.size.width * ratio,
+            height: image.size.height * ratio
+        )
+        let drawRect = CGRect(
+            x: (size.width - drawSize.width) / 2,
+            y: (size.height - drawSize.height) / 2,
+            width: drawSize.width,
+            height: drawSize.height
+        )
+        image.draw(in: drawRect)
+    }
+}
+```
+
+addClip() 限定后续绘制只出现在圆角矩形内部。ratio 取两个比例中的较大值，使原图等比例填满目标区域；drawRect 居中，超出目标区域的部分被裁掉。opaque = false 保留四角透明度，返回的 UIImage 已包含圆角像素结果，不修改原图片。
+
+在这张图片的图层没有其他裁剪需求时，主线程显示结果：
+
+```swift
+imageView.layer.cornerRadius = 0
+imageView.clipsToBounds = false
+imageView.image = roundedImage
+```
+
+提前生成仍然消耗绘制时间和内存。优化的关键是后台生成并复用结果，不是在每次 Cell 显示时在主线程重新绘图。仅把 cornerRadius 的赋值移到后台不会消除显示裁剪成本，UIView 的修改还应在主线程进行。
+
+此方式适合静态头像和缩略图，不适合为每帧视频或频繁变化的内容不断生成新位图。对于动态内容，保留必要裁剪并减少被裁剪面积、无用子图层和额外效果；任何方案都不能仅凭配置保证完全没有掉帧。
 
 ### shadowPath 与圆角阴影的组合
 
