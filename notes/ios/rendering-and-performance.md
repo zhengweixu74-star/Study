@@ -286,7 +286,11 @@ func makeRoundedImage(
 }
 ```
 
-addClip() 限定后续绘制只出现在圆角矩形内部。ratio 取两个比例中的较大值，使原图等比例填满目标区域；drawRect 居中，超出目标区域的部分被裁掉。opaque = false 保留四角透明度，返回的 UIImage 已包含圆角像素结果，不修改原图片。
+renderer.image 在调用线程同步执行绘图闭包。renderer 创建并设置当前绘图上下文；绘图上下文是保存绘制目标、坐标变换和裁剪区域等状态的对象。UIBezierPath 描述圆角矩形的几何路径，addClip() 将当前上下文的裁剪区域与路径内部取交集，使后续绘制只能出现在两者共同覆盖的区域内。
+
+image.draw(in:) 在同一个当前上下文中绘制图片，因此会遵守已经设置的裁剪区域。draw 不需要直接接收 UIBezierPath，也不会主动读取那个路径对象；路径通过 addClip() 修改的上下文状态影响绘制结果。若在绘图中临时改变裁剪后还需要恢复原状态，应配对使用 CGContext 的 saveGState() 与 restoreGState()。
+
+ratio 取两个比例中的较大值，使原图等比例填满目标区域；drawRect 居中，超出目标区域的部分被裁掉。opaque = false 保留四角透明度，返回的 UIImage 已包含圆角像素结果，不修改原图片。
 
 在这张图片的图层没有其他裁剪需求时，主线程显示结果：
 

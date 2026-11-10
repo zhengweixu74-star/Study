@@ -199,6 +199,25 @@ UIView 默认命中测试可以按以下顺序理解：
 
 两个方法接收的 point 都采用方法接收者自身的坐标系。重写命中区域时，通常应把 point 与 bounds 比较，不能直接与父视图坐标系中的 frame 比较。
 
+默认的子视图检查顺序对应 subviews 的逆序，先检查靠前显示的子视图。触摸开始时确定目标后，同一个 UITouch 通常持续关联该目标；手指移到另一个视图上，不会因此把同一次触摸自动改交给那个视图。
+
+需要让容器自身接管原本命中子视图的触摸时，可以改变 hitTest 的返回值：
+
+```swift
+final class InterceptingContainer: UIView {
+    var interceptsTouches = false
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard let target = super.hitTest(point, with: event) else {
+            return nil
+        }
+        return interceptsTouches ? self : target
+    }
+}
+```
+
+super 返回非 nil，说明默认测试在容器范围内找到了目标。interceptsTouches 为 true 时，容器返回 self，UIKit 将容器选为目标，子控件不再作为本次触摸的目标。保留 super 的测试可以继续遵守隐藏、交互关闭和命中区域等条件。容器仍需通过触摸方法或手势识别器执行具体动作；修改目标不会自动完成动作，也不会阻止祖先视图的手势识别器观察触摸。
+
 ### 事件穿透与重叠视图的触摸目标
 
 事件穿透是让覆盖在前方的视图在某些位置不成为触摸目标，使父视图继续查找后方的兄弟视图。命中测试发生在选择触摸目标的阶段；不是前方按钮先收到点击，再把同一次点击复制给后方按钮。

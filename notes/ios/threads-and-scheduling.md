@@ -16,6 +16,7 @@
 - [常见锁与分类维度](#常见锁与分类维度)
 - [RunLoop 与运行模式](#runloop-与运行模式)
 - [Timer 的调度与重复触发](#timer-的调度与重复触发)
+- [Timer 的停止、引用与重新创建](#timer-的停止引用与重新创建)
 - [CADisplayLink 的原理与适用场景](#cadisplaylink-的原理与适用场景)
 
 补充专题：[Operation 与 OperationQueue](#operation-与-operationqueue)。
@@ -553,6 +554,23 @@ Timer 保存到期计划和回调，RunLoop 组织执行，系统内核定时设
 5. 重复 Timer 沿原计划时间轴安排下一次。原定 1、2、3 秒，第一次延迟到 1.3 秒且很快结束，下次仍计划在 2 秒；若延迟跨过多个触发点，不会逐次补齐所有遗漏回调，而是执行一次并安排未来的下一个计划点。
 
 tolerance 为系统合并唤醒、节能提供空间，但不保证严格准时。上述私有函数来自公开历史实现，只用于解释机制，不保证所有当前 iOS 版本使用相同私有调用链。
+
+### Timer 的停止、引用与重新创建
+
+RunLoop 会持有已加入的 Timer。把保存 Timer 的属性设为 nil，只移除该属性的引用，不会让仍被 RunLoop 持有的重复 Timer 停止。应先调用 invalidate()，再清空属性：
+
+```swift
+timer?.invalidate()
+timer = nil
+```
+
+invalidate() 使 Timer 失效，并移除 Timer 与 RunLoop 的注册关系。失效的 Timer 不能重新启动，需要创建新的 Timer。通常应在安装 Timer 的线程上停止；下面讨论的界面计时器都在主线程管理。
+
+Timer 会持有回调闭包。闭包强捕获持有 Timer 的对象时，会形成引用环；target/selector 形式也会持有 target。闭包使用 [weak 捕获](../language/swift-basics.md#weak-与-unowned-的使用条件) 可以避免该引用环，但不能代替 invalidate()：对象释放后，RunLoop 仍可能持有一个不再执行有效工作的 Timer。应在功能结束或页面停止使用计时器时主动清理，deinit 作为补充。
+
+只在默认模式注册的主线程 Timer，可能在列表跟踪滚动时暂停回调。使用未注册的 Timer，再调用 RunLoop.main.add(timer, forMode: .common)，可以让 Timer 参与被标记为 common 的模式；.common 表示一组模式，不是独立运行模式。这仍不能保证准时触发。
+
+倒计时应根据“截止时间 − 当前时间”计算剩余值，不能每次回调只减 1。回调延迟会让减 1 的方法产生累计偏差。Date 表示日历时间，适合有明确日期的截止时间，但会受系统时间调整影响；只衡量进程内经过时长时，应采用单调时钟，即不随日历时间调整而回退的时间来源。Cell 的可见性与计时器配合见 [Cell 中的倒计时](uikit-layout-and-mvvm.md#cell-中的倒计时与可见性)。
 
 ## CADisplayLink 的原理与适用场景
 

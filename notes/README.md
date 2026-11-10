@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 32 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 34 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -11,10 +11,10 @@
 | 分类 | 文档数 |
 | --- | --- |
 | [语言与运行时](language/) | 5 |
-| [iOS 界面、事件与调度](ios/) | 8 |
+| [iOS 界面、事件与调度](ios/) | 9 |
 | [Android 界面与动画](android/) | 6 |
 | [跨平台与宿主通信](cross-platform/) | 3 |
-| [软件设计与工程工具](engineering/) | 3 |
+| [软件设计与工程工具](engineering/) | 4 |
 | [网络与存储](network-and-storage/) | 3 |
 | [实验与统计](statistics/) | 1 |
 | [AI 辅助开发](ai/) | 1 |
@@ -53,6 +53,10 @@
 并发与函数专题：[函数签名与回调类型](language/swift-basics.md#函数签名与回调类型)；[Sendable 与 @Sendable](language/swift-basics.md#sendable-与-sendable)；[Swift 6 的并发检查与版本条件](language/swift-basics.md#swift-6-的并发检查与版本条件)。内容范围：函数值、捕获检查、actor 串行执行器、MainActor，以及并发检查和执行规则的版本条件。
 
 ## iOS 界面、事件与调度
+
+[iOS 本地多语言与即时切换](ios/localization-and-language-switching.md)：文案键、.strings 与 String Catalog、本地 Bundle 选择、UserDefaults 语言偏好、通知刷新已有界面，以及 Locale 的语言与地区区别。
+
+相关专题：[Cell 中的倒计时与可见性](ios/uikit-layout-and-mvvm.md#cell-中的倒计时与可见性)；[Timer 的停止、引用与重新创建](ios/threads-and-scheduling.md#timer-的停止引用与重新创建)。内容范围：离屏停止刷新、再次显示时按截止时间计算、invalidate 与引用清理，以及 common 模式的边界。
 
 并发、动画与圆角专题：[单线程并发与挂起恢复的触发者](language/swift-basics.md#单线程并发与挂起恢复的触发者)；[transform 与 bounds、center、frame](ios/uikit-layout-and-mvvm.md#transform-与-boundscenterframe)；[UIViewPropertyAnimator 的正向、反向与暂停](ios/rendering-and-performance.md#uiviewpropertyanimator-的正向反向与暂停)；[shouldRasterize 与位图缓存](ios/rendering-and-performance.md#shouldrasterize-与位图缓存)；[静态图片的圆角预处理](ios/rendering-and-performance.md#静态图片的圆角预处理)。内容范围：主线程任务交替执行、挂起与恢复的职责、显示变换与布局、可暂停的缩放动画，以及圆角裁剪和缓存的性能边界。
 
@@ -123,6 +127,8 @@
 | [KMP 跨平台编译与鸿蒙库集成](cross-platform/kmp-compilation-and-harmony-libraries.md) | 共享源码与平台产物、源码依赖与已发布库、.so、ArkTS、HAR，以及接口和版本匹配 |
 
 ## 软件设计与工程工具
+
+[iOS 组件化：职责、接口与依赖](engineering/ios-modularization.md)：组件边界、Swift 协议协作、模块与仓库的区别、Swift Package／Framework／CocoaPods 的用途，以及收益和维护成本。
 
 | 文档 | 内容范围 |
 | --- | --- |

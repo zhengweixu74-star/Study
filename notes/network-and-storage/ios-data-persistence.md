@@ -34,6 +34,8 @@ iOS 中使用 Swift 开发时，常见方式包括 UserDefaults、文件存储�
 
 ## UserDefaults 的最小示例
 
+UserDefaults 是按字符串键保存少量偏好设置的系统接口。保存的值不限于 Bool，还可以是 String、整数、浮点数、Data、Date，以及由受支持值组成的数组和字符串键字典。这些值属于属性列表可表示的数据；自定义对象不能直接交给 set 保存，需要先编码为 Data 等受支持类型。
+
 下面通过键 hasSeenGuide 保存“用户是否看过引导”。键是用于定位数据的名称，true 是保存的值。
 
 ```swift
@@ -52,6 +54,16 @@ UserDefaults.standard.removeObject(forKey: "hasSeenGuide")
 调用 set 后，UserDefaults 立即更新内存中的值，再异步写入磁盘。调用 bool(forKey:) 时，如果对应键不存在，方法返回 false。因此，这个读取方法不能区分“未保存过”和“明确保存了 false”。
 
 SwiftUI 的 @AppStorage 使用 UserDefaults 读写设置，并在对应值变化时更新相关视图。@AppStorage 没有提供独立于 UserDefaults 的另一套存储。
+
+选择的语言可以保存为字符串：
+
+```swift
+UserDefaults.standard.set("en", forKey: "preferredLanguage")
+let languageCode = UserDefaults.standard.string(forKey: "preferredLanguage")
+// 已保存时得到 "en"；键不存在时得到 nil。
+```
+
+保存语言码只保存用户的选择，不会翻译文案或自动刷新 UIKit 控件。启动时读取语言码、选择资源和刷新界面的完整流程见 [iOS 本地多语言与即时切换](../ios/localization-and-language-switching.md)。
 
 ## 编码、文件格式与持久化的区别
 

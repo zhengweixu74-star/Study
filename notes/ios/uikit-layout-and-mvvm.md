@@ -21,6 +21,7 @@
 - [容器控制器与子控制器](#容器控制器与子控制器)
 - [分栏界面与详情控制器生命周期](#分栏界面与详情控制器生命周期)
 - [UITableView 的重用机制](#uitableview-的重用机制)
+- [Cell 中的倒计时与可见性](#cell-中的倒计时与可见性)
 - [UITableView 的行删除与批量更新](#uitableview-的行删除与批量更新)
 - [UICollectionView 的职责与复用](#uicollectionview-的职责与复用)
 - [页面、列表与 Cell ViewModel](#页面列表与-cell-viewmodel)
@@ -514,12 +515,104 @@ final class ItemDataSource: NSObject, UITableViewDataSource {
 | 初始化方法或 awakeFromNib() | 建立固定子视图、固定约束和不随数据变化的外观 |
 | cellForRowAt 中调用的配置方法 | 根据当前模型完整设置内容，包括没有图片或副标题的情况 |
 | prepareForReuse() | 重置与内容无关的临时状态，清理 Cell 自己持有的旧任务或动画 |
-| willDisplay | 响应 Cell 即将显示，可启动只在可见期间运行的动画 |
-| didEndDisplaying | 响应 Cell 已停止显示，可暂停只在可见期间运行的动画 |
+| willDisplay | 响应 Cell 即将显示，可启动只在可见期间运行的动画或刷新计时器 |
+| didEndDisplaying | 响应 Cell 已停止显示，可停止只在可见期间运行的动画或刷新计时器 |
 
 prepareForReuse() 在已有 Cell 被取出准备重用时调用，不是在 Cell 刚离屏时立即调用。重写该方法必须调用 super.prepareForReuse()。新建 Cell 不通过这个方法完成初始化。内容仍应由配置方法完整赋值，不能依赖 prepareForReuse() 先清空全部内容；reconfigureRows(at:) 更新已有 Cell 时不会调用 prepareForReuse()。
 
 收藏、展开或输入内容等需要长期保留的状态，应存到数据模型或按数据 ID 管理的状态中，不应只保存在可重用的 Cell 上。固定视图与约束的创建时机见[多元素 Cell 的配置成本](#多元素-cell-的配置成本)。
+
+### Cell 中的倒计时与可见性
+
+Cell 离屏不等于 Cell 释放，也不保证立即调用 prepareForReuse()。只负责更新倒计时文案的 Timer，应在 willDisplay 中启动，在 didEndDisplaying 中停止，在 prepareForReuse() 中补充清理旧状态。同一个 Cell 再次显示时，创建新的 Timer。
+
+截止时间由数据模型保存。Cell 保存当前配置的截止时间副本，根据当前时间刷新显示。离屏只停止刷新，不改变截止时间；再次显示时立即重新计算，所以离屏期间经过的时间仍被计入。Timer 的停止与引用机制见 [Timer 的停止、引用与重新创建](threads-and-scheduling.md#timer-的停止引用与重新创建)。
+
+下面是只展示倒计时的 Cell。示例采用日历时间截止日期，所有方法在主线程调用。Cell 使用系统 textLabel，配置方法可以在已有 Cell 更新数据时调用。
+
+```swift
+final class CountdownCell: UITableViewCell {
+    private var deadline: Date?
+    private var timer: Timer?
+    private var isDisplaying = false
+
+    func configure(deadline: Date) {
+        self.deadline = deadline
+        if isDisplaying {
+            startRefreshing()
+        } else {
+            refreshText()
+        }
+    }
+
+    func beginDisplaying() {
+        isDisplaying = true
+        startRefreshing()
+    }
+
+    func endDisplaying() {
+        isDisplaying = false
+        stopRefreshing()
+    }
+
+    private func startRefreshing() {
+        stopRefreshing()
+        refreshText()
+        guard let deadline, deadline > Date() else { return }
+
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            self?.refreshText()
+        }
+        self.timer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func refreshText() {
+        guard let deadline else {
+            textLabel?.text = nil
+            return
+        }
+        let remaining = max(0, Int(ceil(deadline.timeIntervalSinceNow)))
+        textLabel?.text = "\(remaining) 秒"
+        if remaining == 0 {
+            stopRefreshing()
+        }
+    }
+
+    private func stopRefreshing() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        endDisplaying()
+        deadline = nil
+    }
+
+    deinit {
+        timer?.invalidate()
+    }
+}
+```
+
+控制器注册 CountdownCell，并在 cellForRowAt 中取出 Cell、传入对应模型的 deadline。控制器作为 UITableViewDelegate 时，还需要实现：
+
+```swift
+func tableView(_ tableView: UITableView,
+               willDisplay cell: UITableViewCell,
+               forRowAt indexPath: IndexPath) {
+    (cell as? CountdownCell)?.beginDisplaying()
+}
+
+func tableView(_ tableView: UITableView,
+               didEndDisplaying cell: UITableViewCell,
+               forRowAt indexPath: IndexPath) {
+    (cell as? CountdownCell)?.endDisplaying()
+}
+```
+
+didEndDisplaying 直接清理回调传入的 Cell，不按旧 indexPath 从变化后的数据源重新查找对象。例如截止时间为 12:00:10，Cell 在 12:00:03 离屏、12:00:08 再显示，此时显示约 2 秒，而不是保留离屏前的 7 秒。Cell 重用于另一条数据时，configure 用新模型的截止时间覆盖旧值。
 
 ### 预取与重用数量
 
