@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 31 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 32 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -13,7 +13,7 @@
 | [语言与运行时](language/) | 5 |
 | [iOS 界面、事件与调度](ios/) | 8 |
 | [Android 界面与动画](android/) | 6 |
-| [跨平台与宿主通信](cross-platform/) | 2 |
+| [跨平台与宿主通信](cross-platform/) | 3 |
 | [软件设计与工程工具](engineering/) | 3 |
 | [网络与存储](network-and-storage/) | 3 |
 | [实验与统计](statistics/) | 1 |
@@ -120,6 +120,7 @@
 | --- | --- |
 | [WebView 与 Lynx 双向通信](cross-platform/webview-and-lynx-bridge.md) | WebView 和 Lynx 的消息、原生模块、请求回调与事件通知 |
 | [Lynx 渲染、线程模型与资源更新](cross-platform/lynx-rendering-and-updates.md) | Lynx 渲染、双线程、首帧直出、后台接管与动态资源更新 |
+| [KMP 跨平台编译与鸿蒙库集成](cross-platform/kmp-compilation-and-harmony-libraries.md) | 共享源码与平台产物、源码依赖与已发布库、.so、ArkTS、HAR，以及接口和版本匹配 |
 
 ## 软件设计与工程工具
 
