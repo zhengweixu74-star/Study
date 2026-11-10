@@ -8,6 +8,7 @@
 
 - [viewDidLayoutSubviews 的调用时机与用途](#viewdidlayoutsubviews-的调用时机与用途)
 - [frame、Auto Layout 与 SnapKit](#frameauto-layout-与-snapkit)
+- [transform 与 bounds、center、frame](#transform-与-boundscenterframe)
 - [添加子视图但不设置约束](#添加子视图但不设置约束)
 - [autoresizingMask 与约束转换](#autoresizingmask-与约束转换)
 - [固有内容尺寸、抗压缩与约束优先级](#固有内容尺寸抗压缩与约束优先级)
@@ -99,6 +100,31 @@ container.layoutIfNeeded()
 两次布局使用同一组约束。父视图变宽后，Auto Layout 重新计算子视图宽度，使四边间距继续保持 20 点。直接设置一次 `frame` 只保存当时的位置和大小，不会单独建立这种持续的间距关系；后续适配需要代码重新计算，或由其他布局机制负责。
 
 这些计算结果依赖当前约束和尺寸条件。约束不足时，布局可能不唯一；约束冲突时，系统可能打破部分约束。存在非单位 `transform` 时，也不能直接用上述规则解释或设置 `frame`。
+
+### transform 与 bounds、center、frame
+
+bounds 表示视图在自身坐标系中的矩形范围。center 是视图在父视图坐标系中的中心定位值；以下示例使用支撑图层的默认锚点，没有额外布局修改。transform 是视图坐标映射中的缩放、旋转和平移变换。
+
+只修改 transform 时，bounds 和 center 保持原值，渲染系统按新的坐标映射显示内容。缩放可以改变显示尺寸，平移可以改变显示位置，旋转可以改变显示方向；默认锚点下，缩放和旋转围绕中心进行。
+
+frame 不能与 bounds、center 一起概括为“不变”。读取 frame 的结果可能随变换改变。UIKit 规定 transform 不是 .identity 时，frame 的值未定义，不应依赖它或直接设置它。“未定义”表示 API 不保证该值可用于可靠的几何计算，不表示读取一定报错。
+
+```swift
+let view = UIView(
+    frame: CGRect(x: 100, y: 100, width: 100, height: 80)
+)
+view.transform = CGAffineTransform(scaleX: 2, y: 2)
+// bounds 仍是 (0, 0, 100, 80)
+// center 仍是 (150, 140)
+```
+
+在默认锚点、父视图坐标系没有其他变换且没有裁剪影响的条件下，显示尺寸为 200 × 160，显示范围左上角为 (50, 60)。这是根据变换计算出的几何范围，不是对非单位变换下 UIView.frame 返回值的保证。
+
+把上述 transform 替换为 CGAffineTransform(translationX: 40, y: 0)，视图会相对原始位置向右显示 40 点，而 center 的定位值仍是 (150, 140)。把 transform 设为 .identity 会移除缩放、旋转和平移；如果 bounds 和 center 未被其他代码改变，就恢复原始显示几何。
+
+需要改变布局位置和尺寸时，修改 bounds、center 或布局约束；需要显示变换时，修改 transform。仅改变 transform 不会让周围视图按放大后的范围重新排版。受 Auto Layout 管理的视图应通过约束表达持续的布局要求。
+
+以上描述的是代码设置的几何状态。动画期间，模型属性可以已经保存终点值，而屏幕显示的是中间状态；两者的区别见 [图层动画与渲染管线](rendering-and-performance.md#图层动画与渲染管线)。图层锚点的细节见 [anchorPoint、position 与图层几何](rendering-and-performance.md#anchorpointposition-与图层几何)。
 
 ### 添加子视图但不设置约束
 
