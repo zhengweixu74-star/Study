@@ -44,6 +44,8 @@
 
 相关专题：[实例存储属性与局部变量的初始化](language/swift-basics.md#实例存储属性与局部变量的初始化)；[为什么扩展不能添加实例存储属性](language/swift-basics.md#为什么扩展不能添加实例存储属性)。内容范围：声明与初始化、读取前赋值、可选属性的 nil、lazy 延迟初始化，以及实例存储与扩展的限制。
 
+初始化与任务类型：[指定初始化方法与便利初始化方法](language/swift-basics.md#指定初始化方法与便利初始化方法)；[required、override 与初始化方法继承](language/swift-basics.md#requiredoverride-与初始化方法继承)；[UIViewController 的 init?(coder:) 与纯代码初始化](language/swift-basics.md#uiviewcontroller-的-initcoder-与纯代码初始化)；[任务结果类型与 Void、Never](language/swift-basics.md#任务结果类型与-voidnever)。内容范围：多个初始化入口、自动继承条件、解码初始化路径，以及任务结果与错误类型。
+
 [C++ 静态存储期对象与初始化](language/cpp-static-storage-and-initialization.md)：静态存储期、静态数据成员、构造函数、全局对象与静态局部对象的初始化时机。
 
 补充专题：[inout 与内存独占访问](language/swift-basics.md#inout-与内存独占访问)；[actor 的默认隔离与重入](language/swift-basics.md#actor-的默认隔离与重入)；[MainActor、主队列与异步调用](language/swift-basics.md#mainactor主队列与异步调用)；[数组值语义、写时复制与返回值](language/swift-basics.md#数组值语义写时复制与返回值)；[自定义 CoW 与引用唯一性检查](language/swift-basics.md#自定义-cow-与引用唯一性检查)；[ArraySlice 的存储保留与索引](language/swift-basics.md#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](language/swift-basics.md#类的两阶段初始化与-self-使用时机)。
@@ -63,6 +65,8 @@
 第三方库用法：[Kingfisher：网络图片与占位图](ios/image-loading-decoding-and-memory.md#kingfisher网络图片与占位图)；[RxSwift：输入组合、事件序列与搜索订阅](ios/reactive-programming.md#rxswiftobservable-与订阅)。
 
 相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。
+
+启动页与控件：[LaunchScreen、自定义启动页与异步加载](ios/app-lifecycle-and-events.md#launchscreen自定义启动页与异步加载)；[控制器初始化、视图加载与页面展示](ios/uikit-layout-and-mvvm.md#控制器初始化视图加载与页面展示)；[UIButton 的 system 类型与 tintColor](ios/uikit-layout-and-mvvm.md#uibutton-的-system-类型与-tintcolor)。内容范围：系统启动界面与动态启动页、素材加载和关闭回调、页面出现与倒计时，以及系统按钮的标题颜色。
 
 [iOS 进程间通信与应用扩展](ios/interprocess-communication-and-extensions.md)：App Extension、主要通信方式、App Groups 共享目录、Darwin 通知、UNIX domain socket 路径与数据传递，以及 XPC 的使用边界。
 

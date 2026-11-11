@@ -16,6 +16,9 @@
 - [声明、定义、实现与引用](#声明定义实现与引用)
 - [Swift 与 C 接口互操作](#swift-与-c-接口互操作)
 - [存储属性、计算属性与访问器](#存储属性计算属性与访问器)
+  - [指定初始化方法与便利初始化方法](#指定初始化方法与便利初始化方法)
+  - [required、override 与初始化方法继承](#requiredoverride-与初始化方法继承)
+  - [UIViewController 的 init?(coder:) 与纯代码初始化](#uiviewcontroller-的-initcoder-与纯代码初始化)
 - [扩展中的类型属性与实例存储限制](#扩展中的类型属性与实例存储限制)
 - [协议存在类型与泛型约束](#协议存在类型与泛型约束)
 - [逃逸闭包与执行时机](#逃逸闭包与执行时机)
@@ -47,6 +50,8 @@
 补充专题：[inout 与内存独占访问](#inout-与内存独占访问)；[actor 的默认隔离与重入](#actor-的默认隔离与重入)；[MainActor、主队列与异步调用](#mainactor主队列与异步调用)；[数组值语义、写时复制与返回值](#数组值语义写时复制与返回值)；[自定义 CoW 与引用唯一性检查](#自定义-cow-与引用唯一性检查)；[ArraySlice 的存储保留与索引](#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](#类的两阶段初始化与-self-使用时机)。
 
 补充专题：[Task、Task.detached 与任务局部值](#tasktaskdetached-与任务局部值)。
+
+任务类型补充：[任务结果类型与 Void、Never](#任务结果类型与-voidnever)。
 
 ## 基础语义与内存管理
 
@@ -988,6 +993,30 @@ let task = Task(operation: {
 
 创建调用不会等待任务完成。没有保留返回的 Task 实例，也不会因此阻止任务运行；需要之后等待结果或取消任务时，才需要保存可用于操作该任务的实例。
 
+### 任务结果类型与 Void、Never
+
+`Task<Success, Failure>` 中，`Success` 表示任务成功完成时返回的值类型，`Failure` 表示任务失败时抛出的错误类型。`Failure` 必须符合 `Error` 协议。
+
+`Void` 是空元组 `()` 的类型，表示没有需要交给调用方的结果数据，具体定义见[元组、字典与空元组 Void](#元组字典与空元组-void)。`Never` 是没有任何值的类型；用于 `Failure` 时，表示任务闭包不会向外抛出错误。`Task<Void, Never>` 因此表示“不返回有意义的数据，也不向外抛出错误”的任务。
+
+```swift
+let task: Task<Void, Never> = Task {
+    print("完成")
+}
+```
+
+闭包执行 `print` 后正常结束，结果是 `()`。类型中的 `Never` 不表示任务永远不结束，也不表示任务不能取消。
+
+下面的方法接收已有任务，并等待任务结果；等待不负责启动任务。
+
+```swift
+func waitForCompletion(_ task: Task<Void, Never>) async {
+    await task.value
+}
+```
+
+对于 `Task<Void, Error>`，等待结果需要写 `try await task.value`，因为闭包可以向外抛出错误。例如，`try await Task.sleep(...)` 可以响应取消并抛出错误；如果闭包内部捕获全部错误且不再抛出，闭包仍可以用于 `Task<Void, Never>`。取消请求如何生效见[上下文继承与取消](#上下文继承与取消)。
+
 ### 上下文继承与取消
 
 这里的上下文主要指 actor 隔离、任务优先级和任务局部值。actor 隔离要求受保护的数据通过所属 actor 访问；具体机制见[actor 的默认隔离与重入](#actor-的默认隔离与重入)。
@@ -1264,11 +1293,102 @@ func showAge() {
 
 `lazy` 存储属性允许延迟求出初始值。声明中的初始化表达式通常在第一次读取属性时求值，并保存结果；如果第一次读取前已经直接给属性赋值，就使用该值，不再执行原初始化表达式。因此，“实例初始化完成前必须获得初始值”的要求需要区分普通存储属性和 `lazy` 存储属性。
 
+### 指定初始化方法与便利初始化方法
+
+初始化方法是通过 `init` 声明、用于建立实例初始状态的入口。对于 Swift 类，初始化方法分为指定初始化方法和便利初始化方法。
+
+指定初始化方法负责初始化本类引入的存储属性。类具有父类时，指定初始化方法再调用直接父类的指定初始化方法。没有 `convenience` 的普通 `init` 属于指定初始化方法；`required`、`override` 和 `?` 本身不决定方法属于哪一类。
+
+一个类可以有多个指定初始化方法。每条能够成功返回实例的初始化路径，都必须完成必要的属性初始化和父类初始化。
+
+```swift
+class Item {
+    let title: String
+
+    init(title: String) {
+        self.title = title
+    }
+
+    init(number: Int) {
+        self.title = String(number)
+    }
+
+    convenience init() {
+        self.init(title: "未命名")
+    }
+}
+```
+
+`init(title:)` 和 `init(number:)` 是两个指定初始化方法。`convenience init()` 是便利初始化方法；便利初始化方法通过 `self.init(...)` 调用同一个类的其他初始化方法，最终必须到达指定初始化方法。便利初始化方法不能直接用 `super.init(...)` 完成父类初始化。
+
+### required、override 与初始化方法继承
+
+`required` 表示类要求所有子类都具备对应的初始化入口。子类可以通过自动继承满足要求，也可以自行实现；`required` 不要求每个子类都重复写一份方法体。
+
+`override` 表示子类提供父类已有指定初始化方法的新实现。子类重写父类的 `required` 初始化方法时，继续写 `required`，不再写 `override`。子类新写一个参数不同的指定初始化方法，不等于重写父类方法。
+
+Swift 类的初始化方法不会像普通实例方法那样无条件继承。以下自动继承规则以“子类为新增的全部存储属性提供默认值”为前提：
+
+1. 子类没有定义任何指定初始化方法时，自动继承父类全部指定初始化方法。
+2. 子类通过继承或自行实现，具备父类全部指定初始化方法时，自动继承父类全部便利初始化方法。
+
+这两个规则都允许子类自行添加便利初始化方法。规则中的默认值是属性声明处等位置已经提供的初始值，不能用“稍后在某个方法里赋值”替代。
+
+```swift
+class Parent {
+    let name: String
+
+    required init(name: String) {
+        self.name = name
+    }
+}
+
+class Child: Parent {
+    var count = 0
+    // 没有定义指定初始化方法，自动继承 init(name:)。
+}
+
+let child = Child(name: "示例")
+```
+
+这里 `Child` 不需要重写 `required init(name:)`。如果 `Child` 定义了自己的指定初始化方法，就不再满足第一条自动继承规则；`Child` 必须自行提供父类要求的 `init(name:)`。
+
+### UIViewController 的 init?(coder:) 与纯代码初始化
+
+`UIViewController` 已经声明 `required init?(coder: NSCoder)`。该方法是指定初始化方法，也是可失败初始化方法；`init?` 表示初始化可以通过 `return nil` 失败，调用方得到可选实例。
+
+`NSCoder` 是 Foundation 提供的编码和解码基类。这里的 `coder` 提供从归档数据恢复对象所需的信息。UIKit 从 Storyboard 或 nib 还原控制器时，会使用对应的解码初始化路径。
+
+父类已经有 `init?(coder:)`，不代表子类总能自动继承。子类定义自己的指定初始化方法后，不再自动继承父类全部指定初始化方法；父类的 `required` 要求仍然存在，因此子类需要自行提供对应入口。
+
+```swift
+import UIKit
+
+final class DetailViewController: UIViewController {
+    let titleText: String
+
+    init(titleText: String) {
+        self.titleText = titleText
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("此控制器仅支持 init(titleText:)")
+    }
+}
+```
+
+`init(titleText:)` 先设置子类属性，再通过 `super.init(nibName:bundle:)` 初始化父类部分；该方法参数与父类方法不同，因此不写 `override`。初始化顺序见[类的两阶段初始化与 self 使用时机](#类的两阶段初始化与-self-使用时机)。
+
+示例明确约定只通过代码创建控制器。`required init?(coder:)` 保留父类要求的入口，但调用 `fatalError` 拒绝这条路径。`fatalError` 报告不可恢复错误并终止程序，返回类型是 `Never`，不会正常返回，所以这条路径不需要成功初始化 `titleText`。`fatalError` 不是返回 `nil`，也不是可以用 `do-catch` 捕获的普通抛错。
+
+如果控制器需要支持 Storyboard 或 nib，就应在 `init?(coder:)` 中初始化子类属性，并调用 `super.init(coder: coder)`，不能照搬这个 `fatalError`。只要程序没有调用解码初始化路径，`fatalError` 就不会因方法声明存在而执行。
+
 ### 类的两阶段初始化与 self 使用时机
 
-Swift 类的两阶段初始化，是先让继承链中各层引入的存储属性取得初始值，再执行进一步的定制操作。指定构造器是负责初始化本类引入的存储属性，并按继承关系调用父类指定构造器的 init。这里讨论普通、非 lazy 的存储属性。
+Swift 类的两阶段初始化，是先让继承链中各层引入的存储属性取得初始值，再执行进一步的定制操作。初始化入口的分类见[指定初始化方法与便利初始化方法](#指定初始化方法与便利初始化方法)。这里讨论普通、非 lazy 的存储属性。
 
-子类的指定构造器必须先初始化子类自己引入的存储属性，再调用 super.init。父类构造器负责初始化父类引入的属性。不能先调用 super.init，再补做子类属性的首次赋值。
+子类的指定初始化方法必须先初始化子类自己引入的存储属性，再调用 super.init。父类的指定初始化方法负责初始化父类引入的属性。不能先调用 super.init，再补做子类属性的首次赋值。
 
 ```swift
 class Parent {
@@ -1289,7 +1409,7 @@ class Child: Parent {
 }
 ```
 
-第一阶段完成前，构造器不能调用实例方法、读取实例属性，或把 self 作为一个完整实例传给其他代码。self.age = age 是完成自身属性初始化所需的写入，不等于允许任意使用 self。子类自身属性初始化完成且 super.init 成功返回后，子类构造器可以调用实例方法。
+第一阶段完成前，初始化方法不能调用实例方法、读取实例属性，或把 self 作为一个完整实例传给其他代码。self.age = age 是完成自身属性初始化所需的写入，不等于允许任意使用 self。子类自身属性初始化完成且 super.init 成功返回后，子类初始化方法可以调用实例方法。
 
 这套顺序使整个实例在开始执行依赖实例状态的方法之前，已经具有有效的初始状态。对于继承得到且允许修改的属性，子类应在 super.init 之后再定制其值，避免先写入的值被父类初始化覆盖。
 

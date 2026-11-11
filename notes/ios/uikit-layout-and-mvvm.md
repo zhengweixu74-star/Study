@@ -5,6 +5,8 @@
 ## 本文目录
 
 - [页面生命周期与布局补充](#页面生命周期与布局补充)
+  - [控制器初始化、视图加载与页面展示](#控制器初始化视图加载与页面展示)
+  - [UIButton 的 system 类型与 tintColor](#uibutton-的-system-类型与-tintcolor)
 
 - [viewDidLayoutSubviews 的调用时机与用途](#viewdidlayoutsubviews-的调用时机与用途)
 - [frame、Auto Layout 与 SnapKit](#frameauto-layout-与-snapkit)
@@ -39,6 +41,34 @@ Cell 自动高度通常需要 automaticDimension、合理的预估行高、多�
 
 局部刷新前先更新数据源。异步结果返回后按业务 ID 找到当前行，再在主线程更新界面；不能持续沿用可能已变化的旧索引。
 
+### 控制器初始化、视图加载与页面展示
+
+控制器初始化、根视图加载和页面展示是三个不同步骤。`init` 建立控制器实例的初始状态，默认不代表根视图已经加载。初始化方法的分类与 `required init?(coder:)` 见[UIViewController 的初始化路径](../language/swift-basics.md#uiviewcontroller-的-initcoder-与纯代码初始化)。
+
+`loadView()` 是控制器创建根视图的入口。根视图尚未加载时，访问 `view` 会触发加载；`loadViewIfNeeded()` 可以显式要求加载，根视图已经加载时不会再次加载。`isViewLoaded` 用于判断加载状态，`viewIfLoaded` 可以读取已加载的根视图而不触发加载。
+
+UIKit 在根视图完成加载后调用 `viewDidLoad()`。该回调针对这次视图加载，不是每次页面出现都会调用。一般把控件创建和约束配置放在这里；不要把“视图已加载”当作“页面已对用户可见”。最终布局尺寸的读取时机见[viewDidLayoutSubviews 的调用时机与用途](#viewdidlayoutsubviews-的调用时机与用途)。
+
+`present(_:animated:completion:)` 请求展示另一个控制器。对于尚未加载视图、通过模态方式首次正常展示的控制器，相关步骤可以表示为：
+
+```text
+初始化控制器
+→ 展示流程需要根视图
+→ loadView
+→ viewDidLoad
+→ viewWillAppear
+→ 展示转场完成
+→ viewDidAppear
+```
+
+转场是界面从一个展示状态变化到另一个状态的过程。UIKit 在上述展示过程中执行必要布局，但布局回调的次数不能仅凭这条流程确定。视图可能已经被其他代码提前加载，因此再次 `present` 不一定调用 `loadView` 和 `viewDidLoad`。
+
+`viewDidAppear(_:)` 表示控制器的出现过程已经完成，比 `viewDidLoad` 更适合开始与页面出现关联的倒计时。页面再次出现时，UIKit 可以再次调用该方法；只允许启动一次的任务，需要由页面或任务管理者记录是否已经启动。
+
+`dismiss(animated:completion:)` 请求关闭模态展示。关闭请求不等于转场已经完成，也不保证控制器对象立即释放。其他对象持有控制器，或者异步闭包持续强引用控制器时，控制器仍可能存活。
+
+如果异步任务在 `await` 期间允许页面关闭，任务恢复后必须检查任务是否取消，以及当前页面是否仍允许使用结果，再修改界面。发出取消请求不会强制终止任意代码，具体规则见[Task 的上下文继承与取消](../language/swift-basics.md#上下文继承与取消)。
+
 ### viewDidLayoutSubviews 的调用时机与用途
 
 `viewDidLayoutSubviews()` 是 `UIViewController` 的布局回调。UIKit 在控制器的根视图完成一次子视图布局后调用该方法。布局指根据当前尺寸、约束或手动布局代码，计算和更新子视图的位置与大小。
@@ -59,6 +89,22 @@ override func viewDidLayoutSubviews() {
 `viewDidLoad()` 表示根视图完成加载，适合一次性创建和配置对象，但不保证已有本次界面展示需要的布局尺寸。`viewDidLayoutSubviews()` 中的尺寸更新应能安全重复执行；不要在每次回调中重复添加图层、创建控件或发起与布局无关的网络请求。使用 Auto Layout 管理的子视图，应优先通过约束表达布局，避免在这里反复覆盖 `frame`。
 
 该回调只说明根视图完成了这一轮对子视图的布局，不保证所有后代视图都完成了各自的内部布局。需要读取某个后代视图内部的布局结果时，应在正确的视图范围和时机确认其布局已完成。
+
+### UIButton 的 system 类型与 tintColor
+
+`UIButton(type: .system)` 创建系统样式按钮。`.system` 是 `UIButton.ButtonType` 的一个枚举值；按钮类型影响默认外观和交互反馈，但不会自动配置标题或点击动作。
+
+`tintColor` 是视图用于强调交互元素的颜色。视图没有显式设置自己的颜色时，可以继承父视图的 `tintColor`。在没有显式标题颜色、带颜色的富文本标题或按钮配置覆盖的传统 `.system` 按钮上，普通文字标题默认使用按钮的 `tintColor`。
+
+```swift
+let button = UIButton(type: .system)
+button.setTitle("关闭", for: .normal)
+button.tintColor = .white
+```
+
+示例使用传统按钮样式，默认标题显示为白色。`setTitle(_:for:)` 设置指定状态的标题；`.normal` 表示按钮的正常状态。`tintColor` 不等于 `backgroundColor`，不会把按钮背景改成白色。
+
+使用 `setTitleColor(_:for:)`、`setAttributedTitle(_:for:)` 或 iOS 15 及以上的 `UIButton.Configuration` 时，应根据实际标题和配置判断颜色，不能断言“修改 `tintColor` 一定修改所有状态的标题颜色”。
 
 ## frame、Auto Layout 与 SnapKit
 
