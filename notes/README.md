@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 31 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 34 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -11,10 +11,10 @@
 | 分类 | 文档数 |
 | --- | --- |
 | [语言与运行时](language/) | 5 |
-| [iOS 界面、事件与调度](ios/) | 8 |
+| [iOS 界面、事件与调度](ios/) | 9 |
 | [Android 界面与动画](android/) | 6 |
-| [跨平台与宿主通信](cross-platform/) | 2 |
-| [软件设计与工程工具](engineering/) | 3 |
+| [跨平台与宿主通信](cross-platform/) | 3 |
+| [软件设计与工程工具](engineering/) | 4 |
 | [网络与存储](network-and-storage/) | 3 |
 | [实验与统计](statistics/) | 1 |
 | [AI 辅助开发](ai/) | 1 |
@@ -28,7 +28,9 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历、stride 步长与边界、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法；Result 与关联值提取；Data、UTF-8 解码、可选字符串打印与换行；声明、定义与实现及 C++ 对照；函数、方法、函数值与闭包表达式 |
-| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVO、+load、+initialize 与按需初始化；扩展方法、协议要求与协议见证表条目 |
+| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVC、KVO、+load、自动注册、+initialize 与按需初始化；扩展方法、协议要求与协议见证表条目 |
+
+相关专题：[Swift KVC 按键访问属性](language/swift-objc-runtime.md#kvc-按键访问属性)。
 
 [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：Node.js 运行环境与浏览器的区别、类型标注与推断、number 与 Int、Double 的区别、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
 
@@ -52,6 +54,10 @@
 
 ## iOS 界面、事件与调度
 
+[iOS 本地多语言与即时切换](ios/localization-and-language-switching.md)：文案键、.strings 与 String Catalog、本地 Bundle 选择、UserDefaults 语言偏好、通知刷新已有界面，以及 Locale 的语言与地区区别。
+
+相关专题：[Cell 中的倒计时与可见性](ios/uikit-layout-and-mvvm.md#cell-中的倒计时与可见性)；[Timer 的停止、引用与重新创建](ios/threads-and-scheduling.md#timer-的停止引用与重新创建)。内容范围：离屏停止刷新、再次显示时按截止时间计算、invalidate 与引用清理，以及 common 模式的边界。
+
 并发、动画与圆角专题：[单线程并发与挂起恢复的触发者](language/swift-basics.md#单线程并发与挂起恢复的触发者)；[transform 与 bounds、center、frame](ios/uikit-layout-and-mvvm.md#transform-与-boundscenterframe)；[UIViewPropertyAnimator 的正向、反向与暂停](ios/rendering-and-performance.md#uiviewpropertyanimator-的正向反向与暂停)；[shouldRasterize 与位图缓存](ios/rendering-and-performance.md#shouldrasterize-与位图缓存)；[静态图片的圆角预处理](ios/rendering-and-performance.md#静态图片的圆角预处理)。内容范围：主线程任务交替执行、挂起与恢复的职责、显示变换与布局、可暂停的缩放动画，以及圆角裁剪和缓存的性能边界。
 
 第三方库用法：[Kingfisher：网络图片与占位图](ios/image-loading-decoding-and-memory.md#kingfisher网络图片与占位图)；[RxSwift：输入组合、事件序列与搜索订阅](ios/reactive-programming.md#rxswiftobservable-与订阅)。
@@ -65,10 +71,12 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、应用运行状态与生命周期回调、前台与激活的区别、Scene 生命周期、启动到首帧、动态库数量与无用代码优化、UIWindow、触摸分发与键盘输入 |
-| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 生命周期、视图层级、布局、UITableView 重用与预取、ViewModel 与容器控制器 |
+| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 生命周期、视图层级、布局、UITableView 重用、行删除与批量更新、预取、ViewModel 与容器控制器 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
 | [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息 |
-| [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
+| [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、图层重用、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
+
+相关专题：[图层重用时的状态管理](ios/rendering-and-performance.md#图层重用时的状态管理)；[UITableView 的行删除与批量更新](ios/uikit-layout-and-mvvm.md#uitableview-的行删除与批量更新)。
 
 相关专题：[圆角、边界裁剪与离屏渲染](ios/rendering-and-performance.md#圆角边界裁剪与离屏渲染)。内容范围：cornerRadius、masksToBounds、clipsToBounds、离屏渲染条件、shadowPath，以及圆角图片与外部阴影的组合。
 
@@ -118,10 +126,13 @@
 | --- | --- |
 | [WebView 与 Lynx 双向通信](cross-platform/webview-and-lynx-bridge.md) | WebView 和 Lynx 的消息、原生模块、请求回调与事件通知 |
 | [Lynx 渲染、线程模型与资源更新](cross-platform/lynx-rendering-and-updates.md) | Lynx 渲染、双线程、首帧直出、后台接管与动态资源更新 |
+| [KMP 跨平台编译与鸿蒙库集成](cross-platform/kmp-compilation-and-harmony-libraries.md) | 共享源码与平台产物、源码依赖与已发布库、.so、ArkTS、HAR，以及接口和版本匹配 |
 
 ## 软件设计与工程工具
 
 [Swift 第三方库与依赖接入](engineering/xcode-and-testing.md#swift-第三方库与依赖接入)：UIKit 与第三方库的区别、Swift Package Manager 接入，以及 Alamofire、Kingfisher、RxSwift 的分类导航。
+
+[iOS 组件化：职责、接口与依赖](engineering/ios-modularization.md)：组件边界、Swift 协议协作、模块与仓库的区别、Swift Package／Framework／CocoaPods 的用途，以及收益和维护成本。
 
 | 文档 | 内容范围 |
 | --- | --- |
@@ -147,7 +158,7 @@
 | --- | --- |
 | [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；Alamofire 响应容器、Result 与模型值；请求信息、HTTP 响应头与正文 |
 | [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份边界 |
-| [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件存储、Keychain、SQLite、Core Data 与 SwiftData；编码与磁盘写入的区别 |
+| [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件存储、Keychain、SQLite、Core Data 与 SwiftData；编码与磁盘写入的区别；数据库事务、ACID、提交与崩溃恢复、锁与事务边界、重复转账去重 |
 
 相关专题：[HTTP 请求方法与文件上传](network-and-storage/network-and-proxy.md#http-请求方法安全性与幂等性)。内容范围：HTTP 方法、安全性与幂等性、GET 与 POST、multipart 字段与 boundary、两层头部、服务端解析，以及 Swift URLSession 上传。
 

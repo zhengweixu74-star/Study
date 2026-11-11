@@ -6,7 +6,10 @@
 
 - [WebP 有损压缩：从像素到比特](./webp/README.md) — 从 RGB、色度采样讲到预测、变换、量化和熵编码，配有图解和手算示例。
 
-- [知识笔记总目录](./notes/README.md) — 20 篇学习笔记，按语言、iOS、Android、跨平台、工程工具、网络与存储、统计和 AI 分类。
+- [知识笔记总目录](./notes/README.md) — 按主题查阅通用概念、工作机制与独立示例。
+
+- [iOS 本地多语言与即时切换](./notes/ios/localization-and-language-switching.md) — 本地语言资源、偏好持久化、UIKit 文案刷新与 Locale。
+- [iOS 组件化：职责、接口与依赖](./notes/engineering/ios-modularization.md) — 组件边界、公开接口及工程组织方式。
 
 ## 按主题查阅
 
