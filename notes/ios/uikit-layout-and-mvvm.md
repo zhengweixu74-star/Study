@@ -6,6 +6,8 @@
 
 - [页面生命周期与布局补充](#页面生命周期与布局补充)
   - [控制器初始化、视图加载与页面展示](#控制器初始化视图加载与页面展示)
+  - [push、present 与出现消失回调](#pushpresent-与出现消失回调)
+  - [pageSheet、formSheet 与尺寸设置](#pagesheetformsheet-与尺寸设置)
   - [UIButton 的 system 类型与 tintColor](#uibutton-的-system-类型与-tintcolor)
 
 - [viewDidLayoutSubviews 的调用时机与用途](#viewdidlayoutsubviews-的调用时机与用途)
@@ -68,6 +70,57 @@ UIKit 在根视图完成加载后调用 `viewDidLoad()`。该回调针对这次�
 `dismiss(animated:completion:)` 请求关闭模态展示。关闭请求不等于转场已经完成，也不保证控制器对象立即释放。其他对象持有控制器，或者异步闭包持续强引用控制器时，控制器仍可能存活。
 
 如果异步任务在 `await` 期间允许页面关闭，任务恢复后必须检查任务是否取消，以及当前页面是否仍允许使用结果，再修改界面。发出取消请求不会强制终止任意代码，具体规则见[Task 的上下文继承与取消](../language/swift-basics.md#上下文继承与取消)。
+
+### push、present 与出现消失回调
+
+`pushViewController(_:animated:)` 由 `UINavigationController` 把控制器加入导航栈。导航栈是导航控制器按前后关系管理的控制器序列。A 推入 B 后，A 通常仍在栈中；返回通常调用 `popViewController(animated:)`，并可在导航控制器和手势配置允许时侧滑返回。
+
+`present(_:animated:completion:)` 建立模态展示关系，用于展示一个独立流程，不会自动把 B 加入 A 的导航栈。关闭通常调用 `dismiss(animated:completion:)`。模态展示也可以展示一个新的导航控制器，由新导航控制器管理自己的栈。展示外观由 `modalPresentationStyle`、设备尺寸和适配结果决定，不能固定理解为从底部出现的全屏页面。
+
+下面假设 A 正常显示 B，转场成功完成，并使用 UIKit 默认的出现回调管理。表格描述 A 收到的回调，不按视觉遮挡面积判断。
+
+| 展示方式 | B 出现时 A 的回调 | B 关闭、A 恢复时 A 的回调 |
+| --- | --- | --- |
+| 导航控制器正常 push B | `viewWillDisappear` → `viewDidDisappear` | pop B 后：`viewWillAppear` → `viewDidAppear` |
+| present B，实际样式为 `.fullScreen` | `viewWillDisappear` → `viewDidDisappear` | dismiss B 后：`viewWillAppear` → `viewDidAppear` |
+| present B，实际样式为 `.overFullScreen` | 不触发 A 的消失回调 | 不触发 A 的重新出现回调 |
+| present B，实际保持非全屏 `.pageSheet` 或 `.formSheet` | 通常不触发 A 的消失回调 | 通常不触发 A 的重新出现回调 |
+
+非全屏样式如果适配为 `.fullScreen`，应按全屏规则判断。`.overFullScreen` 即使完全遮住 A，也保留其下方视图，不应仅凭完全遮挡就推断 A 收到消失回调。自定义容器、转场取消或手动管理出现回调时，需要按实际流程判断。
+
+B 的根视图尚未加载时，正常出现的内部顺序是 `viewDidLoad` → `viewWillAppear` → `viewDidAppear`；已经加载时省略 `viewDidLoad`。B 被 pop 或 dismiss 时，正常消失的内部顺序是 `viewWillDisappear` → `viewDidDisappear`。这些顺序分别属于单个控制器，不表示 A、B 的全部回调具有固定交错顺序。
+
+A 收到消失回调不等于 A 被释放。B 被 pop 或 dismiss 也不保证立即释放；只有没有其他强引用保持 B 存活时，B 才能销毁。
+
+### pageSheet、formSheet 与尺寸设置
+
+`.pageSheet` 和 `.formSheet` 都是模态展示样式。典型外观依赖设备和可用空间；样式名称不规定所有设备上的固定尺寸。
+
+在支持 sheet 的 iPhone 展示环境中，`.pageSheet` 常见为底部卡片。默认不保证半屏。iOS 15 及以上可以用 `sheetPresentationController` 设置停留高度；`detents` 是卡片允许停留的高度集合。
+
+```swift
+let detail = UIViewController()
+detail.modalPresentationStyle = .pageSheet
+if let sheet = detail.sheetPresentationController {
+    sheet.detents = [.medium(), .large()]
+    sheet.selectedDetentIdentifier = .medium
+    sheet.prefersGrabberVisible = true
+}
+present(detail, animated: true)
+```
+
+`.medium()` 通常表示约半屏高度，`.large()` 表示该 sheet 的最大高度。上述设置请求卡片先停在中等高度，并显示顶部拖动指示条；可用高度仍受当前展示环境影响。卡片拖到最大高度，不等于 `modalPresentationStyle` 自动变成 `.fullScreen`。
+
+空间足够的 iPad 上，`.formSheet` 常见为居中的较小窗口，适合表单等内容。`preferredContentSize` 是控制器提出的期望内容尺寸，最终尺寸由展示控制器和可用空间决定。
+
+```swift
+let form = UIViewController()
+form.modalPresentationStyle = .formSheet
+form.preferredContentSize = CGSize(width: 480, height: 360)
+present(form, animated: true)
+```
+
+iPhone、横竖屏和尺寸变化可能使 `.formSheet` 呈现为卡片或适配为全屏。因此，判断外观和 A 的生命周期回调时，需要检查实际展示样式及适配结果。
 
 ### viewDidLayoutSubviews 的调用时机与用途
 
@@ -384,6 +437,27 @@ child.frame = frameInNewParent
 
 使用 Auto Layout 时，原来连接子视图与旧父视图或旧分支的约束不能直接用来约束新父视图中的位置。应根据新的父子关系重新配置相关约束；如果仍由 Auto Layout 控制布局，单次设置 `frame` 可能在后续布局时被覆盖。视图层级和布局修改应在主线程执行。
 
+两个分别创建的 `UIView` 是两个独立实例，即使 `frame` 和颜色相同，也不会变成同一个视图。下面在主线程创建两个父视图和两个内容视图：
+
+```swift
+let parentA = UIView()
+let parentB = UIView()
+let rect = CGRect(x: 0, y: 0, width: 100, height: 100)
+let first = UIView(frame: rect)
+let second = UIView(frame: rect)
+first.backgroundColor = .blue
+second.backgroundColor = .blue
+parentA.addSubview(first)
+parentB.addSubview(second)
+
+print(first === second) // false
+first.removeFromSuperview()
+print(first.superview == nil)     // true
+print(second.superview === parentB) // true
+```
+
+移除 `first` 只解除 `first` 与 `parentA` 的父子关系，不会移除 `second`。如果写成 `let second = first`，两个变量才指向同一实例；把 `second` 加入另一个父视图会移动这一个视图。对象身份的比较规则见[相等规则与对象身份](../language/swift-basics.md#相等规则与对象身份)。
+
 ### UIStackView 与 UIScrollView 的继承和职责
 
 `UIStackView` 不是 `UIScrollView` 的子类。`UIStackView` 和 `UIScrollView` 都直接继承自 `UIView`。类继承关系表示一个类基于另一个类定义，并继承相应的属性和方法。
@@ -664,7 +738,11 @@ didEndDisplaying 直接清理回调传入的 Cell，不按旧 indexPath 从变�
 
 预取是提前准备可能即将需要的内容。UIKit 的 Cell 预取机制可能在 Cell 进入屏幕前调用数据源并配置 Cell。已配置的 Cell 可能最终没有显示；已停止显示的 Cell 也可能继续保留当前配置，随后再次显示同一行。因此，cellForRowAt、willDisplay、didEndDisplaying 和 prepareForReuse 不一定严格一一对应。
 
-1,000 行数据不要求同时保留 1,000 个 Cell，但创建数量也不固定等于可见行数或“可见行数加一”。数量受布局、预取和系统管理影响。兼容的视图结构应共享重用标识；不同结构可使用不同标识。为每行设置唯一标识会妨碍不同数据行共享已有 Cell。
+一屏同时展示 10 个 Cell 时，至少需要 10 个实例，但不能据此确定累计创建数量固定为 10、11 或 20。滚动中顶部和底部可能同时露出部分 Cell；如果完整 10 行刚好占满可见高度，中间滚动位置可能同时需要 11 个 Cell。UIKit 提前准备 Cell、不同重用标识和布局变化也会影响数量。
+
+1,000 行数据不要求为每行分别创建一个 Cell。同一种 Cell 正确重用时，实例数量通常接近可见数量加少量额外实例，但 UIKit 没有承诺固定数量。兼容的视图结构应共享重用标识；不同结构可使用不同标识，表格不会在不同标识之间互相重用。为每行设置唯一标识会妨碍不同数据行共享已有 Cell。
+
+累计创建数量应统计实际初始化次数，并根据代码、nib 或 Storyboard 的创建路径统计对应初始化入口。`cellForRowAt` 的调用次数是请求及配置次数，`prepareForReuse` 的调用次数是已有实例再次准备重用的次数；两者都不能直接当作新实例创建次数。
 
 异步结果与 Cell 当前数据的匹配规则见[长列表性能与异步图片复用](#长列表性能与异步图片复用)。图片请求的共享、取消与结果校验见[长列表图片任务调度](image-loading-decoding-and-memory.md#长列表图片任务调度)。
 

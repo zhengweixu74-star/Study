@@ -11,6 +11,8 @@
 - [+initialize 的触发时机与执行限制](#initialize-的触发时机与执行限制)
 - [按功能需要初始化](#按功能需要初始化)
 - [关联对象、稳定 key 与持有关系](#关联对象稳定-key-与持有关系)
+  - [关联闭包与循环引用](#关联闭包与循环引用)
+  - [通过包装对象保存弱引用](#通过包装对象保存弱引用)
 - [实例布局、静态存储与类型元数据](#实例布局静态存储与类型元数据)
 - [对象引用与 UnsafePointer](#对象引用与-unsafepointer)
 - [isa 与类型元数据指针](#isa-与类型元数据指针)
@@ -183,7 +185,9 @@ private var businessIDKey: UInt8 = 0
 
 标识是变量地址，不是数字 0。同一 key 可配合不同 view 使用；同一宿主的不同附加属性应使用不同 key。不能每次创建临时局部变量再用其地址。实际声明还需满足工程 Swift 并发隔离规则。
 
-**关联策略管理附加值。** retain 强持有附加对象；copy 保存复制结果；assign 不强持有，也不是自动置 nil 的 weak。NONATOMIC 表示关联访问策略，不能由此判断整个业务操作线程安全。方向是“宿主的关联关系 → 附加对象”；只有附加对象／闭包再强持有宿主才可能形成环。关联移除、替换或宿主销毁会解除这条持有，附加值能否释放仍取决于其他引用。
+**关联策略管理附加值。** retain 直接强持有附加对象；copy 强持有附加对象的复制结果。复制操作可能返回原对象，因此 copy 不保证生成身份不同的新对象。assign 不强持有，也不是对象销毁后自动置 nil 的 weak；不能用 assign 模拟安全的弱引用。NONATOMIC 表示关联访问策略，不能由此判断整个业务操作线程安全。
+
+方向是“宿主的关联关系 → 附加对象”；只有附加对象／闭包再强持有宿主才可能形成环。关联移除、替换或宿主销毁会解除这条持有，附加值能否释放仍取决于其他引用。
 
 ```swift
 objc_setAssociatedObject(
@@ -197,6 +201,78 @@ objc_setAssociatedObject(
 newValue 只是 setter 参数名，不决定类型。class 值本身是对象引用；String 等值到 OC 边界可桥接为 NSString 或其他对象表示，retain 管理该对象表示，不依赖具体桥接盒布局。传 nil 移除该 key 的关联。
 
 **附加值可桥接，不表示值类型能可靠充当宿主。** class 有稳定对象身份；struct／enum 赋值和传参表现为值复制，临时地址不是永久身份。第三个参数的包装对象会被关联持有；第一个参数若每次临时包装，设置时可能是对象 A，读取时却是对象 B，无法可靠找回关联。显式长期保存同一个 class 包装器可以提供身份，但关联属于包装器，不是扩展给任意值类型增加了实例字段。
+
+### 关联闭包与循环引用
+
+下面在主 actor 隔离范围内使用地址稳定的类型属性作为 key。`@convention(block)` 明确把回调表示为可供 Objective-C 使用的 Block，避免把普通 Swift 闭包的任意装箱对象直接当作支持 copy 的对象。
+
+```swift
+import Foundation
+import ObjectiveC
+
+@MainActor
+final class Example: NSObject {
+    private static var callbackKey: UInt8 = 0
+
+    func installCallback() {
+        let callback: @convention(block) () -> Void = {
+            self.doSomething()
+        }
+        objc_setAssociatedObject(
+            self, &Self.callbackKey, callback,
+            .OBJC_ASSOCIATION_COPY_NONATOMIC
+        )
+    }
+
+    func invokeCallback() {
+        let callback = objc_getAssociatedObject(
+            self, &Self.callbackKey
+        ) as? (@convention(block) () -> Void)
+        callback?()
+    }
+
+    func clearCallback() {
+        objc_setAssociatedObject(
+            self, &Self.callbackKey, nil,
+            .OBJC_ASSOCIATION_COPY_NONATOMIC
+        )
+    }
+
+    private func doSomething() {
+        print("执行回调")
+    }
+}
+```
+
+调用 `example.installCallback()` 时，宿主是 `self` 指向的 `Example` 实例，不是 `Example` 类。key 是 `callbackKey` 的地址，关联值是 `callback` 的复制结果。`invokeCallback()` 使用同一宿主和同一 key 取回回调，再调用回调。
+
+该示例存在强引用环：`Example 实例 → 关联回调 → 同一个 Example 实例`。闭包中的 `self.doSomething()` 强捕获 `self`。把 copy 换成 retain 仍然保留这条强引用环；复制 Block 不会自动复制捕获的 `Example` 实例，也不会把捕获改成弱引用。
+
+如果回调不应延长宿主生命周期，创建回调时使用下面的替代写法：
+
+```swift
+let callback: @convention(block) () -> Void = { [weak self] in
+    self?.doSomething()
+}
+```
+
+`[weak self]` 不保持宿主存活，宿主销毁后访问得到 `nil`。需要在某个明确结束时刻解除关联时，也可以由仍能访问实例的外部代码调用 `clearCallback()`。不能只在 `deinit` 中解除一个阻止实例进入 `deinit` 的强引用环。Swift 闭包与捕获环境的区别见[捕获存储与函数返回](swift-basics.md#捕获存储与函数返回)。
+
+### 通过包装对象保存弱引用
+
+关联策略没有自动置 nil 的 weak 选项。需要关联一个弱对象引用时，可以让宿主强持有包装对象，再由包装对象弱引用目标对象：
+
+```swift
+final class WeakBox<T: AnyObject> {
+    weak var value: T?
+
+    init(_ value: T) {
+        self.value = value
+    }
+}
+```
+
+把 `WeakBox(target)` 以 retain 策略设为关联值后，关系是 `宿主 → WeakBox ⇢ target`，其中最后一条是弱引用。取回包装对象后读取 `value`；目标对象没有其他强引用并销毁后，`value` 自动变为 `nil`。包装对象必须由宿主持有，否则包装对象自身也不能持续存在。
 
 ## 实例布局、静态存储与类型元数据
 

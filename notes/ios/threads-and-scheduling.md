@@ -19,7 +19,7 @@
 - [Timer 的停止、引用与重新创建](#timer-的停止引用与重新创建)
 - [CADisplayLink 的原理与适用场景](#cadisplaylink-的原理与适用场景)
 
-补充专题：[Operation 与 OperationQueue](#operation-与-operationqueue)。
+补充专题：[Operation 与 OperationQueue](#operation-与-operationqueue)；[线程接口与任务调度接口](#线程接口与任务调度接口)。
 
 - [自旋等待、内核态与线程阻塞](#自旋等待内核态与线程阻塞)
 
@@ -65,6 +65,38 @@ App 可以通过系统接口查询内核允许提供的信息。查询操作发�
 系统中可以存在远多于逻辑 CPU 数量的进程和线程。就绪线程具备运行条件，但可能尚未获得 CPU；阻塞线程正在等待网络、文件或其他事件满足继续执行的条件。内核按调度策略选择就绪线程执行，不保证所有线程获得相同的执行时间。
 
 创建更多线程不会增加硬件执行位置。线程数量超过可用逻辑 CPU 数量时，部分线程需要等待调度；如果线程正在阻塞等待，内核可以让其他就绪线程使用 CPU。
+
+### 线程接口与任务调度接口
+
+`pthread` 是提供线程创建、等待和同步等操作的 C 接口。Foundation 的 `Thread` 提供面向对象的线程接口。应用使用这些接口时，需要直接管理相应线程的工作入口和生命周期。
+
+GCD 和 `OperationQueue` 让应用主要提交任务，由调度机制安排线程执行。Swift Concurrency 是 Swift 的异步任务与隔离机制，使用 `Task`、`async`、`await` 等表达异步流程，并在挂起时允许释放线程的执行机会。
+
+| 方式 | 应用主要管理的对象 | 适用需求 |
+| --- | --- | --- |
+| `pthread`、`Thread` | 线程及线程上的工作 | 明确需要控制线程生命周期或常驻线程 |
+| GCD | 任务闭包及队列 | 简单提交工作、串行访问和回到主线程 |
+| `OperationQueue` | `Operation` 任务及依赖 | 管理依赖、并发数量和协作式取消 |
+| Swift Concurrency | 异步任务及隔离范围 | 等待异步结果、结构化子任务和保护共享状态 |
+
+任务数量、队列数量和线程数量没有固定的一一对应关系。串行队列规定同一时刻最多执行一个任务，不要求每个任务始终由同一条后台线程执行；并发队列允许任务重叠推进，也不保证每个任务独占线程。
+
+下面用 GCD 把计算提交到全局队列，再把结果交给主队列。主队列闭包可以更新 UIKit 界面；示例只打印结果，不引入具体视图。
+
+```swift
+import Foundation
+
+DispatchQueue.global(qos: .userInitiated).async {
+    let total = (1...1_000).reduce(0, +)
+    DispatchQueue.main.async {
+        print(total) // 500500，在主线程执行
+    }
+}
+```
+
+计算闭包先得到 `total`，再提交主队列闭包。提交主队列闭包不表示主队列已经执行完打印。`.userInitiated` 表示这项工作的服务质量等级，供系统安排优先级，不指定某条线程。
+
+`Task { ... }` 不保证后台执行。在 `MainActor` 隔离范围内创建的普通 `Task` 可以继承该隔离，其中的同步计算仍会占用主线程。`async let` 在声明时创建并安排子任务，后面的 `await` 等待已有子任务的结果；等待不负责启动任务。具体机制和两个请求的示例见[async let 创建子任务与 await 等待结果](../language/swift-basics.md#async-let-创建子任务与-await-等待结果)。
 
 ## GCD 的任务、队列与提交方式
 

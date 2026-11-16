@@ -27,8 +27,8 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [Swift 语言基础](language/swift-basics.md) | 类型安全、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包捕获、weak/unowned 与委托、集合遍历、stride 步长与边界、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、任务局部值与相关调用语法；Result 与关联值提取；Data、UTF-8 解码、可选字符串打印与换行；声明、定义与实现及 C++ 对照；函数、方法、函数值与闭包表达式 |
-| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVC、KVO、+load、自动注册、+initialize 与按需初始化；扩展方法、协议要求与协议见证表条目 |
+| [Swift 语言基础](language/swift-basics.md) | 类型安全、值类型与引用类型的选择、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包引用语义与捕获、weak/unowned 与委托、集合遍历、stride 步长与边界、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、async let 子任务、await 等待结果及任务局部值；Result 与关联值提取；Data、UTF-8 解码、可选字符串打印与换行；声明、定义与实现及 C++ 对照；函数、方法、函数值与闭包表达式 |
+| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象的宿主与 key、retain 与 copy、关联闭包循环引用及弱引用包装、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVC、KVO、+load、自动注册、+initialize 与按需初始化；扩展方法、协议要求与协议见证表条目 |
 
 相关专题：[Swift KVC 按键访问属性](language/swift-objc-runtime.md#kvc-按键访问属性)。
 
@@ -75,9 +75,9 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、应用运行状态与生命周期回调、前台与激活的区别、Scene 生命周期、启动到首帧、动态库数量与无用代码优化、UIWindow、触摸分发与键盘输入 |
-| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 生命周期、视图层级、布局、UITableView 重用、行删除与批量更新、预取、ViewModel 与容器控制器 |
+| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | push 与 present、出现消失回调、pageSheet 与 formSheet、视图身份与层级、布局、UITableView 重用及创建数量、行删除与批量更新、预取、ViewModel 与容器控制器 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
-| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息 |
+| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、pthread／Thread 与任务调度接口、GCD、OperationQueue、Swift Concurrency、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息 |
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、图层重用、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
 
 相关专题：[图层重用时的状态管理](ios/rendering-and-performance.md#图层重用时的状态管理)；[UITableView 的行删除与批量更新](ios/uikit-layout-and-mvvm.md#uitableview-的行删除与批量更新)。
@@ -136,7 +136,7 @@
 
 [Swift 第三方库与依赖接入](engineering/xcode-and-testing.md#swift-第三方库与依赖接入)：UIKit 与第三方库的区别、Swift Package Manager 接入，以及 Alamofire、Kingfisher、RxSwift 的分类导航。
 
-[iOS 组件化：职责、接口与依赖](engineering/ios-modularization.md)：组件边界、Swift 协议协作、模块与仓库的区别、Swift Package／Framework／CocoaPods 的用途，以及收益和维护成本。
+[iOS 组件化：职责、接口与依赖](engineering/ios-modularization.md)：组件边界、Swift 协议协作、模块与仓库的区别、SDK 与 API、源码与二进制交付、XCFramework 的平台和架构匹配、Swift Package／Framework／CocoaPods 的用途，以及收益和维护成本。
 
 | 文档 | 内容范围 |
 | --- | --- |
