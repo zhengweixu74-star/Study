@@ -77,7 +77,7 @@
 | [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、应用运行状态与生命周期回调、前台与激活的区别、Scene 生命周期、启动到首帧、动态库数量与无用代码优化、UIWindow、触摸分发与键盘输入 |
 | [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | push 与 present、出现消失回调、pageSheet 与 formSheet、视图身份与层级、布局、UITableView 重用及创建数量、行删除与批量更新、预取、ViewModel 与容器控制器 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、调度；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
-| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、pthread／Thread 与任务调度接口、GCD、OperationQueue、Swift Concurrency、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息 |
+| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、pthread／Thread 与任务调度接口、GCD、OperationQueue、Swift Concurrency、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息；显示回调的时间进度、停止与弱引用代理 |
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、图层重用、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
 
 相关专题：[图层重用时的状态管理](ios/rendering-and-performance.md#图层重用时的状态管理)；[UITableView 的行删除与批量更新](ios/uikit-layout-and-mvvm.md#uitableview-的行删除与批量更新)。
@@ -141,7 +141,7 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [设计模式与 Swift 实践](engineering/design-patterns.md) | 策略、工厂、单例、建造者，以及 Swift 示例与独立验证 |
-| [Xcode 工程管理与自动化测试](engineering/xcode-and-testing.md) | 源码编辑与搜索、工程与构建、静态与动态链接取舍、Rebase 与 Binding、XCTest、Swift Testing 与测试计划 |
+| [Xcode 工程管理与自动化测试](engineering/xcode-and-testing.md) | 源码编辑与搜索、工程与构建、静态与动态链接取舍、Rebase 与 Binding、XCTest、Swift Testing 与测试计划；UI 测试目标 App、命令行工具与设备端 Driver、无障碍快照与截图 |
 | [CocoaPods、Podfile 与依赖管理](engineering/cocoapods-and-podfile.md) | Ruby DSL、依赖声明与版本范围、Molinillo 与 Xcodeproj、锁文件、YAML、Gemfile，以及用 Python 读取 Podfile |
 
 相关专题：[耦合与解耦](engineering/design-patterns.md#耦合与解耦)；[依赖反转与依赖注入](engineering/design-patterns.md#依赖反转与依赖注入)。内容范围：耦合的含义、解耦目的与三个实例、源码依赖方向、模块边界，以及依赖反转与依赖注入的区别。
@@ -184,7 +184,7 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [AI Agent 原理与开发验证](ai/agents-and-development.md) | 模型与 Agent、工具调用、Skill / Tool / MCP、代码审查与开发验证 |
+| [AI Agent 原理与开发验证](ai/agents-and-development.md) | 模型与 Agent、工具调用、Skill / Tool / MCP、代码审查与开发验证；AI 辅助验收、Mock 与设备操作的分工、等待条件、证据范围与时间收益评估 |
 
 相关专题：[Codex 的 AGENTS.md 加载与代码定位](ai/agents-and-development.md#codex-的-agentsmd-加载与代码定位)。内容范围：启动指令加载、按需读取、分层导航、语义匹配与源码验证。
 

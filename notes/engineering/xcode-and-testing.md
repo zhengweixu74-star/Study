@@ -8,6 +8,9 @@
 - [源码编辑与搜索](#源码编辑与搜索)
 - [工程与构建](#工程与构建)
 - [自动化测试](#自动化测试)
+- [UI 测试与目标 App](#ui-测试与目标-app)
+- [命令行工具与设备端 Driver](#命令行工具与设备端-driver)
+- [无障碍快照与截图](#无障碍快照与截图)
 
 [界面预览与 Android 布局预览](#界面预览与-android-布局预览)
 
@@ -459,6 +462,89 @@ final class CommentTests: XCTestCase {
 | 主要适用范围 | 单元、集成、UI、性能测试 | 单元、集成测试 |
 
 二者可以在同一个测试 Target 中共存。文件选项中的 `Language: Swift` 表示代码语言；继承 `XCTestCase`、使用 `XCTAssert...` 的示例仍属于 XCTest。
+
+### UI 测试与目标 App
+
+`XCTest` 是 Apple 提供的测试框架，支持单元测试、集成测试、UI 测试和性能测试。单元测试调用被测函数并检查结果；UI 测试通过测试运行程序启动或激活 App、查找控件、执行输入，再检查界面状态。UI 测试代码通常在独立的测试运行程序中执行，不是在业务页面里直接调用测试方法。
+
+`XCUIApplication` 是 XCTest 中代表某个 App、供 UI 测试查询和控制的对象。创建对象不等于启动 App：
+
+```swift
+// 使用 UI 测试目标中配置的目标 App。
+let configuredApp = XCUIApplication()
+
+// 显式指定目标 App。
+let specifiedApp = XCUIApplication(bundleIdentifier: "com.example.Demo")
+specifiedApp.launch()
+```
+
+`bundleIdentifier` 使用 App 的应用标识，即用于区分应用的 `CFBundleIdentifier` 值，例如 `com.example.Demo`。显示在主屏幕上的名称可能与应用标识不同。`XCUIApplication()` 不会根据当前前台界面随意选 App，而是使用 UI 测试目标的配置。
+
+`launch()` 启动 App，并在必要时重新启动已经运行的目标 App。需要保留现有运行状态并切到前台时，可使用 `activate()`；需要结束 App 进程时，可使用 `terminate()`。这些方法不等同于创建 `XCUIApplication` 对象。
+
+`XCUIElement` 是 UI 测试中代表一个可查询界面元素的对象。测试按元素类型、标签或无障碍标识定位按钮和输入框，再调用公开 UI 测试方法执行操作。例如，App 已为保存按钮设置 `accessibilityIdentifier = "saveButton"`：
+
+```swift
+import XCTest
+
+final class DemoUITests: XCTestCase {
+    func testSave() {
+        let app = XCUIApplication(bundleIdentifier: "com.example.Demo")
+        app.launch()
+
+        let saveButton = app.buttons["saveButton"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 5))
+        saveButton.tap()
+
+        XCTAssertTrue(app.staticTexts["已保存"].waitForExistence(timeout: 5))
+    }
+}
+```
+
+测试先等待按钮出现，再点击按钮，最后检查完成提示。`waitForExistence(timeout:)` 在给定时限内等待元素存在；存在不必然表示元素可点击。若用例要求按钮可点击，还应确认 `isHittable` 或等待对应可交互条件。点击方法成功执行，也不等于保存已经成功，仍需检查保存结果。
+
+### 命令行工具与设备端 Driver
+
+命令行工具（CLI）是接收命令名称和参数并执行工作的程序。设备端 Driver 是运行在设备上、接收自动化请求并调用设备操作能力的程序。这里的 Driver 指自动化执行程序，不指硬件驱动，也不是 Apple 规定的统一组件名称。
+
+`ios-use` 是第三方命令行工具。`dom`、`tap`、`swipe`、`input` 等命令名称及参数由工具作者定义，不是 Apple 官方命令。Apple 提供 XCTest 及相关 UI 测试能力；工具把这些能力组织成自己的请求和执行方式。命令类别可以包括：
+
+| 能力 | 工具命令示例 | 输入或结果 |
+| --- | --- | --- |
+| 读取界面 | `dom` | 返回可访问元素的名称、类型、状态和区域 |
+| 模拟操作 | `tap`、`longpress`、`swipe` | 根据元素或坐标执行点击、长按或滑动 |
+| 输入文字 | `input` | 向选定的可输入控件传入文本 |
+| 管理 App | `activateApp`、`terminateApp` | 使用应用标识激活或结束指定 App |
+| 获取画面 | `screenshot` | 返回屏幕截图 |
+| 系统操作 | `home`、`dismissAlert` | 返回主屏幕或按命令约定关闭弹窗 |
+
+各命令的具体参数和支持范围取决于工具版本。表中的名称不能直接当作 XCTest 方法名使用。
+
+采用设备端 Driver 的 UI 操作链路通常为：
+
+```text
+AI 读取界面并选择动作
+    → 电脑上的 CLI 解析命令与参数
+    → CLI 将请求编码并通过设备连接发送
+    → 设备端 Driver 解析请求并选择处理方法
+    → Driver 查询元素或调用测试能力执行操作
+    → Driver 返回结果
+    → AI 再次观察界面并检查预期结果
+```
+
+例如，电脑执行 `tap` 命令时，iPhone 不会直接识别 shell 中的 `tap` 文本。CLI 先把目标元素或坐标编码成请求。Driver 收到请求后解析操作类型，再调用设备上的 UI 测试能力。系统最终将输入事件交给前台 App，App 按正常事件处理流程响应。
+
+命令与 Apple API 不一定一一对应。某个工具可能按标签查找元素后调用 `XCUIElement.tap()`，也可能先取得区域、计算坐标，再合成按下和松开的输入事件。滑动可以通过坐标拖动能力实现。使用私有测试接口的工具还受系统和工具版本约束，不能把某个版本的内部实现当作 Apple 公开 API。
+
+部分 App 管理或设备管理命令可以由电脑直接调用设备服务，不一定经过 Driver。选择设备与选择 App 也是不同操作：建立连接只确定操作哪台设备；App 管理请求还需应用标识；后续 UI 操作作用于哪个 App，由工具的查询策略和当前前台状态决定。
+
+### 无障碍快照与截图
+
+无障碍信息是 App 向系统暴露的界面元素名称、类型、状态和操作语义。自动化工具可以读取某一时刻的元素快照，用这些信息定位控件。
+
+工具称为 `dom` 的结果通常是根据无障碍快照组织的元素树，不是网页 DOM，也不等于完整的 `UIView` 层级。装饰视图可能不暴露为独立元素，多个子视图也可能合并为一个无障碍元素。自绘界面缺少元素信息时，可以用截图和坐标补充操作，但需要考虑屏幕尺寸与布局变化。
+
+元素快照和截图都只反映获取时的界面状态。列表刷新、弹窗出现或页面切换后，应重新查询，避免使用过期元素信息和坐标。AI 怎样把操作结果转成验收证据，见 [AI 辅助验收的执行流程](../ai/agents-and-development.md#ai-辅助验收的执行流程)。
 
 ### 创建和运行 XCTestCase
 

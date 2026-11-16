@@ -18,6 +18,9 @@
 - [Timer 的调度与重复触发](#timer-的调度与重复触发)
 - [Timer 的停止、引用与重新创建](#timer-的停止引用与重新创建)
 - [CADisplayLink 的原理与适用场景](#cadisplaylink-的原理与适用场景)
+- [按经过时间计算动画进度](#按经过时间计算动画进度)
+- [停止回调与强引用关系](#停止回调与强引用关系)
+- [弱引用代理](#弱引用代理)
 
 补充专题：[Operation 与 OperationQueue](#operation-与-operationqueue)；[线程接口与任务调度接口](#线程接口与任务调度接口)。
 
@@ -606,30 +609,146 @@ Timer 会持有回调闭包。闭包强捕获持有 Timer 的对象时，会形�
 
 ## CADisplayLink 的原理与适用场景
 
-直观理解：
+`CADisplayLink` 是 Core Animation 提供的显示回调对象。系统按显示刷新节奏，调用创建对象时指定的 `target` 方法，并传入这个 `CADisplayLink`。`target` 是接收回调的对象，`selector` 是标识回调方法的 Objective-C 方法选择器。
 
-可以把它理解成向系统登记一个“按显示刷新节奏调用我”的任务。创建时指定 target 和 selector，加入 RunLoop 后安排执行。显示系统掌握刷新时序，Core Animation 按这套节奏调度，注册的 RunLoop 所在线程执行回调。回调里由业务计算滚动位置并修改 contentOffset，系统再准备后续画面。
+创建 `CADisplayLink` 后，需要把对象加入 `RunLoop`，系统才会安排回调。回调由注册的 `RunLoop` 所在线程执行。修改 UIKit 视图时，应注册到主线程 `RunLoop`，并在主线程管理创建、更新和停止。
 
 ```text
-显示刷新时序（VSync）
+显示刷新时序
     → 系统安排 CADisplayLink 回调
-    → 注册的 RunLoop 所在线程执行方法
-    → 更新动画／滚动状态
-    → 为后续画面准备内容
+    → 注册的 RunLoop 所在线程执行目标方法
+    → 应用计算动画进度并修改视图
+    → 系统为后续画面准备内容
 ```
 
-- 显示系统提供节奏，RunLoop 执行任务；CADisplayLink 自己不负责业务滚动。
-- 普通 Timer 的时间间隔不保证与显示时序对齐；CADisplayLink 接入显示调度。
-- 回调不保证每次刷新准时执行；线程忙、模式不匹配和帧率策略都会影响它。不能写死 16.67ms，也不能说运行一轮 RunLoop 就刷新一次。
-- 根据实际经过时间计算动画进度，避免靠“回调次数 × 固定位移”导致速度随帧率变化；这不能消除掉帧造成的视觉跳跃。
-- 不扩写成未经核实的私有 Source1／Mach 消息细节；下一帧的期望显示时间可参考 targetTimestamp，剩余预算还需结合当前时间。
+`CADisplayLink` 提供回调时机，不负责计算滚动位置。应用需要自行计算并设置 `contentOffset`。普通 `Timer` 的触发间隔不保证与显示时序对齐；`CADisplayLink` 接入显示调度，但主线程繁忙、运行模式不匹配和帧率策略仍可能使回调延迟。不能把一次 `RunLoop` 循环等同于一次屏幕刷新。
 
-**用途与取舍：**
+### 按经过时间计算动画进度
 
-已讨论自定义物理／碰撞动画、波浪与动态曲线、音频频谱或音量波形展示、GIF／序列帧／自定义视频呈现，以及合并高频输入后按显示节奏更新 UI。音频采集、解码等有自己的处理节奏，不应都塞进显示回调。GIF 可以每次检查播放时间，但不一定每次更换图片；FLAnimatedImage 是使用 CADisplayLink 并按帧间隔调整回调频率的公开例子。
+动画进度应根据实际经过时间计算，不应根据“回调次数 × 固定增量”计算。`CACurrentMediaTime()` 提供单调时间，即不随系统日历时间调整而回退的时间来源。开始时间与当前时间必须使用同一种时间来源。
 
-判断依据：画面是否持续变化、是否需要业务代码持续计算、现有框架是否已提供刷新循环。普通位移、透明度和系统弹簧动画可由系统插值；MTKView 已提供绘制循环时，通常不再叠加一个 CADisplayLink。
+```swift
+// duration 已确定为大于 0 的动画时长。
+let elapsed = CACurrentMediaTime() - startTime
+let progress = min(elapsed / duration, 1)
+let offset = startOffset + (endOffset - startOffset) * progress
+```
 
-回调频率的统计方法及与真实上屏的区别见[FPS 与卡顿监测](rendering-and-performance.md#回调-fps-与卡顿监测)。逐帧变化不等于必须自己写逐帧回调，更不等于必须跑满 120 FPS。依据时间戳计算进度，内容停止变化或不可见时暂停，结束使用时 invalidate。
+例如，动画时长为 0.5 秒，实际经过 0.2 秒时，进度为 40%。即使中间少执行了几次回调，下一次仍按经过时间计算进度。这个方法能避免动画速度依赖回调次数，但不能消除掉帧造成的视觉跳跃。
 
-**昂贵工作：** CADisplayLink 不会让解码大图、复杂布局自动变快或自动转到后台。每帧只保留轻量进度计算和必要 UI 更新；可后台处理的解码／纯计算提前完成，布局与视图操作遵守 UIKit 主线程要求，并通过缓存、下采样与减少重复工作控制成本。
+`targetTimestamp` 表示下一次期望显示的时间，可以用于计算面向下一帧的状态。评估剩余处理时间时，还需结合当前时间，不能把整个刷新间隔都当作回调可用的时间。
+
+### 停止回调与强引用关系
+
+`RunLoop` 会持有已注册的 `CADisplayLink`，`CADisplayLink` 会强持有 `target`。若控制器保存 `CADisplayLink`，同时把自己作为 `target`，就会形成强引用环：
+
+```text
+控制器 → CADisplayLink → 控制器
+RunLoop → CADisplayLink
+```
+
+强引用环是多个对象通过强引用首尾相连，导致引用计数无法降为零的关系。只在控制器的 `deinit` 中清理可能无效：控制器正被回调对象持有，因而无法先进入 `deinit`。
+
+任务完成、任务取消或页面停止使用动画时，应主动执行：
+
+```swift
+displayLink?.invalidate()
+displayLink = nil
+```
+
+`invalidate()` 使对象失效，移除对象与 `RunLoop` 的注册关系，并解除对象对 `target` 的持有。只把属性设为 `nil`，不能停止仍被 `RunLoop` 持有的回调对象。
+
+`isPaused = true` 只暂停回调，不解除注册和持有关系。设置回 `false` 可以恢复有效对象。已经调用 `invalidate()` 的对象不能重新启动，需要重新创建。
+
+### 弱引用代理
+
+弱引用代理是代替控制器接收回调，并通过 `weak` 属性访问控制器的对象。`weak` 引用不阻止对象释放，目标对象释放后，`weak` 属性自动变为 `nil`。完整引用关系为：
+
+```text
+控制器 → CADisplayLink → 代理 --weak→ 控制器
+RunLoop → CADisplayLink
+```
+
+下面用一个页面的透明度动画演示。`@MainActor` 表示相关代码受主 actor 隔离；本例把显示回调注册到主线程，统一在主线程访问 UIKit。相关并发概念见 [MainActor、主队列与异步调用](../language/swift-basics.md#mainactor主队列与异步调用)。
+
+```swift
+import UIKit
+import QuartzCore
+
+@MainActor
+private final class DisplayLinkProxy: NSObject {
+    weak var owner: AnimatedViewController?
+
+    init(owner: AnimatedViewController) {
+        self.owner = owner
+        super.init()
+    }
+
+    @objc func tick(_ link: CADisplayLink) {
+        owner?.updateAnimation(link)
+    }
+}
+
+@MainActor
+final class AnimatedViewController: UIViewController {
+    private var displayLink: CADisplayLink?
+    private var startTime: CFTimeInterval = 0
+    private let duration: CFTimeInterval = 0.5
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        startAnimation()
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        stopAnimation()
+    }
+
+    private func startAnimation() {
+        stopAnimation()
+        startTime = CACurrentMediaTime()
+        view.alpha = 0
+        let proxy = DisplayLinkProxy(owner: self)
+        let link = CADisplayLink(
+            target: proxy,
+            selector: #selector(DisplayLinkProxy.tick(_:))
+        )
+        displayLink = link
+        link.add(to: .main, forMode: .common)
+    }
+
+    fileprivate func updateAnimation(_ link: CADisplayLink) {
+        let progress = min((CACurrentMediaTime() - startTime) / duration, 1)
+        view.alpha = CGFloat(progress)
+        if progress >= 1 {
+            stopAnimation()
+        }
+    }
+
+    func stopAnimation() {
+        displayLink?.invalidate()
+        displayLink = nil
+    }
+}
+```
+
+系统调用代理的 `tick(_:)`。代理再调用控制器的 `updateAnimation(_:)`。控制器释放后，`owner` 变为 `nil`，代理不再转发回调。`CADisplayLink` 会持有代理，因此代理不需要另外保存为控制器属性。
+
+弱引用代理只解决对控制器的强持有，不能代替任务结束时的停止操作。上例在动画完成和 `viewDidDisappear` 中停止；若功能还有取消、用户接管或其他停止条件，应在对应入口调用 `stopAnimation()`。不同展示方式是否触发消失回调，见 [push、present 与出现消失回调](uikit-layout-and-mvvm.md#pushpresent-与出现消失回调)。
+
+### 运行模式与工作量
+
+主线程只在 `.default` 模式注册时，列表跟踪交互期间可能暂停回调。`.common` 使对象参与被标记为 common 的一组模式，不代表全部模式。模式定义见 [RunLoop 与运行模式](#runloop-与运行模式)。
+
+使用 `.common` 只改变回调在哪些模式下可执行，不会自动取消动画。若用户开始拖动后应接管滚动，应用需要在手势或滚动回调中显式停止自动动画。
+
+每次回调只保留轻量进度计算和必要的 UI 更新。60 Hz 的刷新间隔约为 16.7 毫秒，120 Hz 约为 8.3 毫秒；系统处理、布局和渲染也需要时间。`CADisplayLink` 不会让大图解码、复杂布局自动变快，也不会把工作自动转到后台。
+
+### 用途与取舍
+
+`CADisplayLink` 适用于需要应用持续计算画面的任务，例如自定义物理动画、波浪曲线、音频波形展示、序列帧呈现，以及合并高频输入后按显示节奏更新 UI。音频采集和解码有自己的执行节奏，不应全部放进显示回调。GIF 可以按回调检查播放时间，但不一定每次都切换图片；FLAnimatedImage 是按帧间隔安排显示更新的一个例子。
+
+选择时应确认画面是否持续变化、是否需要自行计算，以及现有框架是否已经提供刷新循环。普通位移、透明度和系统弹簧动画通常可交给系统插值；`MTKView` 已提供绘制循环时，通常不再增加一条 `CADisplayLink`。
+
+回调频率只能用于观察回调是否及时，不能证明每次回调产生的画面都已经显示到屏幕。统计方法与观测边界见 [回调 FPS 与卡顿监测](rendering-and-performance.md#回调-fps-与卡顿监测)。
