@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 34 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 35 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -19,7 +19,7 @@
 | [实验与统计](statistics/) | 1 |
 | [AI 辅助开发](ai/) | 1 |
 | [数据结构](data-structures/) | 1 |
-| [操作系统基础](operating-systems/README.md) | 1 |
+| [操作系统基础](operating-systems/README.md) | 2 |
 
 ## 语言与运行时
 
@@ -194,9 +194,11 @@
 
 ## 操作系统基础
 
-[操作系统基础目录](operating-systems/README.md)：1 篇文档。
+[操作系统基础目录](operating-systems/README.md)：2 篇文档。
 
 [虚拟内存、按需分配与缺页异常](operating-systems/virtual-memory-and-page-faults.md)：虚拟地址与物理内存、页表、按需分配、缺页异常及非法访问。
+
+[macOS 隔离标记](operating-systems/macos-quarantine.md)：含义、首次打开时的影响，以及查看与移除。
 
 ## 文档锚点、内部链接与交叉引用
 
