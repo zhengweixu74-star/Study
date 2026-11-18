@@ -163,7 +163,7 @@
 | [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；Alamofire 响应容器、Result 与模型值；请求信息、HTTP 响应头与正文 |
 | [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份边界 |
 | [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件存储、Keychain、SQLite、Core Data 与 SwiftData；编码与磁盘写入的区别；数据库事务、ACID、提交与崩溃恢复、锁与事务边界、重复转账去重 |
-| [数据库索引与 B+ 树](network-and-storage/database-index-and-btree.md) | 索引与全表扫描、B+ 树结构与树高估算、与有序数组等结构的比较；聚簇索引、二级索引与回表；覆盖索引；逐层查找规则、页目录，以及重复键的分界值 |
+| [数据库索引与 B+ 树](network-and-storage/database-index-and-btree.md) | 索引与全表扫描、B+ 树结构与树高估算、与有序数组和二叉查找树等结构的比较；B 树的键与数据、查找与分裂；InnoDB 不用哈希表的原因与自适应哈希索引；聚簇索引、二级索引与回表；覆盖索引；逐层查找规则、页目录，以及重复键和唯一索引的分界值；联合索引的键、排序与最左前缀原则 |
 
 相关专题：[HTTP 请求方法与文件上传](network-and-storage/network-and-proxy.md#http-请求方法安全性与幂等性)。内容范围：HTTP 方法、安全性与幂等性、GET 与 POST、multipart 字段与 boundary、两层头部、服务端解析，以及 Swift URLSession 上传。
 
