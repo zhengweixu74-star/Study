@@ -72,15 +72,6 @@ FROM user JOIN orders ON user.id = orders.user_id;
 - 一个用户有几张订单，结果中就有几行。张三有 2 张订单，张三的 `id` 和 `name` 出现了 2 次。
 - 王五没有订单，不出现。订单 104 找不到 id = 4 的用户，也不出现。
 
-Swift 类比：内连接的结果相当于下面的双层遍历。类比只说明结果如何拼出来；MySQL 的实际执行方式见[JOIN 的执行方式与驱动表](#join-的执行方式与驱动表)。
-
-```swift
-let result = users.flatMap { u in
-    orders.filter { $0.userId == u.id }          // ON user.id = orders.user_id
-          .map { o in (u.id, u.name, o.id, o.amount) }
-}
-```
-
 ## 表别名与列别名
 
 给表起别名时，`AS` 关键字可以省略。下面两种写法完全等价，`u` 是 `user` 的别名，`o` 是 `orders` 的别名：
@@ -141,8 +132,6 @@ FROM orders o LEFT JOIN user u ON u.id = o.user_id;
 
 所以多数 SQL 统一使用 LEFT JOIN，把需要全部保留的表写在左边。
 
-Swift 类比：LEFT JOIN 结果的每一行相当于 `(User, Order?)`，王五这一行的订单是 `nil`；RIGHT JOIN 结果的每一行相当于 `(User?, Order)`。
-
 ## UNION 与 UNION ALL
 
 UNION 是合并查询结果的运算符：MySQL 分别执行两条 SELECT，把第二条的结果行接在第一条的结果行后面，并去掉完全相同的重复行。UNION ALL 同样合并结果，但不去重。
@@ -177,7 +166,7 @@ MySQL 执行第一条 SELECT → (101,1,50)、(102,1,80)
 
 UNION 去重时，MySQL 把两部分结果写入临时表，再在临时表上去掉重复行。临时表是 MySQL 执行查询时在内存或磁盘上建立的表，用来存放中间结果，查询结束后自动删除。UNION ALL 不需要这一步。
 
-Swift 类比：UNION ALL 类似数组相加 `a + b`，保留全部元素；UNION 类似相加后再去掉重复元素。没有 `ORDER BY` 时，两种结果的行顺序都不保证。
+没有 `ORDER BY` 时，UNION 和 UNION ALL 结果的行顺序都不保证。
 
 ### UNION 与 OR 条件
 
