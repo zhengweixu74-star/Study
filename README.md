@@ -20,7 +20,7 @@
 | [Android 界面与动画](./notes/README.md#android-界面与动画) | 4 | ValueAnimator、插值器与滚动动画；Android View、ViewGroup 与 XML 布局；Android 页面生命周期与状态保存；Activity、Fragment 与页面组织 |
 | [跨平台与宿主通信](./notes/README.md#跨平台与宿主通信) | 2 | WebView 与 Lynx 双向通信；Lynx 渲染、线程模型与资源更新 |
 | [软件设计与工程工具](./notes/README.md#软件设计与工程工具) | 2 | 设计模式与 Swift 实践；Xcode 工程管理与自动化测试 |
-| [网络与存储](./notes/README.md#网络与存储) | 2 | 网络请求与代理；iOS 文件存储 |
+| [网络与存储](./notes/README.md#网络与存储) | 5 | 网络请求与代理；iOS 文件存储；iOS 数据持久化；数据库索引与 B+ 树；SQL 多表查询：JOIN 与 UNION |
 | [实验与统计](./notes/README.md#实验与统计) | 1 | A/B 实验与统计 |
 | [AI 辅助开发](./notes/README.md#ai-辅助开发) | 1 | AI Agent 原理与开发验证 |
 
