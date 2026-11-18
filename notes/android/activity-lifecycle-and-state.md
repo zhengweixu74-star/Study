@@ -53,8 +53,6 @@ Jetpack ViewModel 是保存页面状态并协调相关逻辑的框架组件。�
 
 新 Activity 按相同作用域和 key 获取 ViewModel，再根据 ViewModel 中的状态重新创建和填充界面。因此，已有搜索结果无须仅因旋转而重复请求。把普通类命名为 ViewModel，或者每次直接创建一个新实例，都不会自动获得这种保留能力。
 
-用 Swift 类比：一个存活时间更长的对象持有 SearchViewModel。旧 UIViewController 释放后，新 UIViewController 继续使用同一个 SearchViewModel。这个类比解释的是持有关系；UIKit 不会因为类名包含 ViewModel 就自动提供 Jetpack 的作用域管理。
-
 这里的保留只适用于对应作用域仍然有效的情况。Activity 因 finish() 等操作永久结束时，关联的 ViewModel 会被清理。ViewModel 不是永久缓存，也不会保留旧 Activity 本身。
 
 ## 进程结束后如何恢复页面

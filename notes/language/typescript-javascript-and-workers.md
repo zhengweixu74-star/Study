@@ -78,7 +78,7 @@ let count = 20; // 推断为 number
 count = "hello"; // 类型检查报错
 ```
 
-这里的报错来自静态类型检查，不是 TypeScript 为变量插入了运行时拦截器。Swift 的 `var age: Int = 20` 和 `var age = 20` 也分别体现显式标注与类型推断。这个类比只说明类型标注与类型推断的写法。
+这里的报错来自静态类型检查，不是 TypeScript 为变量插入了运行时拦截器。
 
 ### JavaScript number 与 Swift Int、Double
 
@@ -242,7 +242,7 @@ worker.onmessage = (event) => {
 
 `worker.onmessage` 是 `worker` 对象上的消息处理属性。`=` 把右侧函数保存到该属性。`(event) => { ... }` 创建一个箭头函数：`event` 是参数，花括号内是稍后被调用时执行的函数体。赋值时只登记函数，不会立刻执行其中的 `console.log`。
 
-消息到达后，浏览器在接收方的执行环境中调用已登记的函数，并传入消息事件对象。`event.data` 是发送方传给 `postMessage` 的数据。这里的箭头函数可类比 Swift 的 `{ event in ... }` 闭包；相同的是“把函数作为值保存，稍后再调用”，不表示两种语言的调度规则相同。
+消息到达后，浏览器在接收方的执行环境中调用已登记的函数，并传入消息事件对象。`event.data` 是发送方传给 `postMessage` 的数据。
 
 ### 同名属性不会跨对象覆盖
 

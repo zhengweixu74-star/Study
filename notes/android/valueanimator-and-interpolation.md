@@ -38,8 +38,6 @@ valueAnimator.animatedFraction
 
 不要把 animatedFraction 再传给同一个插值器来“取得当前进度”。animatedFraction 已经经过插值器计算；再次调用会重复应用时间曲线。
 
-Swift 类比：interpolator 类似保存计算规则的对象，getInterpolation(_:) 类似接收 Float 并返回 Float 的方法，animatedFraction 类似保存本次计算结果的 Float 属性。类比只说明规则和结果的区别，不表示两端动画 API 一一对应。
-
 ## LinearInterpolator 与 animatedValue
 
 LinearInterpolator 使用线性规则：输入 0.25，输出也是 0.25。动画进度随时间进度等比例变化。对于两端点浮点动画，动画值因而按时间匀速变化。未显式设置插值器时，ValueAnimator 默认使用 AccelerateDecelerateInterpolator，动画通常先加速、再减速。
