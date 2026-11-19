@@ -293,16 +293,48 @@ FROM user u LEFT JOIN orders o ON u.id = o.user_id AND u.name = '张三';
 逻辑执行顺序规定一条 SQL 的结果应该按什么顺序算出来，与子句的书写顺序不同：
 
 ```text
-FROM 和 JOIN ... ON：按 ON 条件配对；外连接再补回配不上的行，另一边的列填 NULL
-→ WHERE：过滤上一步产生的行
-→ GROUP BY → HAVING
-→ SELECT：取出要返回的列
-→ ORDER BY → LIMIT
+FROM 和 JOIN ... ON：按 ON 条件配对，外连接还会补回对应一侧未匹配的行，另一侧的列填 NULL
+→ WHERE：筛选单行
+→ GROUP BY：按指定值分组
+→ HAVING：筛选分组
+→ SELECT：计算每条结果要返回的值
+→ ORDER BY：排列结果行
+→ LIMIT：限制返回的行数
 ```
 
 ON 条件与 WHERE 条件的区别来自这个顺序：ON 在配对阶段生效，配不上的左表行随后被 LEFT JOIN 补回；WHERE 在补回之后过滤，被过滤的行不再出现。
 
 逻辑执行顺序不等于实际执行顺序。只要结果不变，优化器可以调整实际的执行步骤。例如 `WHERE u.name = '张三'` 只涉及左表，MySQL 在读取 `user` 时就过滤这个条件，不会等连接完成后再过滤。
+
+### 从用户记录到年龄统计结果
+
+`SELECT *` 返回查询涉及的所有可见列。例如，`SELECT * FROM user WHERE name LIKE '张%' AND age = 20` 返回符合条件的用户记录。把 `SELECT *` 改成 `SELECT name, age` 后，每条符合条件的记录仍对应一条结果，结果只包含 `name` 和 `age` 两列。
+
+按年龄统计时，查询可以为每个保留的年龄组计算一条结果。
+
+```sql
+SELECT age, COUNT(*) AS total
+FROM user
+WHERE name LIKE '张%'
+GROUP BY age
+HAVING COUNT(*) >= 2
+ORDER BY total DESC
+LIMIT 2;
+```
+
+假设 `user` 表里有 11 条记录，每条记录代表一个人。其中李一是 20 岁，其余 10 条记录的姓名以“张”开头。
+
+| 子句 | 这一步之后的数据 |
+| --- | --- |
+| `FROM user` | 11 条用户记录 |
+| `WHERE name LIKE '张%'` | 去掉李一，留下 10 条用户记录 |
+| `GROUP BY age` | 10 条记录分成 4 组。20、21、22、23 岁各有 4、2、1、3 条记录 |
+| `HAVING COUNT(*) >= 2` | `COUNT(*)` 统计每组行数。22 岁组只有 1 条记录，整组被去掉 |
+| `SELECT age, COUNT(*) AS total` | 每组生成一条统计结果。结果包含 `(20, 4)`、`(21, 2)`、`(23, 3)` |
+| `ORDER BY total DESC` | `total` 是每组的行数。按 4、3、2 的顺序排成 `(20, 4) → (23, 3) → (21, 2)` |
+| `LIMIT 2` | 取前两条统计结果 `(20, 4)` 和 `(23, 3)` |
+
+20 岁的 4 条用户记录都参与 `COUNT(*)`，最终只生成一条统计结果 `(20, 4)`。因此 `LIMIT 2` 取到的是两个年龄组的统计结果。
 
 ## JOIN 的执行方式与驱动表
 
