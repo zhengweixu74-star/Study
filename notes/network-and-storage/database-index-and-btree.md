@@ -612,6 +612,38 @@ EXPLAIN SELECT name FROM user WHERE id = 1;
 
 普通 EXPLAIN 显示计划与估算。EXPLAIN ANALYZE 实际执行语句，并给出各步骤的实际耗时、行数和执行次数。
 
+### SQLite 查询计划
+
+SQLite 用 `EXPLAIN QUERY PLAN` 查看一条查询计划如何找记录、是否使用索引，以及是否需要额外排序。下面的查询从 `messages` 表中取会话 `1` 的最新两条消息。`DESC` 表示按值从大到小排序。发送时间相同时，查询再按唯一的 `id` 排序，使每条消息的位置有确定顺序。
+
+```sql
+EXPLAIN QUERY PLAN
+SELECT id, sent_at, content
+FROM messages
+WHERE conversation_id = 1
+ORDER BY sent_at DESC, id DESC
+LIMIT 2;
+```
+
+给会话编号、发送时间和 ID 建立一个联合索引。
+
+```sql
+CREATE INDEX idx_messages_page
+ON messages (conversation_id, sent_at DESC, id DESC);
+```
+
+同一个会话的消息在索引中排在一起。SQLite 可以先定位会话 `1` 的范围，再按发送时间和 ID 的降序取前两条。示例表的联合唯一约束会生成索引。下面比较同一条查询在建立消息分页索引前后的计划。
+
+| 时机 | 示例输出 | 含义 |
+| --- | --- | --- |
+| 建分页索引前 | `SEARCH messages USING INDEX sqlite_autoindex_messages_1 (conversation_id=?)` | SQLite 使用联合唯一约束生成的索引定位会话。 |
+| 建分页索引前 | `USE TEMP B-TREE FOR ORDER BY` | SQLite 使用临时结构完成排序。 |
+| 建分页索引后 | `SEARCH messages USING INDEX idx_messages_page (conversation_id=?)` | SQLite 使用联合索引定位会话的消息。这个执行计划中没有额外排序步骤。 |
+
+如果表上没有可用索引，这条查询的计划会显示 `SCAN messages`，表示 SQLite 扫描消息表。删除查询前的 `EXPLAIN QUERY PLAN`，就能用同一条 `SELECT` 读取实际结果。
+
+消息表的定义见 [iOS 数据持久化](ios-data-persistence.md#sqlite-建表与数据约束)。
+
 ## 深分页
 
 深分页是指从排序后的查询结果中跳过大量记录，再取靠后的一页。 `OFFSET` 表示要跳过的结果行数。
@@ -624,3 +656,31 @@ LIMIT 20 OFFSET 1000000;
 ```
 
 假设结果行数足够，MySQL 先按 id 排序后的顺序跳过前 100 万行，再返回后面的 20 行。即使用主键索引按顺序读取，MySQL 通常也要经过前面的索引项。OFFSET 是结果中的位置，id 是索引键值。偏移量越大，数据库通常要经过的记录就越多。
+
+### 用分页游标读取后续记录
+
+分页是把一次查询的有序结果分成多批读取。分页游标是从上一页最后一条记录取出的排序列值，用来确定下一页的查询范围。游标用到的列要能确定唯一的位置。按时间分页时，多条记录可以有同一个时间，因此还需要唯一的列来确定同一时间内的顺序。
+
+沿用上述 SQLite 查询。假设会话 `1` 的消息按 `sent_at DESC, id DESC` 排为如下顺序。
+
+| 消息 ID `id` | 发送时间 `sent_at` |
+| --- | --- |
+| 103 | 101 |
+| 102 | 100 |
+| 101 | 100 |
+| 104 | 90 |
+
+第一页取两条，返回 `103、102`。上一页最后一条消息的时间和 ID 是 `(100, 102)`，下一页用这两个值定位。
+
+```sql
+SELECT id, sent_at, content
+FROM messages
+WHERE conversation_id = 1
+  AND (sent_at, id) < (100, 102)
+ORDER BY sent_at DESC, id DESC
+LIMIT 2;
+```
+
+SQLite 比较这两组值时先比较 `sent_at`。时间相等时再比较 `id`。严格小于游标的位置排在 `102` 后面，所以第二页返回 `101、104`。只写 `sent_at < 100` 会漏掉时间也为 `100` 的消息 `101`。
+
+`OFFSET` 让 SQLite 从查询开头经过需要跳过的记录。使用分页游标时，查询可以借助 `(conversation_id, sent_at DESC, id DESC)` 联合索引定位游标之后的范围。应用每次读完一页后，保存该页末条记录的时间和 ID，用于下一次查询。
