@@ -50,6 +50,8 @@
 
 补充专题：[inout 与内存独占访问](#inout-与内存独占访问)；[actor 的默认隔离与重入](#actor-的默认隔离与重入)；[MainActor、主队列与异步调用](#mainactor主队列与异步调用)；[数组值语义、写时复制与返回值](#数组值语义写时复制与返回值)；[自定义 CoW 与引用唯一性检查](#自定义-cow-与引用唯一性检查)；[ArraySlice 的存储保留与索引](#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](#类的两阶段初始化与-self-使用时机)。
 
+补充专题：[引用赋值、浅拷贝与深拷贝](#引用赋值浅拷贝与深拷贝)；[Codable 与序列化](#codable-与序列化)；[CodingKeys 的作用与枚举语法](#codingkeys-的作用与枚举语法)；[序列化复制的边界](#序列化复制的边界)。
+
 补充专题：[Task、Task.detached 与任务局部值](#tasktaskdetached-与任务局部值)；[async let 创建子任务与 await 等待结果](#async-let-创建子任务与-await-等待结果)。
 
 任务类型补充：[任务结果类型与 Void、Never](#任务结果类型与-voidnever)。
@@ -1177,6 +1179,264 @@ let person = Person()
 Person 是类型，Person() 创建该类的一个实例，person 变量保存指向这个实例的引用。struct 和 enum 同样有实例，例如 `Point(x: 1, y: 2)` 和 `Direction.left` 都是相应类型的具体值。
 
 Swift 语境中的“对象”通常指 class 实例；“实例”也包括 struct 和 enum 的具体值。
+
+## 引用赋值、浅拷贝与深拷贝
+
+引用赋值复制对象引用，不创建对象副本。浅拷贝创建新的外层对象，但继续共享嵌套对象。深拷贝为复制范围内需要独立修改的嵌套对象创建副本，使副本的修改不影响原对象。判断时应检查可修改对象是否共享，不能只看最外层对象的地址是否变化。
+
+下面的 Address 和 Person 是独立示例使用的模型。Codable 表示模型同时支持编码和解码，具体机制见后文“Codable 与序列化”。
+
+```swift
+import Foundation
+
+final class Address: Codable {
+    var city: String
+
+    init(city: String) {
+        self.city = city
+    }
+}
+
+final class Person: Codable {
+    var name: String
+    var address: Address
+
+    init(name: String, address: Address) {
+        self.name = name
+        self.address = address
+    }
+}
+```
+
+以下三段代码依次执行。=== 判断两个引用是否指向同一个类实例，规则见[相等规则与对象身份](#相等规则与对象身份)。
+
+```swift
+let original = Person(name: "小明", address: Address(city: "北京"))
+let other = original
+
+print(original === other) // true
+other.name = "小红"
+print(original.name)      // 小红
+```
+
+other 和 original 指向同一个 Person。上面的赋值只复制引用，没有创建浅拷贝对象。
+
+```swift
+let shallow = Person(name: original.name, address: original.address)
+
+print(original === shallow)                 // false
+print(original.address === shallow.address) // true
+
+shallow.name = "小李"
+print(original.name) // 小红
+
+shallow.address.city = "上海"
+print(original.address.city) // 上海
+```
+
+shallow 是新的 Person，姓名可以独立修改。但初始化时传入的是原 Address 的引用，所以两个 Person 仍共享同一个地址对象。
+
+```swift
+let deep = Person(
+    name: original.name,
+    address: Address(city: original.address.city)
+)
+
+print(original === deep)                 // false
+print(original.address === deep.address) // false
+
+deep.address.city = "广州"
+print(original.address.city) // 上海
+```
+
+deep 同时拥有新的 Person 和新的 Address。对于这个模型，姓名和城市都能独立修改。如果 Address 内部还引用了需要独立修改的对象，也要继续复制这些对象。
+
+| 操作 | Person 是否为同一个实例 | Address 是否为同一个实例 |
+| --- | --- | --- |
+| 引用赋值 | 是 | 是 |
+| 上例的浅拷贝 | 否 | 是 |
+| 上例的深拷贝 | 否 | 否 |
+
+不能把 struct 直接等同于深拷贝，也不能把 class 赋值等同于创建浅拷贝对象。结构体内部的类引用如何复制，见[结构体、枚举与值的生命周期](#结构体枚举与值的生命周期)；数组中的类实例见[数组值语义、写时复制与返回值](#数组值语义写时复制与返回值)。
+
+### Swift 中的深拷贝实现方法
+
+手动复制通过初始化方法创建新对象，并逐层复制需要独立的嵌套对象。可以把上述过程封装为 deepCopy()，但这个名称本身不提供任何语言保证。
+
+```swift
+extension Person {
+    func deepCopy() -> Person {
+        Person(name: name, address: Address(city: address.city))
+    }
+}
+```
+
+NSCopying 是 Foundation 提供的复制协议，要求类型实现 copy(with:)。协议只规定复制接口，不自动递归复制属性。若 copy(with:) 复用了原 address，结果仍然是浅拷贝；要获得深拷贝，需要在实现中创建新的嵌套对象。
+
+编码后再解码可以重建模型，例如使用 JSONEncoder 和 JSONDecoder，或使用 PropertyListEncoder 和 PropertyListDecoder。能否完整复制，取决于保存了哪些状态以及解码时是否创建独立对象，详见[序列化复制的边界](#序列化复制的边界)。
+
+NSKeyedArchiver 和 NSKeyedUnarchiver 是 Foundation 的对象归档与解档工具。归档是按编码协议保存对象及相关状态，解档是读取归档数据重建对象。参与归档的对象通常遵循 NSCoding；使用安全编码时还需满足 NSSecureCoding。归档支持记录对象引用关系，但是否满足某个模型的深拷贝要求，仍取决于实际保存和恢复的内容。
+
+递归复制遇到重复引用或循环引用时，需要记录“原对象对应哪个副本”。再次遇到同一个原对象时复用对应副本，才能保留副本内部的共享关系并避免无限递归。这里的对象引用关系是指各对象通过属性指向哪些其他对象。
+
+## Codable 与序列化
+
+序列化把模型中需要保存的状态转换成可存储、可传输的数据。反序列化读取这些数据，并据此构建模型。JSON 是表达数据的文本格式；Foundation 的 Data 用于保存字节数据。JSONEncoder 将模型编码为包含 JSON 的 Data，JSONDecoder 从这份 Data 解码出指定类型的模型。
+
+| 协议 | 表达的能力 |
+| --- | --- |
+| Encodable | 类型能通过 encode(to:) 把状态交给编码器 |
+| Decodable | 类型能通过 init(from:) 从解码器读取数据并初始化实例 |
+| Codable | 同时遵循 Encodable 和 Decodable |
+
+Codable 是协议组合的类型别名，其含义是 Encodable & Decodable。只需要反序列化时，遵循 Decodable 即可。满足自动生成条件时，编译器生成 encode(to:) 和 init(from:)；不满足条件或需要特殊规则时，应自行实现。Codable 并不是编码器，也不保证任意类型都能自动生成实现。
+
+下面复用前文的 Person 和 Address。这两个类的相关存储属性都参与编码和解码，且使用编译器自动生成的实现。
+
+```swift
+let source = Person(name: "小明", address: Address(city: "北京"))
+
+do {
+    let data = try JSONEncoder().encode(source)
+    let restored = try JSONDecoder().decode(Person.self, from: data)
+
+    print(source === restored)                 // false
+    print(source.address === restored.address) // false
+
+    restored.address.city = "上海"
+    print(source.address.city) // 北京
+} catch {
+    print("编码或解码失败：\(error)")
+}
+```
+
+Person.self 把 Person 这个类型传给 decode，指定需要构建的模型类型。try 表示调用可能抛出错误，do-catch 在示例中捕获编码或解码错误。JSONDecoder 按目标类型解码；类型不匹配或缺少必需字段等情况可能在运行时抛错，类型安全不等于外部数据一定合法。
+
+编码结果相当于下面的 JSON。JSON 保存姓名和城市，不保存原 Person 或 Address 的内存地址。
+
+```json
+{"name":"小明","address":{"city":"北京"}}
+```
+
+解码时，自动生成的实现创建新的 Person，并为 address 创建新的 Address。对这个模型，副本不再共享原地址，所以可以独立修改。原因不仅是数据中没有原内存地址，还包括解码实现确实创建了独立对象。自定义解码代码仍可能重新使用已有共享对象。
+
+### CodingKeys 的作用与枚举语法
+
+CodingKeys 在自动生成编码和解码实现时指定参与转换的属性及其字段名称。字段名称是 JSON 中用于标识某个值的名称，例如 {"name":"小明"} 中的 name。下面的 SelectionModel 是一个独立模型。
+
+```swift
+struct SelectionModel: Codable {
+    var name: String
+    var isSelected = false
+
+    enum CodingKeys: String, CodingKey {
+        case name
+    }
+}
+```
+
+这里声明了名为 CodingKeys 的枚举类型，不是在给属性赋值。这个枚举写在 SelectionModel 内部，属于嵌套类型；嵌套类型是声明在另一类型内部的类型，不是实例存储属性，不会让每个 SelectionModel 实例额外保存一个 CodingKeys 值。
+
+| 写法 | 含义 |
+| --- | --- |
+| enum CodingKeys | 声明名为 CodingKeys 的枚举类型 |
+| String | 指定枚举原始值的类型为字符串；原始值是枚举成员对应的固定值 |
+| CodingKey | 遵循 CodingKey 协议，使成员可作为编码和解码时的字段标识 |
+| case name | 声明一个名为 name 的枚举成员 |
+
+String 不是父类。冒号后同时写了原始值类型和遵循的协议。对于这个字符串枚举，case name 未显式指定原始值时，Swift 使用成员名称作为原始值，因此相当于 case name = "name"。
+
+```swift
+let key: SelectionModel.CodingKeys = .name
+print(key.rawValue)    // name
+print(key.stringValue) // name
+// let invalid: SelectionModel.CodingKeys = .nmae // 编译错误：没有这个枚举成员
+```
+
+rawValue 由原始值枚举提供。stringValue 是 CodingKey 协议要求的字符串字段标识。对于这个字符串枚举，编译器自动生成 CodingKey 所需的相关实现。从类型外访问嵌套枚举时，使用 SelectionModel.CodingKeys；在 SelectionModel 内部的方法中，可以直接使用 CodingKeys。
+
+枚举适合表示一组明确的字段标识，每个 case 对应一个标识，拼错成员名能在编译期被发现。Swift 编译器按照约定识别模型内部名为 CodingKeys 的类型，并使用其中的成员生成编码和解码代码；不是运行时遍历任意枚举就能自动改变模型行为。手动实现编码和解码时，也可以使用其他遵循 CodingKey 的类型，字段集合不一定必须是枚举。
+
+此例只列出了 name，所以自动生成的实现只转换 name。若加入 case isSelected，两个属性都会参与转换。对于这个简单模型，也可以完全省略 CodingKeys，让编译器自动为两个属性生成对应的键。
+
+## 序列化复制的边界
+
+编码再解码能否用于深拷贝，需要分别检查状态是否完整、新旧对象是否独立，以及副本内部的引用关系是否保留。以下边界使用 JSONEncoder、JSONDecoder 和对应模型的自动实现；自定义行为会另行说明。
+
+### 未编码的属性不会保留原值
+
+继续使用 SelectionModel。isSelected 没有列在 CodingKeys 中，因此 JSON 不包含该属性，解码得到的实例使用声明时的默认值 false。
+
+```swift
+func copySelection() throws {
+    var original = SelectionModel(name: "小明")
+    original.isSelected = true
+
+    let data = try JSONEncoder().encode(original)
+    let copied = try JSONDecoder().decode(SelectionModel.self, from: data)
+
+    print(original.isSelected) // true
+    print(copied.isSelected)   // false
+}
+```
+
+这个例子可以自动生成解码实现，是因为被省略的属性有默认值。不能据此认为任意没有初始值的必需属性都可以直接从 CodingKeys 中省略。即使编码和解码成功，也不代表新模型完整复制了原模型状态。
+
+### 自定义解码可能重新使用共享对象
+
+自定义解码是自己实现 init(from:)，决定怎样读取数据并初始化属性。假设程序提供 AddressStore.sharedAddress，表示一个已经存在的共享 Address。若在自定义 init(from:) 中执行下面的代码，就会复用已有对象，而不是创建新地址。
+
+```swift
+// 自定义 init(from:) 中的示意语句。
+// 前提：AddressStore.sharedAddress 已经定义为共享 Address。
+self.address = AddressStore.sharedAddress
+```
+
+如果原 Person 也引用 AddressStore.sharedAddress，新旧 Person 就会共享地址。修改新 Person 的 address.city，原 Person 读取到的城市也会改变。这是自定义代码主动选择的行为，不是 JSONDecoder 默认会共享原对象。
+
+### 原来共享的对象可能被拆成两个对象
+
+下面的 AddressPair 使用前文的 Address。home 和 mailing 原来指向同一个实例。=== 比较的是实例身份，不是城市内容是否相同。
+
+```swift
+struct AddressPair: Codable {
+    var home: Address
+    var mailing: Address
+}
+
+func copyAddresses() throws {
+    let address = Address(city: "北京")
+    let original = AddressPair(home: address, mailing: address)
+    print(original.home === original.mailing) // true
+
+    let data = try JSONEncoder().encode(original)
+    let copied = try JSONDecoder().decode(AddressPair.self, from: data)
+    print(copied.home === copied.mailing) // false
+
+    original.home.city = "上海"
+    print(original.mailing.city) // 上海
+
+    copied.home.city = "广州"
+    print(copied.mailing.city)   // 北京
+}
+```
+
+JSON 相当于 {"home":{"city":"北京"},"mailing":{"city":"北京"}}。数据保存了两份城市内容，没有记录两个位置原来指向同一个对象。自动解码分别创建两个 Address。因此，新旧模型相互独立，但副本内部的共享关系发生了变化；这两个条件不能混为一谈。
+
+### 循环引用需要显式记录对象关系
+
+这里的循环引用指沿着对象属性访问其他对象后，又回到先前的对象。例如 A.friend 指向 B，B.friend 又指向 A。编码代码如果不断展开 friend，就会重复执行“编码 A → 编码 B → 编码 A”，无法得到有限的嵌套结果。这里讨论的是编码时的引用关系，不等同于仅分析 ARC 的强引用环。
+
+普通嵌套 JSON 不能直接表达这种循环。自动生成的 Codable 实现也不会自动把重复对象替换成编号。可以自行定义 id 和 friendID，分别表示对象编号和朋友的对象编号。
+
+```json
+[
+    {"id": 1, "friendID": 2},
+    {"id": 2, "friendID": 1}
+]
+```
+
+解码时先创建编号为 1 和 2 的对象，再按 friendID 查找对应对象并建立引用。保存编号、查找对象和恢复关系都需要额外实现。对于不需要保留的反向关系，也可以按模型约定不编码该属性，但这不属于完整保存全部对象关系。
 
 ## 符号引用与对象引用
 

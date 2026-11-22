@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 40 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 41 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -11,7 +11,7 @@
 | 分类 | 文档数 |
 | --- | --- |
 | [语言与运行时](language/) | 5 |
-| [iOS 界面、事件与调度](ios/) | 9 |
+| [iOS 界面、事件与调度](ios/) | 10 |
 | [Android 界面与动画](android/) | 7 |
 | [跨平台与宿主通信](cross-platform/) | 3 |
 | [软件设计与工程工具](engineering/) | 5 |
@@ -54,6 +54,8 @@
 
 并发与函数专题：[函数签名与回调类型](language/swift-basics.md#函数签名与回调类型)；[Sendable 与 @Sendable](language/swift-basics.md#sendable-与-sendable)；[Swift 6 的并发检查与版本条件](language/swift-basics.md#swift-6-的并发检查与版本条件)。内容范围：函数值、捕获检查、actor 串行执行器、MainActor，以及并发检查和执行规则的版本条件。
 
+补充专题：[引用赋值、浅拷贝与深拷贝](language/swift-basics.md#引用赋值浅拷贝与深拷贝)；[Codable 与序列化](language/swift-basics.md#codable-与序列化)；[CodingKeys 的作用与枚举语法](language/swift-basics.md#codingkeys-的作用与枚举语法)；[序列化复制的边界](language/swift-basics.md#序列化复制的边界)。
+
 ## iOS 界面、事件与调度
 
 [iOS 本地多语言与即时切换](ios/localization-and-language-switching.md)：文案键、.strings 与 String Catalog、本地 Bundle 选择、UserDefaults 语言偏好、通知刷新已有界面，以及 Locale 的语言与地区区别。
@@ -67,6 +69,8 @@
 相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。
 
 启动页与控件：[LaunchScreen、自定义启动页与异步加载](ios/app-lifecycle-and-events.md#launchscreen自定义启动页与异步加载)；[控制器初始化、视图加载与页面展示](ios/uikit-layout-and-mvvm.md#控制器初始化视图加载与页面展示)；[UIButton 的 system 类型与 tintColor](ios/uikit-layout-and-mvvm.md#uibutton-的-system-类型与-tintcolor)。内容范围：系统启动界面与动态启动页、素材加载和关闭回调、页面出现与倒计时，以及系统按钮的标题颜色。
+
+[iOS 内存泄漏与无用对象排查](ios/memory-leak-diagnosis.md)：预期释放时机、Allocations 分代筛选、Memory Graph 强引用追踪、分配调用栈与 Leaks 的判断边界，以及修改后的复测。
 
 [iOS 进程间通信与应用扩展](ios/interprocess-communication-and-extensions.md)：App Extension、主要通信方式、App Groups 共享目录、Darwin 通知、UNIX domain socket 路径与数据传递，以及 XPC 的使用边界。
 
