@@ -42,7 +42,7 @@ FragmentManager 是管理 Fragment 添加、移除、替换、状态恢复和返
 
 ## AndroidManifest.xml 为什么要声明 Activity
 
-AndroidManifest.xml 是应用向系统声明组件及相关配置的清单文件。应用中使用的 Activity 必须在清单中声明；Fragment 不需要单独在清单中声明。
+AndroidManifest.xml 是应用向系统声明组件及相关配置的清单文件。清单内容包括应用的名称和图标、组件、启动入口，以及应用需要的权限。系统安装应用时会解析清单，并在启动组件时使用解析得到的信息。应用中使用的 Activity 必须在清单中声明；Fragment 不需要单独在清单中声明。
 
 系统根据清单确定目标 Activity 是否存在、如何启动，以及调用方是否有权启动。声明 Activity 为系统提供可定位的组件入口；仅编写一个 Activity 类，并不会自动完成这项注册。
 

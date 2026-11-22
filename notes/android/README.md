@@ -2,7 +2,7 @@
 
 [返回笔记目录](../README.md)
 
-本分类目前有 6 篇笔记。
+本分类目前有 7 篇笔记。
 
 | 文档 | 内容范围 |
 | --- | --- |
@@ -21,3 +21,5 @@
 [Android 列表复用：ListView、RecyclerView 与 ViewHolder](listview-recyclerview-and-viewholder.md)：ListView 与 RecyclerView 的区别、视图复用、ViewHolder、创建与绑定流程、局部更新及性能边界。
 
 [Android 触摸事件与 View 事件处理](touch-events-and-view-dispatch.md)：MotionEvent 与触摸序列、ACTION_DOWN 用法、监听器返回值、OnTouchListener 与 onTouchEvent 的调用关系，以及取消处理与 UIKit 对照。
+
+[Android 资源与 R 类](resources-and-r-class.md)：资源 ID、命名规则、XML 与代码引用、资源限定符、多语言，以及多模块中的 R 类。

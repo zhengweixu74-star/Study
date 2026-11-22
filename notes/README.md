@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 38 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
+按 10 个主题整理的 40 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
 
 整理日期：2026-10-09。
 
@@ -12,9 +12,9 @@
 | --- | --- |
 | [语言与运行时](language/) | 5 |
 | [iOS 界面、事件与调度](ios/) | 9 |
-| [Android 界面与动画](android/) | 6 |
+| [Android 界面与动画](android/) | 7 |
 | [跨平台与宿主通信](cross-platform/) | 3 |
-| [软件设计与工程工具](engineering/) | 4 |
+| [软件设计与工程工具](engineering/) | 5 |
 | [网络与存储](network-and-storage/) | 6 |
 | [实验与统计](statistics/) | 1 |
 | [AI 辅助开发](ai/) | 1 |
@@ -104,7 +104,7 @@
 
 ## Android 界面与动画
 
-[Android 分类目录](android/README.md)：6 篇文档。
+[Android 分类目录](android/README.md)：7 篇文档。
 
 [Android 触摸事件与 View 事件处理](android/touch-events-and-view-dispatch.md)：MotionEvent 与触摸序列、ACTION_DOWN 用法、监听器返回值、OnTouchListener 与 onTouchEvent 的调用关系，以及取消处理与 UIKit 对照。
 
@@ -123,6 +123,8 @@
 [Activity、Fragment 与页面组织](android/activity-fragment-and-navigation.md)：Activity 与 Fragment 的职责、宿主和窗口关系、页面组合、清单声明、启动流程及 UIViewController 对照。
 
 [Android 页面生命周期与状态保存](android/activity-lifecycle-and-state.md)：补充 Activity 的基本回调、Fragment 实例与其视图的生命周期，以及视图引用的清理时机。
+
+[Android 资源与 R 类](android/resources-and-r-class.md)：资源 ID、命名规则、XML 与代码引用、资源限定符、多语言，以及多模块中的 R 类。
 
 ## 跨平台与宿主通信
 
@@ -153,6 +155,8 @@
 相关专题：[IPA、.app 与 Mach-O](engineering/xcode-and-testing.md#ipaapp-与-mach-o)；[Mach-O 的加载信息](engineering/xcode-and-testing.md#mach-o-的加载信息)；[预设虚拟地址、ASLR 与物理内存](engineering/xcode-and-testing.md#预设虚拟地址aslr-与物理内存)。内容范围：安装分发包与应用目录、可执行文件的加载信息、启动地址随机化，以及虚拟地址与物理地址的映射。
 
 相关专题：[Swift 编译优化选项与体积](language/swift-objc-runtime.md#swift-编译优化选项与体积)；[iOS 包体积优化](engineering/xcode-and-testing.md#ios-包体积优化)。内容范围：`-Osize` 与内联、Dead Code Stripping、资源与依赖精简、符号与 `dSYM`、资源变体和 App Thinning。
+
+[Gradle 构建脚本与 .kts 文件](engineering/gradle-build-scripts.md)：构建脚本、.kt 与 .kts 的区别，以及 Groovy 与 Kotlin 两种写法。
 
 ## 网络与存储
 
