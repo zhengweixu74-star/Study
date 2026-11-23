@@ -5,363 +5,414 @@
 ## 本文目录
 
 - [UIApplication、AppDelegate、UIWindow 与 UIView 的职责](#uiapplicationappdelegateuiwindow-与-uiview-的职责)
+  - [UIApplication 与主线程 RunLoop](#uiapplication-与主线程-runloop)
 - [应用运行状态与生命周期回调](#应用运行状态与生命周期回调)
   - [五种运行状态](#五种运行状态)
   - [AppDelegate 的主要回调](#appdelegate-的主要回调)
-  - [进入前台与进入激活状态的区别](#进入前台与进入激活状态的区别)
   - [常见状态变化与调用顺序](#常见状态变化与调用顺序)
-  - [Scene 生命周期与应用生命周期](#scene-生命周期与应用生命周期)
+  - [进入前台与进入激活状态的区别](#进入前台与进入激活状态的区别)
   - [挂起、终止与数据保存](#挂起终止与数据保存)
+  - [Scene 生命周期与应用生命周期](#scene-生命周期与应用生命周期)
 - [AppDelegate 生命周期下，从启动到首帧显示](#appdelegate-生命周期下从启动到首帧显示)
-  - [LaunchScreen、自定义启动页与异步加载](#launchscreen自定义启动页与异步加载)
   - [main 之前的启动工作与 dyld](#main-之前的启动工作与-dyld)
-  - [动态库数量与启动开销](#动态库数量与启动开销)
-  - [删除无用代码与地址修正成本](#删除无用代码与地址修正成本)
-  - [UIApplication 与主线程 RunLoop](#uiapplication-与主线程-runloop)
+  - [LaunchScreen、自定义启动页与异步加载](#launchscreen自定义启动页与异步加载)
+- [启动耗时的测量与优化](#启动耗时的测量与优化)
   - [进程创建时间与启动计时起点](#进程创建时间与启动计时起点)
   - [启动优化的三个方向](#启动优化的三个方向)
-- [UIApplication 的使用场景：打开应用设置](#uiapplication-的使用场景打开应用设置)
+  - [动态库数量与启动开销](#动态库数量与启动开销)
+  - [删除无用代码与地址修正成本](#删除无用代码与地址修正成本)
 - [为什么一个应用可以有多个 UIWindow](#为什么一个应用可以有多个-uiwindow)
 - [关键窗口与 makeKeyAndVisible()](#关键窗口与-makekeyandvisible)
-- [UIApplication 与 UIWindow 为什么都分发事件](#uiapplication-与-uiwindow-为什么都分发事件)
-  - [触摸回调与响应链转发](#触摸回调与响应链转发)
-  - [父子视图的手势识别与同时识别](#父子视图的手势识别与同时识别)
+- [触摸事件分发：命中测试、响应链与手势](#触摸事件分发命中测试响应链与手势)
   - [UIView 的局部坐标与 bounds](#uiview-的局部坐标与-bounds)
-  - [point(inside:with:) 与 hitTest(_:with:)](#pointinsidewith-与-hittest_with)
+  - [point(inside:with:) 与 hitTest(\_:with:)](#pointinsidewith-与-hittest_with)
   - [事件穿透与重叠视图的触摸目标](#事件穿透与重叠视图的触摸目标)
   - [扩大按钮的命中区域](#扩大按钮的命中区域)
+  - [触摸回调与响应链转发](#触摸回调与响应链转发)
+  - [父子视图的手势识别与同时识别](#父子视图的手势识别与同时识别)
   - [同一按钮的点击与长按协调](#同一按钮的点击与长按协调)
   - [长按状态与取消后的恢复](#长按状态与取消后的恢复)
 - [屏幕键盘：触摸位置与文字接收对象](#屏幕键盘触摸位置与文字接收对象)
 
 ## UIApplication、AppDelegate、UIWindow 与 UIView 的职责
 
-UIApplication 是 UIKit 提供的应用对象，负责应用级事件分发、应用状态以及与系统交互的接口。AppDelegate 是开发者提供的应用代理对象，通过 UIApplicationDelegate 协议接收应用级回调，并执行自定义初始化等逻辑。
+UIKit 应用运行时，主要由四类对象分工协作：UIApplication 代表整个应用，AppDelegate 接收应用级通知，UIWindow 承载界面，UIView 显示内容并接收触摸。
 
-| 对象 | 主要职责 | 例子 |
-|-|-|-|
-| UIApplication | 管理应用级行为，并将事件分发给适当的对象 | 通过 UIApplication.shared.open(...) 请求系统打开设置页面 |
-| AppDelegate | 响应应用生命周期和应用级回调 | 在 application(\_:didFinishLaunchingWithOptions:) 中初始化必要服务和配置主窗口 |
-| UIWindow | 承载视图层级，并参与向视图分发事件 | 设置 rootViewController、显示窗口、成为关键窗口 |
-| UIView | 表示界面中的一块区域，展示内容并参与交互 | 按钮接收点击；UITextField 作为 UIView 的子类接收文字输入 |
+UIApplication 是 UIKit 创建的应用对象，每个应用进程只有一个。业务代码通过 `UIApplication.shared` 访问 UIApplication。AppDelegate 是开发者编写的类，遵循 `UIApplicationDelegate` 协议。UIKit 在启动完成、进入后台等时机调用 AppDelegate 的方法，开发者在这些方法里写自己的初始化、保存等代码。
 
-UIApplication 与 AppDelegate 是两个不同的对象。UIKit 在特定时机调用 AppDelegate 的回调方法，让开发者执行自己的代码；按钮触摸等普通事件不经过 AppDelegate。
+| 对象 | 由谁实现 | 主要职责 | 例子 |
+|-|-|-|-|
+| UIApplication | UIKit | 记录应用的运行状态，把事件分发给窗口，提供与系统交互的接口 | 调用 `UIApplication.shared.open(url)` 请求系统打开某个 URL |
+| AppDelegate | 开发者 | 接收 UIKit 在应用级时机发出的回调，执行自定义代码 | 在 `application(_:didFinishLaunchingWithOptions:)` 中初始化服务、创建主窗口 |
+| UIWindow | UIKit 提供类，开发者创建实例 | 作为视图层级的根容器，把事件交给窗口内的视图 | 设置 `rootViewController`，调用 `makeKeyAndVisible()` 显示窗口 |
+| UIView | UIKit 提供类，开发者创建实例或子类 | 表示屏幕上的一块矩形区域，绘制内容并接收触摸 | `UIButton` 接收点击；`UITextField` 接收文字输入 |
 
-## 应用运行状态与生命周期回调
+UIApplication 和 AppDelegate 是两个不同的对象。UIApplication 由 UIKit 实现，负责管理应用和分发事件；AppDelegate 由开发者实现，负责在 UIKit 发出通知时执行开发者的代码。按钮点击等普通触摸事件由 UIApplication 交给窗口和视图，不经过 AppDelegate。
 
-应用生命周期是应用从启动、进入不同运行状态，到进程终止的过程。生命周期回调是 UIKit 在指定阶段调用的代理方法；应用在回调中执行初始化、暂停、恢复或保存等工作。
-
-下面先按传统 AppDelegate 生命周期说明应用状态与回调顺序。AppDelegate 中以 application 开头的回调方法，参数是当前的 UIApplication 对象。启用 Scene 生命周期后，界面状态变化改由 SceneDelegate 接收，见下文 [Scene 生命周期与应用生命周期](#scene-生命周期与应用生命周期)。
-
-### 五种运行状态
-
-| 状态 | 含义 | 关键边界 |
-| --- | --- | --- |
-| Not Running（未运行） | 应用进程尚未启动，或应用进程已经终止 | 再次打开应用需要重新启动进程 |
-| Inactive（未激活） | 应用在前台运行，但不接收触摸等用户交互事件 | 应用仍在执行代码，网络请求完成等其他事件照常处理 |
-| Active（已激活） | 应用在前台运行，并接收用户交互事件 | 只说明可以交互，网络数据和首帧不一定已经准备好 |
-| Background（后台） | 应用不在前台，但在系统允许的时间内仍可执行代码 | 普通应用做完收尾工作后会被挂起；只有开启了音频、定位等后台能力的工作可以继续执行 |
-| Suspended（挂起） | 进程还在内存中，但不执行任何代码 | 系统可以随时终止挂起的进程回收内存，内存中的数据随之丢失 |
-
-前台包括 Inactive 和 Active 两种状态，所以“进入前台”不等于“已经激活”。后台和挂起也不同：后台还能运行代码，挂起后不能。音频、定位等后台能力需要配置，并受系统规则限制，不能让任意任务一直运行。
-
-这五种状态是为了讲清生命周期而做的划分。UIApplication.applicationState 只有 active、inactive、background 三个值；应用未运行或挂起时，自己的代码不执行，也就无从查询状态。
-
-### AppDelegate 的主要回调
-
-| 回调 | UIKit 调用的阶段 | 常见用途 |
-| --- | --- | --- |
-| application(_:didFinishLaunchingWithOptions:) | 启动初始化接近完成，应用即将开始运行 | 初始化启动必需的服务；纯代码界面在这里创建窗口 |
-| applicationWillResignActive(_:) | 应用即将从 Active 变为 Inactive | 暂停依赖用户交互的任务，按需停止计时器或降低画面更新频率 |
-| applicationDidEnterBackground(_:) | 应用已经进入 Background | 保存尚未保存的必要状态，释放可重建的资源，并结束不需要继续的工作 |
-| applicationWillEnterForeground(_:) | 应用即将从后台返回前台，进入 Inactive 阶段 | 检查后台期间的数据变化，按需重新加载资源或刷新数据 |
-| applicationDidBecomeActive(_:) | 应用已经从 Inactive 进入 Active | 恢复因失去激活状态而暂停的任务或计时器 |
-| applicationWillTerminate(_:) | 应用即将终止，且系统有机会通知应用时 | 执行简短的清理；很多终止情况不会调用这个方法，不能依赖它保存数据 |
-
-UIKit 只负责调用回调；计时器是否暂停、数据是否刷新，由应用在回调中写的代码决定。调用 applicationWillResignActive 后，应用不一定会进入后台：短暂中断结束后，应用会直接恢复为 Active。
-
-启动初始化与首帧显示的具体过程见[AppDelegate 生命周期下，从启动到首帧显示](#appdelegate-生命周期下从启动到首帧显示)。
-
-### 进入前台与进入激活状态的区别
-
-applicationWillEnterForeground 表示“应用即将从后台回到前台”，applicationDidBecomeActive 表示“应用已经可以接收用户交互”。应用可能没有进入后台，只是暂时失去激活状态后又恢复，所以两个回调不总是成对出现。
-
-| 场景：采用传统 AppDelegate 生命周期 | applicationWillEnterForeground | applicationDidBecomeActive |
-| --- | --- | --- |
-| 应用从未运行状态直接启动到前台，并正常激活 | 不调用 | 调用 |
-| 应用进程仍存在，从后台返回前台，并正常激活 | 先调用 | 后调用 |
-| 应用仅暂时变为 Inactive，没有进入后台，随后恢复 Active | 不调用 | 调用 |
-
-“每次从后台回来都刷新数据”适合放在 applicationWillEnterForeground；“每次恢复交互时恢复暂停的任务”适合放在 applicationDidBecomeActive。放在哪个回调，取决于任务需要在什么条件下触发。
-
-如果在 applicationWillEnterForeground 中发起异步网络请求，UIKit 不会等请求完成再调用 applicationDidBecomeActive。所以 applicationDidBecomeActive 被调用时，数据可能还没回来；应用可以先显示已有数据，请求完成后再更新界面。
-
-### 常见状态变化与调用顺序
-
-以下流程都假设状态转换正常完成；遇到系统中断、后台启动或进程被终止，回调顺序会不同。
-
-**从未运行状态直接启动到前台。** UIKit 执行启动回调，然后在应用进入 Active 时调用 applicationDidBecomeActive。由于应用没有从后台返回，UIKit 不调用 applicationWillEnterForeground。
-
-```text
-Not Running → 启动初始化 → Inactive → Active
-主要回调：willFinishLaunchingWithOptions
-       → didFinishLaunchingWithOptions
-       → applicationDidBecomeActive
-```
-
-**从前台进入后台，再返回前台。** 应用先失去激活状态，再进入后台。应用未被终止且正常返回时，UIKit 先通知进入前台，再通知已经激活。
-
-```text
-离开前台：Active → Inactive → Background → 可能进入 Suspended
-主要回调：applicationWillResignActive → applicationDidEnterBackground
-
-返回前台：若已挂起，先恢复执行；随后 Background → Inactive → Active
-主要回调：applicationWillEnterForeground → applicationDidBecomeActive
-```
-
-进入后台后不一定会被挂起。如果系统已经终止了后台的进程，用户再次打开应用时会重新启动进程，走的是启动流程，而不是“从后台返回”的流程。
-
-**只发生前台短暂中断。** 例如，打开后关闭控制中心；如果应用期间只进入 Inactive，没有进入 Background，UIKit 只通知失去激活状态和恢复激活状态。
-
-```text
-Active → Inactive → Active
-主要回调：applicationWillResignActive → applicationDidBecomeActive
-```
-
-来电或弹出系统界面时，应用不一定进入后台；调用哪些回调，取决于实际发生了哪些状态转换。
-
-### Scene 生命周期与应用生命周期
-
-Scene 是应用的一个界面实例，有自己的前后台状态和激活状态；例如 iPad 上同一个应用开两个窗口，就是两个 Scene。UIWindowScene 是管理窗口的 Scene。SceneDelegate 是开发者提供的场景代理对象，遵循 UISceneDelegate 协议，接收 Scene 的状态回调。一个应用进程可以同时有多个 Scene。
-
-Scene 生命周期从 iOS 13 开始提供。应用启用后，UIKit 把下列界面状态变化通知给对应的 SceneDelegate，不再调用 AppDelegate 中对应的四个方法。SceneDelegate 回调的参数是发生状态变化的那个 Scene。
-
-| AppDelegate 回调 | SceneDelegate 对应回调 |
-| --- | --- |
-| applicationWillResignActive(_:) | sceneWillResignActive(_:) |
-| applicationDidEnterBackground(_:) | sceneDidEnterBackground(_:) |
-| applicationWillEnterForeground(_:) | sceneWillEnterForeground(_:) |
-| applicationDidBecomeActive(_:) | sceneDidBecomeActive(_:) |
-
-AppDelegate 仍负责应用启动等应用级工作，SceneDelegate 负责某一个 Scene 的界面状态。一个 Scene 进入后台时，其他 Scene 可能仍在前台。
-
-**首次进入前台时的区别。** 新创建的 Scene 第一次进入前台时，也会调用 sceneWillEnterForeground；而应用首次启动时不调用 applicationWillEnterForeground。
-
-应用、Scene 和 UIViewController 各有自己的生命周期。页面出现或消失，与应用进入前台或后台是两回事；页面层面的说明见[UIKit 布局、列表与 MVVM](uikit-layout-and-mvvm.md#页面生命周期与展示方式)。
-
-### 挂起、终止与数据保存
-
-应用被挂起后不再执行代码。系统可以直接终止挂起的进程，这时不会调用 applicationWillTerminate，应用也没有机会保存数据。用户在应用切换器中划掉应用时，也不一定调用 applicationWillTerminate。
-
-持久保存是把数据写入文件、数据库等存储，进程结束后数据仍然保留。重要数据应在产生或修改后及时保存；进入后台时可以再保存一次尚未保存的状态，但不能只依赖某一个生命周期回调。具体存储方式见[iOS 数据持久化](../network-and-storage/ios-data-persistence.md)。
-
-例如，用户编辑文本时，应用定期把草稿写入文件。即使系统之后在挂起期间终止了应用，重新启动后仍能读到草稿；只在内存中、还没写入文件的修改则会丢失。
-
-## AppDelegate 生命周期下，从启动到首帧显示
-
-适用条件：应用使用传统 AppDelegate 生命周期，用代码创建界面，从未运行状态启动到前台。不包括系统预热、状态恢复等情况。应用已经在运行时，从后台回到前台不会重新走这套启动流程。
-
-1. 系统创建应用进程。dyld 是系统的动态加载器，负责加载可执行文件和依赖的动态库，并完成链接。进入 main 之前，还要执行运行时初始化和启动阶段的初始化代码。
-2. 程序进入 UIApplicationMain。UIApplicationMain 创建 UIApplication 和 AppDelegate，把 AppDelegate 设为 UIApplication 的代理，并启动主事件循环。主事件循环不断接收并分发事件。
-3. UIKit 依次调用 application(\_:willFinishLaunchingWithOptions:) 和 application(\_:didFinishLaunchingWithOptions:)，应用在其中完成启动所需的初始化，并检查启动参数。
-4. 在常见的纯代码实现中，AppDelegate 在 didFinishLaunchingWithOptions 中创建 UIWindow，设置 rootViewController，并调用 makeKeyAndVisible()。rootViewController 是管理窗口主要视图层级的根视图控制器。
-5. 窗口要显示时，UIKit 加载根视图控制器的视图：调用 loadView 创建视图，加载完成后调用 viewDidLoad，然后执行布局和绘制。
-6. 应用把准备好的界面提交给系统，系统渲染、合成后显示首帧。首帧是用户第一次看到的应用界面，此时网络请求和业务数据不一定已经加载完成。
-
-didFinishLaunchingWithOptions 返回、makeKeyAndVisible() 返回，都不代表首帧已经显示；applicationDidBecomeActive(\_:) 也不是首帧显示的回调。用 Storyboard 自动创建界面时，窗口和根控制器由 UIKit 根据 Storyboard 创建。
-
-### LaunchScreen、自定义启动页与异步加载
-
-`LaunchScreen` 是应用界面准备好之前，系统显示的启动画面。用 Launch Screen Storyboard 配置的启动画面只能是静态布局，不能运行自定义控制器的代码，所以不能做网络请求、倒计时或响应按钮。
-
-需要动态内容或交互的启动页，是应用自己创建的普通视图控制器。注意区分应用首帧和首页首帧：如果窗口先显示启动页，应用首帧就是启动页，首页之后才显示。
-
-动态启动页的职责可以按执行顺序划分：
-
-1. 窗口提供显示位置。首次启动时，如果启动页必须在首页之前显示，就把启动页的容器控制器设为 `rootViewController`，结束后再切换到首页。启用 Scene 生命周期时，窗口由对应的 Scene 管理。
-2. 加载组件异步获取素材，完成后返回素材或错误。等待期间要先显示一个可以绘制的界面，不能在主线程同步等待素材，否则首帧会被推迟。
-3. 启动页显示已准备好的素材，在页面出现（`viewDidAppear`）后开始倒计时。视图加载完成时页面还没出现，回调顺序见[控制器初始化、视图加载与页面展示](uikit-layout-and-mvvm.md#控制器初始化视图加载与页面展示)。
-4. 关闭时，停止倒计时，取消未完成的任务，并通知管理者显示首页。已取消的任务如果之后仍返回结果，要先检查启动页是否已关闭，避免刷新已关闭的页面。
-
-素材加载要设置等待上限：加载失败或超时，管理者都直接进入首页，不能让首页一直等网络。这里有两个不同的回调：素材请求结束时，加载组件调用管理者传入的完成回调，传入素材或错误；启动页关闭时，启动页调用管理者传入的关闭回调。“素材加载完成”和“启动页已关闭”是两件事。
-
-应用已经有可见页面时（例如从后台回到前台），也可以用 `present` 展示动态启动页。前提是发起 `present` 的控制器正在显示，并且当前没有正在进行的其他转场；把 `present` 写在启动回调中，并不能保证这些前提成立。
-
-如果每次进程启动只展示一次，展示记录要保存在与进程同生命周期的管理者中，不能只靠 `applicationDidBecomeActive`、`sceneDidBecomeActive` 或 `viewDidAppear` 判断，因为这些回调会反复调用。进程终止后再打开，算新的一次启动；前后台切换则仍是原来的进程。
-
-倒计时的显示值要用“截止时刻 − 当前时刻”计算，不能假设每次回调正好间隔一秒。截止时刻等于开始时刻加展示时长，时间要取自单调时钟（不受系统时间修改影响）。回调可能延迟，每次都重新计算剩余时间，显示的才是实际剩余时间。任务类型和取消规则见[任务结果类型与 Void、Never](../language/swift-basics.md#任务结果类型与-voidnever)与[上下文继承与取消](../language/swift-basics.md#上下文继承与取消)。
-
-### main 之前的启动工作与 dyld
-
-`main` 是程序的入口函数，pre-main 是进入 `main` 之前的启动阶段。Swift 的 UIKit 应用用 `@main` 让编译器生成入口代码，所以源码中通常看不到 `main` 函数。
-
-`dyld` 是 Apple 平台的动态链接器。系统创建进程、映射主可执行文件后，dyld 按可执行文件中记录的依赖加载所需的动态库，再加载这些库自己依赖的库。动态库加载后，dyld 修正地址并绑定符号。符号是函数、变量等的名称；符号绑定是把代码中对某个符号的引用，指向这个符号在内存中的实际地址。
-
-进入 `main` 前，还要完成运行时初始化，并执行启动阶段的初始化代码。例如，Objective-C 运行时调用类和分类的 `+load`；启动时加载的代码还会执行 C++ 全局对象的构造函数，以及标记为初始化函数的代码。这些工作都计入启动时间。
-
-但并非所有 C++ 静态对象都在 main 之前构造：需要动态初始化的函数内静态局部对象，在程序第一次执行到声明时才构造。对象的存储期与构造时机见 [C++ 静态存储期对象与初始化](../language/cpp-static-storage-and-initialization.md)。
-
-静态库的代码在构建时已经合并到可执行文件中，dyld 在运行时不会加载 `.a` 文件。动态库的链接、嵌入和装载见 [编译、链接、嵌入与装载](../engineering/xcode-and-testing.md#编译链接嵌入与装载)。
-
-### 动态库数量与启动开销
-
-启动时要加载的自定义动态库越多，系统要打开的文件、建立的内存映射、处理的依赖和地址修正就越多。内存映射是把文件内容对应到进程的地址空间，访问到时才真正读取，不会一次读入整个文件。系统会缓存部分工作结果，但剩下的开销仍随库的数量、大小和实际访问的数据增加。
-
-例如，把 10 个各约 1 MB 的动态库合并成 1 个约 10 MB 的动态库，代码总量基本不变，但要加载和管理的库从 10 个变成 1 个，原来跨库的部分引用也可以在构建时解决。这只说明减少库的数量能降低额外开销，启动耗时并不会按库的数量成比例下降。
-
-合并动态库不会去掉代码中的 `+load` 等初始化工作。系统框架有共享缓存等专门优化，所以自定义动态库的开销不能套用到 UIKit 等系统框架上。
-
-“自定义动态库控制在 6 个以内”只是经验值，iOS 没有这个硬性上限，超过 6 个也不会突然变慢。静态链接也是减少独立动态库的方式，构建速度、代码共享及可合并库的取舍见[静态链接与动态链接的取舍](../engineering/xcode-and-testing.md#静态链接与动态链接的取舍)。
-
-### 删除无用代码与地址修正成本
-
-删除无用的类、方法和全局变量，可能同时删掉一些需要修正的地址。类的元数据是描述类、方法和继承关系的数据，其中保存着指向方法实现、父类等的指针，这些指针在加载时都需要修正。只有当删除的内容原本确实留在最终产物中，删除后需要修正的指针变少了，Rebase 和 Binding 的耗时才会减少。两种操作的机制与示例见[Rebase 与 Binding：地址修正](../engineering/xcode-and-testing.md#rebase-与-binding地址修正)。
-
-整数类型的全局变量保存的是数值，加载地址变化时不需要修正；只有保存地址的指针才需要修正。方法数量与修正次数也不是一一对应的。如果某段代码在构建时已经被裁剪掉，再删除对应的源码不会减少运行时的工作；裁剪条件见[静态库的目标文件提取与代码裁剪](../engineering/xcode-and-testing.md#静态库的目标文件提取与代码裁剪)。
-
-删除前要确认代码没有被运行时按名称查找、没有被配置文件引用，也不是初始化入口。优化后要分别检查代码体积、地址修正次数和首屏耗时，不能只看删了多少代码。
+**例子：打开本应用的系统设置页。** 用户拒绝照片权限后，页面显示“去设置”按钮。用户点击按钮后，按钮的动作方法用 `UIApplication.openSettingsURLString` 生成 URL，再调用 `UIApplication.shared.open(url)`。UIApplication 把请求转给系统，系统打开本应用的设置页面。UIApplication 只负责发出请求，设置页面由系统显示。
 
 ### UIApplication 与主线程 RunLoop
 
-`UIApplicationMain` 创建 `UIApplication` 单例和 AppDelegate，并启动主事件循环。业务代码通过 `UIApplication.shared` 访问这个应用对象。UIApplication 管理应用级状态、分发事件，还提供打开 URL、注册远程通知等接口；具体页面由窗口、视图控制器和视图负责。
+RunLoop 是在一个线程上反复执行的循环：没有事件时，RunLoop 让线程休眠；触摸、定时器等事件到达时，RunLoop 唤醒线程，并调用对应的处理代码。主线程 RunLoop 是运行在主线程上的 RunLoop，UIKit 也把主线程 RunLoop 称为主事件循环。
 
-主事件循环就是 UIKit 在主线程上运行的 RunLoop，负责等待和分发事件。RunLoop 是在线程上等待输入源、定时器等事件，并调用对应处理函数的循环。UIKit 应用的主 RunLoop 由框架启动，业务代码不需要调用 `RunLoop.main.run()`。
+启动时，`UIApplicationMain` 创建 UIApplication 和 AppDelegate，然后启动主线程 RunLoop。主线程 RunLoop 由 UIKit 启动，业务代码不需要调用 `RunLoop.main.run()`。
 
-以按钮点击为例：系统把触摸事件发给应用，主线程 RunLoop 被唤醒并开始处理；UIKit 通过 UIApplication、UIWindow 等对象把事件交给按钮，最终执行按钮的动作。RunLoop 决定什么时候处理事件，UIApplication 等 UIKit 对象决定事件交给谁。
+以点击按钮为例，RunLoop 和 UIKit 对象的分工如下：
 
-没有事件时，RunLoop 让主线程休眠；事件到来后，主线程被唤醒，等系统调度后继续执行。如果按钮回调长时间占用主线程，后续的触摸处理和界面更新都会延迟，RunLoop 无法打断正在执行的回调。运行模式和输入源见 [iOS 线程与任务调度](threads-and-scheduling.md#runloop-与运行模式)。
+1. 系统把触摸事件发给应用进程。
+2. 主线程 RunLoop 被唤醒，开始处理这次触摸。RunLoop 决定“什么时候处理事件”。
+3. UIApplication 把事件交给触摸所在的 UIWindow，UIWindow 再把事件交给按钮。UIApplication 和 UIWindow 决定“把事件交给谁”。
+4. 按钮执行动作方法。
+
+主线程同一时刻只执行一段代码，RunLoop 等当前代码执行完，才处理下一个事件。如果按钮的动作方法在主线程上执行了 2 秒，新的触摸和界面刷新都要等这 2 秒结束才执行，用户就会感到卡顿。运行模式和输入源见 [iOS 线程与任务调度](threads-and-scheduling.md#runloop-与运行模式)。
+
+## 应用运行状态与生命周期回调
+
+应用生命周期是应用进程从启动、在前台和后台之间切换，到最终终止的整个过程。生命周期回调是 UIKit 在应用状态变化时调用的代理方法。应用在回调中完成初始化、暂停、恢复、保存等工作。
+
+本节先按传统 AppDelegate 生命周期说明。AppDelegate 中以 `application` 开头的回调方法，参数是当前的 UIApplication 对象。启用 Scene 生命周期后，界面状态的变化改为通知 SceneDelegate，区别见 [Scene 生命周期与应用生命周期](#scene-生命周期与应用生命周期)。
+
+### 五种运行状态
+
+| 状态 | 含义 | 容易误解的地方 |
+|-|-|-|
+| Not Running（未运行） | 应用进程还没启动，或已经终止 | 再次打开应用时，系统要重新创建进程 |
+| Inactive（未激活） | 应用在前台，但暂时不接收触摸等用户交互 | 应用代码仍在执行，网络请求完成后的回调照常执行 |
+| Active（已激活） | 应用在前台，并接收用户交互 | Active 只表示应用可以接收交互；数据加载和首帧显示各有自己的完成时机 |
+| Background（后台） | 应用不在前台，但在系统允许的时间内还能执行代码 | 普通应用做完收尾工作后会被挂起；只有声明了音频播放、定位等后台能力的应用，才能让对应工作继续运行 |
+| Suspended（挂起） | 进程还在内存中，但不执行任何代码 | 系统需要内存时可以直接终止挂起的进程，内存中未保存的数据随之丢失 |
+
+前台包括 Inactive 和 Active 两种状态。应用回到前台时先处于 Inactive，之后才变为 Active。后台状态下代码还能运行，挂起后代码完全停止。音频、定位等后台能力需要在工程中配置，系统只允许对应类型的工作在后台持续运行。
+
+这五种状态是为了说明生命周期而做的划分。代码能读到的 `UIApplication.shared.applicationState` 只有 `.active`、`.inactive`、`.background` 三个值。原因是应用处于 Not Running 或 Suspended 时，应用代码根本不执行，也就没有机会读取状态。
+
+### AppDelegate 的主要回调
+
+| 回调 | UIKit 调用时机 | 常见用途 |
+|-|-|-|
+| `application(_:didFinishLaunchingWithOptions:)` | 启动流程即将完成，应用即将开始运行 | 初始化启动必需的服务；用代码创建界面时，在这里创建主窗口 |
+| `applicationWillResignActive(_:)` | 应用即将从 Active 变为 Inactive | 暂停依赖用户交互的工作，例如暂停游戏、停止计时器 |
+| `applicationDidEnterBackground(_:)` | 应用已经进入 Background | 保存还没保存的数据，释放可以重新创建的资源，结束不需要继续的工作 |
+| `applicationWillEnterForeground(_:)` | 应用即将从 Background 回到前台，先进入 Inactive | 检查后台期间发生的数据变化，按需刷新 |
+| `applicationDidBecomeActive(_:)` | 应用已经从 Inactive 变为 Active | 恢复因失去激活而暂停的工作 |
+| `applicationWillTerminate(_:)` | 应用即将终止，并且系统有机会通知应用 | 执行简短的清理。系统直接终止挂起进程时不调用这个方法，所以数据要在更早的时机保存 |
+
+UIKit 只负责在对应时机调用这些方法。计时器是否暂停、数据是否刷新，取决于开发者在方法里写了什么代码。
+
+`applicationWillResignActive(_:)` 被调用后，应用可能进入后台，也可能很快恢复激活。例如用户下拉控制中心又收起，应用会从 Inactive 直接回到 Active。
+
+### 常见状态变化与调用顺序
+
+下面三个流程都假设状态切换正常完成。如果期间发生系统中断、后台启动或进程被终止，回调顺序会不同。
+
+**流程 1：从未运行直接启动到前台。** 应用没有经过后台，所以 UIKit 不调用 `applicationWillEnterForeground(_:)`。
+
+```text
+状态：Not Running → 启动初始化 → Inactive → Active
+回调：application(_:willFinishLaunchingWithOptions:)
+   → application(_:didFinishLaunchingWithOptions:)
+   → applicationDidBecomeActive(_:)
+```
+
+**流程 2：切到后台，再切回前台。** 应用离开时先失去激活，再进入后台；回来时先回到前台，再恢复激活。
+
+```text
+离开：Active → Inactive → Background →（可能）Suspended
+回调：applicationWillResignActive(_:) → applicationDidEnterBackground(_:)
+
+返回：（如果已挂起，先恢复执行）Background → Inactive → Active
+回调：applicationWillEnterForeground(_:) → applicationDidBecomeActive(_:)
+```
+
+进入后台后，应用可能被挂起；挂起后，系统也可能终止进程。如果系统在后台期间终止了进程，用户再次打开应用时走流程 1。
+
+**流程 3：前台短暂中断。** 例如用户下拉控制中心后又收起，应用只进入 Inactive，没有进入 Background。
+
+```text
+状态：Active → Inactive → Active
+回调：applicationWillResignActive(_:) → applicationDidBecomeActive(_:)
+```
+
+来电、系统弹窗出现时，应用可能只进入 Inactive，也可能进入 Background。UIKit 按实际发生的状态变化调用对应的回调。
+
+### 进入前台与进入激活状态的区别
+
+`applicationWillEnterForeground(_:)` 表示“应用即将从后台回到前台”。`applicationDidBecomeActive(_:)` 表示“应用已经可以接收用户交互”。两个回调不总是成对出现，对照上一节的三个流程：
+
+| 流程 | `applicationWillEnterForeground(_:)` | `applicationDidBecomeActive(_:)` |
+|-|-|-|
+| 流程 1：从未运行直接启动 | 不调用 | 调用 |
+| 流程 2：从后台返回前台 | 先调用 | 后调用 |
+| 流程 3：短暂中断后恢复 | 不调用 | 调用 |
+
+因此，代码放在哪个回调，取决于代码需要在什么条件下执行：
+
+- “每次从后台回来都刷新数据”放在 `applicationWillEnterForeground(_:)`。这次刷新只在流程 2 中执行。
+- “每次恢复交互时继续暂停的任务”放在 `applicationDidBecomeActive(_:)`。三个流程都会触发。
+
+如果在 `applicationWillEnterForeground(_:)` 中发起异步网络请求，UIKit 照常继续切换状态，并调用 `applicationDidBecomeActive(_:)`，网络请求在此期间继续进行。所以 `applicationDidBecomeActive(_:)` 执行时，数据可能还没返回。应用可以先显示已有数据，请求完成后再更新界面。
+
+### 挂起、终止与数据保存
+
+挂起的应用不执行代码。系统可以直接终止挂起的进程。终止发生时应用没有代码在运行，所以 `applicationWillTerminate(_:)` 不会被调用，数据也来不及保存。用户在应用切换器中上滑关闭应用时，`applicationWillTerminate(_:)` 同样可能不被调用。
+
+持久保存是把数据写入文件、数据库等存储，进程结束后数据仍然存在。只保存在内存中的数据，会随进程终止一起丢失。
+
+因此，重要数据应在产生或修改后及时保存。`applicationDidEnterBackground(_:)` 适合再补存一次尚未保存的状态，作为及时保存之外的补充。具体存储方式见 [iOS 数据持久化](../network-and-storage/ios-data-persistence.md)。
+
+例如，用户在编辑器中写草稿，应用每隔几秒把草稿写入文件。之后应用进入后台、被挂起，又被系统终止。用户重新打开应用时，应用从文件读出最近一次保存的草稿；最近一次保存之后、还没写入文件的修改会丢失。
+
+### Scene 生命周期与应用生命周期
+
+Scene 是应用界面的一个实例，有自己的前台、后台和激活状态。例如在 iPad 上把同一个应用打开成两个窗口，就有两个 Scene。`UIWindowScene` 是管理窗口的 Scene 类。SceneDelegate 是开发者编写的场景代理类，遵循 `UIWindowSceneDelegate` 协议（继承自 `UISceneDelegate`），接收某一个 Scene 的状态回调。一个应用进程可以同时有多个 Scene。
+
+Scene 生命周期从 iOS 13 开始提供。应用启用 Scene 生命周期后，UIKit 把下面四种界面状态变化通知给对应 Scene 的 SceneDelegate，不再调用 AppDelegate 中对应的方法。SceneDelegate 回调的参数是发生状态变化的那个 Scene。
+
+| AppDelegate 回调 | SceneDelegate 对应回调 |
+|-|-|
+| `applicationWillResignActive(_:)` | `sceneWillResignActive(_:)` |
+| `applicationDidEnterBackground(_:)` | `sceneDidEnterBackground(_:)` |
+| `applicationWillEnterForeground(_:)` | `sceneWillEnterForeground(_:)` |
+| `applicationDidBecomeActive(_:)` | `sceneDidBecomeActive(_:)` |
+
+AppDelegate 仍负责进程级的工作，例如在 `application(_:didFinishLaunchingWithOptions:)` 中完成启动初始化；SceneDelegate 负责某一个 Scene 的界面状态。一个 Scene 进入后台时，同一应用的另一个 Scene 可能仍在前台。
+
+**首次进入前台时的区别。** 新创建的 Scene 第一次进入前台时，UIKit 也会调用 `sceneWillEnterForeground(_:)`。而在传统生命周期中，应用首次启动时不调用 `applicationWillEnterForeground(_:)`。所以把“从后台回来刷新数据”的代码移到 `sceneWillEnterForeground(_:)` 后，Scene 首次显示时也会执行一次这段代码。
+
+应用、Scene 和 UIViewController 各有自己的生命周期。页面出现或消失（例如 `viewDidAppear(_:)` 被调用）由 push、present 等页面切换触发；应用进入前台或后台由用户切换应用触发。页面层面的回调见 [UIKit 布局、列表与 MVVM](uikit-layout-and-mvvm.md#页面生命周期与展示方式)。
+
+## AppDelegate 生命周期下，从启动到首帧显示
+
+适用条件：应用使用传统 AppDelegate 生命周期，用代码创建界面，从未运行状态启动到前台。系统预热、状态恢复等情况另有流程。应用从后台回到前台时，进程已经存在，UIKit 只调用生命周期回调，见 [常见状态变化与调用顺序](#常见状态变化与调用顺序)。
+
+首帧是应用启动后，用户在屏幕上看到的第一个应用界面。从进程创建到首帧显示，按顺序分为六步：
+
+1. 系统创建进程并加载代码。系统创建应用进程，dyld 加载可执行文件和依赖的动态库，再执行运行时初始化等代码。这一步发生在 `main` 函数之前，详见 [main 之前的启动工作与 dyld](#main-之前的启动工作与-dyld)。
+2. 程序进入 `UIApplicationMain`。`UIApplicationMain` 创建 UIApplication 和 AppDelegate，把 AppDelegate 设为 UIApplication 的代理，并启动主线程 RunLoop。
+3. UIKit 调用启动回调。UIKit 依次调用 `application(_:willFinishLaunchingWithOptions:)` 和 `application(_:didFinishLaunchingWithOptions:)`。应用在这两个方法里完成启动必需的初始化，并检查启动参数，例如应用是否由某个 URL 打开。
+4. AppDelegate 创建窗口。用代码创建界面时，AppDelegate 在 `application(_:didFinishLaunchingWithOptions:)` 中创建 UIWindow，设置 `rootViewController`，再调用 `makeKeyAndVisible()`。`rootViewController` 是窗口的根视图控制器，窗口显示的主要内容由根视图控制器管理。
+5. UIKit 加载根视图控制器的视图。窗口要显示时，UIKit 调用根视图控制器的 `loadView()` 创建视图，再调用 `viewDidLoad()`，然后执行布局和绘制。
+6. 系统显示首帧。应用把准备好的界面提交给系统，系统完成渲染与合成后，屏幕显示首帧。
+
+首帧在第 6 步才显示，所以下面两个时间点都早于首帧：
+
+- `application(_:didFinishLaunchingWithOptions:)` 返回时。
+- `makeKeyAndVisible()` 返回时。`makeKeyAndVisible()` 只把窗口设为可见的关键窗口；界面还要完成布局和绘制，再由系统渲染，才会出现在屏幕上。
+
+`applicationDidBecomeActive(_:)` 只表示应用可以接收交互，判断首帧要看第 6 步。首帧显示时，网络请求和业务数据可能还在加载。
+
+使用 Storyboard 作为主界面时，第 4 步由 UIKit 完成：UIKit 根据工程配置的主 Storyboard 创建窗口和根视图控制器。
+
+### main 之前的启动工作与 dyld
+
+`main` 是程序的入口函数。pre-main 指进入 `main` 之前的启动阶段。Swift 的 UIKit 应用用 `@main` 标记 AppDelegate，编译器据此生成入口代码，所以源码中通常看不到 `main` 函数。
+
+dyld 是 Apple 平台的动态链接器，负责在程序运行时把动态库装入进程。动态库是单独存放的代码文件，程序运行时才被装入。pre-main 阶段按以下顺序执行：
+
+1. 系统创建进程，把主可执行文件映射到内存。
+2. dyld 读取可执行文件中记录的依赖列表，加载所需的动态库，再加载这些动态库自己依赖的库。
+3. dyld 修正地址并绑定符号。符号是函数、全局变量等在代码中的名字。符号绑定是把代码对某个符号的引用，改成这个符号在内存中的实际地址。例如，应用代码调用 UIKit 中的函数，加载前只记录了函数名，绑定后才知道函数在内存中的位置。
+4. 运行时完成初始化，并执行启动阶段的初始化代码。例如，Objective-C 运行时调用类和分类的 `+load` 方法；C++ 全局对象执行构造函数；标记为初始化函数（例如 `__attribute__((constructor))`）的函数被执行。
+
+以上工作都发生在 `main` 之前，所以都计入启动时间。
+
+需要区分两种情况：
+
+- C++ 静态对象的构造时机分两种。全局对象在 `main` 之前构造；函数内的静态局部对象，如果需要运行代码才能初始化（例如函数里的 `static Logger logger;`，`Logger` 的构造函数需要执行代码），会在程序第一次执行到这行声明时才构造。存储期与构造时机见 [C++ 静态存储期对象与初始化](../language/cpp-static-storage-and-initialization.md)。
+- 静态库只在构建时使用。静态库（`.a` 文件）的代码在构建时已经复制进可执行文件，所以运行时 dyld 只加载动态库。链接、嵌入和装载的区别见 [编译、链接、嵌入与装载](../engineering/xcode-and-testing.md#编译链接嵌入与装载)。
+
+### LaunchScreen、自定义启动页与异步加载
+
+`LaunchScreen` 是应用界面准备好之前，系统先显示的启动画面。用 Launch Screen Storyboard 配置的 `LaunchScreen` 是一份静态布局，由系统直接显示，应用代码无法控制 `LaunchScreen` 的内容。所以 `LaunchScreen` 只能展示固定的图片、文字和布局；网络请求、倒计时和按钮响应要放到自定义启动页中。
+
+自定义启动页（例如开屏广告页）是应用自己创建的普通视图控制器，可以运行代码、加载素材、响应点击。这里要区分两个首帧：应用首帧是应用显示的第一个画面；首页首帧是首页第一次显示的画面。如果窗口先显示自定义启动页，应用首帧就是启动页，首页首帧要等启动页关闭后才出现。
+
+自定义启动页涉及三个对象：启动页控制器负责显示素材和倒计时；加载组件负责获取素材；管理者负责决定显示启动页还是首页，例如 AppDelegate 或一个专门的协调对象。按执行顺序分为四步：
+
+1. 管理者提供显示位置。首次启动时，启动页要在首页之前显示，管理者就把启动页的容器控制器设为窗口的 `rootViewController`，启动页结束后再换成首页。启用 Scene 生命周期时，窗口由对应的 Scene 管理。
+2. 加载组件异步获取素材。素材请求结束后，加载组件调用管理者传入的完成回调，并传入素材或错误。等待期间，窗口要先显示一个可以立即绘制的界面，例如占位图。素材必须异步加载：主线程同步等待素材时会被阻塞，首帧随之推迟。
+3. 启动页显示素材，并开始倒计时。启动页在 `viewDidAppear(_:)` 中开始倒计时，因为 `viewDidLoad()` 执行时页面还没出现在屏幕上。回调顺序见 [控制器初始化、视图加载与页面展示](uikit-layout-and-mvvm.md#控制器初始化视图加载与页面展示)。
+4. 启动页关闭。启动页停止倒计时，取消还没完成的任务，再调用管理者传入的关闭回调。管理者收到关闭回调后显示首页。
+
+实现时注意三点：
+
+- 设置等待上限。素材加载失败或超过等待上限时，管理者直接显示首页，首页最多等待这个上限时长。
+- 区分两个回调。“素材加载完成”由加载组件调用完成回调通知管理者；“启动页已关闭”由启动页调用关闭回调通知管理者。两件事各自发生，例如素材加载超时后启动页已经关闭，之后素材才返回。
+- 丢弃过期结果。被取消的任务有时仍会返回结果。完成回调执行时，要先检查启动页是否已经关闭；启动页已关闭时直接丢弃结果，不刷新已关闭的页面。
+
+应用已经有可见页面时（例如从后台回到前台），也可以用 `present(_:animated:completion:)` 弹出启动页。前提有两个：发起 `present` 的控制器正在屏幕上显示；当前没有其他正在进行的转场。启动回调执行时，窗口和控制器可能还没显示，所以要等发起 `present` 的控制器出现在屏幕上（例如在 `viewDidAppear(_:)` 中）再调用。
+
+如果启动页每次进程启动只显示一次，显示记录要存放在与进程同生命周期的对象中，例如管理者的一个属性。`applicationDidBecomeActive(_:)`、`sceneDidBecomeActive(_:)` 和 `viewDidAppear(_:)` 在一次进程运行中会被调用多次，所以要用显示记录判断：记录为“未显示”时才显示启动页，显示后把记录改为“已显示”。进程终止后再打开，算新的一次启动；前后台切换不算，进程还是原来的进程。
+
+倒计时的剩余时间要用“截止时刻 − 当前时刻”计算，截止时刻等于开始时刻加展示时长。不要每次定时器回调减 1 秒，因为定时器回调可能延迟，逐次减 1 秒会让显示值和实际时间越差越多。时间要取自单调时钟。单调时钟是只向前走、不受用户修改系统时间影响的时钟，例如 Swift 的 `ContinuousClock`。例如展示时长为 5 秒，开始时刻为 100.0 秒，截止时刻就是 105.0 秒；某次定时器回调在 102.3 秒执行，剩余时间是 105.0 − 102.3 = 2.7 秒。任务的结果类型和取消规则见 [任务结果类型与 Void、Never](../language/swift-basics.md#任务结果类型与-voidnever) 与 [上下文继承与取消](../language/swift-basics.md#上下文继承与取消)。
+
+## 启动耗时的测量与优化
+
+启动耗时是从选定的起点到选定的终点之间经过的时间。优化启动耗时分三步：先确定测量的起点和终点，再找出用户等待期间耗时最多的工作，最后减少或推迟这些工作。
 
 ### 进程创建时间与启动计时起点
 
-进程创建时间是系统记录的进程开始存在的时刻，比进入 `main()` 早。只从 `main()` 开始计时，会漏掉 `main()` 之前的启动阶段。
+进程创建时间是系统记录的、进程开始存在的时刻，比进入 `main()` 更早。只从 `main()` 开始计时，会漏掉 pre-main 阶段，所以启动计时常用进程创建时间作为起点。
 
-`sysctl` 是 Darwin 系统提供的 C 接口，用来查询系统信息，有权限的调用方还可以修改部分信息。PID 是系统分配给进程的编号。查询当前进程的信息时，调用方传入当前 PID 和一块缓冲区，系统把查询结果写入缓冲区。
+读取进程创建时间要用 `sysctl`。`sysctl` 是 Darwin 系统提供的 C 函数，用来查询系统和进程的信息。PID 是系统分配给进程的编号。读取步骤如下：
 
-1. 获取当前进程的 PID。
-2. 通过 `sysctl` 的 `CTL_KERN → KERN_PROC → KERN_PROC_PID → PID` 查询路径请求进程信息。
-3. 查询成功并获得有效结果后，从 `kinfo_proc` 结构中的 `kp_proc.p_un.__p_starttime` 读取进程启动时间。
-4. 把秒数 `tv_sec` 和微秒数 `tv_usec` 合并：时间戳（秒）= `tv_sec + tv_usec / 1_000_000.0`。时间戳是从某个固定时间原点算起的时刻，不是耗时。
-
-查到的是进程创建的时刻，不是查询的时刻。例如：10:00:00.000 创建进程，10:00:00.200 进入 `main()`，10:00:00.300 查询，得到的是 10:00:00.000。
-
-统计前要先确定起点和终点。用进程创建时间作起点，可以算上 `main()` 之前的阶段，但进程创建时间也不等于用户点击图标的时间。系统预热是指系统在用户打开 App 之前，提前执行部分启动工作；有预热时，进程创建时间可能比用户点击早很多，要把预热阶段和用户实际等待的时间分开。相减的两个时间还必须来自同一种时钟、使用相同的单位。
-
-### 启动优化的三个方向
-
-启动优化先要确定测量的起点和终点，并把工作分为三段：进入 main 之前、首屏显示之前、首屏显示之后。只有减少用户等待期间执行的工作，启动耗时才会下降。
-
-**减少首屏不需要的初始化。** 初始化是为组件创建对象、读取配置、准备运行条件。把首屏用不到的初始化推迟到功能第一次使用时，首屏会更快，但第一次使用功能时要承担这部分耗时。`+load`、`+initialize` 和功能入口的时机、同步等待及注册顺序见[Objective-C 类初始化与按需准备](../language/swift-objc-runtime.md#initialize-的触发时机与执行限制)。
-
-**减少主线程上的同步耗时工作。** 主线程负责界面和输入事件。在主线程同步扫描文件、解析大量数据或解码大图，都会推迟界面显示。例如，启动时先读取一份很小的首页摘要并显示界面，再在后台读取和解析完整的历史记录，完成后回到主线程刷新对应区域。只有不涉及 UIKit 的工作才能移到后台；而且把任务放到后台后，主线程如果立即等待它完成，耗时并没有减少。
-
-**减少首屏的视图和布局工作。** 只创建当前需要显示的界面，按展示尺寸准备图片，并避免重复创建约束。例如，首页有多个标签页时，先创建默认标签页的内容，其他页面在需要时加载；列表优先配置当前显示需要的项目。具体布局优化见 [UIKit 布局、列表与 MVVM](uikit-layout-and-mvvm.md)。
-
-对已经确认发生在 main 之前的耗时初始化，按上文的启动阶段调整执行时机，并去掉不需要的依赖。判断瓶颈要看实际测量结果，不能只看动态库或视图的数量。验证时保持设备、启动类型、数据和缓存条件一致，并同时检查首屏可交互的时间，避免只是把耗时转移到了用户接下来的操作上。
-
-## UIApplication 的使用场景：打开应用设置
-
-用户拒绝照片访问后，应用可以提供“去设置”按钮。按钮被点击后，业务代码使用 UIApplication.openSettingsURLString 构造 URL，再通过 UIApplication.shared.open(...) 请求系统打开本应用的设置页面。
-
-执行顺序是：按钮接收点击 → 业务代码调用 UIApplication 的接口 → 系统打开本应用的设置页面。UIApplication 只提供请求入口，打开设置页面由系统完成。
-
-## 为什么一个应用可以有多个 UIWindow
-
-UIWindow 是应用界面中的一个视图对象，负责承载视图层级，与进程无关，也不同于桌面系统中带边框、可拖动的窗口。同一个应用进程可以创建多个 UIWindow。
-
-多数应用只需要一个主 UIWindow。额外的窗口可以显示额外的内容，叠加在主窗口上面。所以用户看到的画面可能由多个窗口叠成，看起来只有一个应用界面，内部也可能有多个 UIWindow。
-
-例如，主 UIWindow 显示首页，再用一个背景透明的 UIWindow 显示悬浮的调试按钮，用户看到的就是首页上浮着一个按钮。这只是一种做法，悬浮按钮也可以直接用普通 UIView 实现。
-
-切换首页和详情页通常通过视图控制器或视图切换完成，不需要为每个页面新建 UIWindow。
-
-## 关键窗口与 makeKeyAndVisible()
-
-关键窗口（key window）是 UIKit 指定的、接收键盘输入等没有触摸坐标的事件的窗口。窗口是不是关键窗口，与窗口是否可见是两回事。
-
-| 操作 | 作用 |
-|-|-|
-| makeKey() | 请求窗口成为关键窗口，不负责显示隐藏的窗口 |
-| isHidden = false | 显示窗口，不等同于将窗口设为关键窗口 |
-| makeKeyAndVisible() | 显示窗口，并将窗口设为关键窗口 |
-
-makeKeyAndVisible() 还会把窗口放到 windowLevel（窗口级别）相同或更低的窗口前面。是否为关键窗口，与窗口叠放的前后顺序也是两回事。
-
-非关键窗口照样可以显示，触摸落在它上面时也照样能接收。
-
-“关键窗口只有一个”是对一个 Scene 而言的。不使用 Scene 的传统应用只有一个关键窗口；使用多个 Scene 时，每个 Scene 各有自己的关键窗口。
-
-## UIApplication 与 UIWindow 为什么都分发事件
-
-事件分发是把事件交给合适的对象处理。UIApplication 与 UIWindow 负责分发的层级不同，所以两者都参与分发。
-
-以触摸事件为例，路径可以简化为：UIApplication → 对应的 UIWindow → 窗口内的目标 UIView。UIApplication 把事件交给窗口，UIWindow 再把事件交给目标视图。这里省略了手势识别器等其他参与者。
-
-命中测试是根据触摸位置和视图层级，找出触摸落在哪个视图上。响应链是由每个响应对象的 next 属性串起来的一条链，事件沿着这条链传递。命中测试负责找到第一个接收触摸的视图，响应链负责之后把事件继续往后传。
-
-### 触摸回调与响应链转发
-
-子视图在 `touchesBegan(_:with:)` 中处理了触摸后，父视图不会自动收到这个回调。事件是否继续传递，取决于子视图的实现是否调用了父类实现（父类实现会转发），或者自己显式转发给下一个响应对象。`touchesBegan(_:with:)` 等方法没有返回值，UIKit 无法知道事件是否“已处理”。
-
-`UIResponder` 是所有能接收事件的对象的基类，`next` 属性指向响应链中的下一个响应对象。普通视图的 `next` 是父视图；如果视图是某个视图控制器的根视图，`next` 是这个视图控制器。所以响应链不一定都沿父视图向上。
-
-`super.touchesBegan(touches, with: event)` 调用的是当前类的父类实现，不是父视图的方法。`UIResponder` 的默认实现会把事件转给 `next`；但如果父类是某个控件或自定义类，父类实现可能自己处理触摸而不转发，所以调用了 `super` 也不一定能传到父视图。
-
-| 子视图的实现方式 | 对该触摸回调的影响 |
-| --- | --- |
-| 重写触摸方法，执行自定义逻辑，不调用 `super`，也不显式转发 | 该回调不会由这个实现继续沿响应链传递 |
-| 执行自定义逻辑后调用 `super` | 是否继续传递由父类实现决定；执行过自定义逻辑不妨碍之后继续转发 |
-| 未重写触摸方法 | 使用继承来的实现；继承的是默认转发行为时，会继续传递 |
-
-触摸序列是一次触摸从开始、移动到结束或取消的完整过程，`touchesBegan`、`touchesMoved`、`touchesEnded`、`touchesCancelled` 分别对应这几个阶段。如果重写 `touchesBegan` 且不调用 `super` 来自己处理触摸，其余三个方法也要重写且不调用 `super`，即使方法体是空的。只在 `touchesBegan` 中不转发，后续阶段仍会通过默认实现转发出去。
-
-### 父子视图的手势识别与同时识别
-
-`UIGestureRecognizer` 是根据触摸序列识别点击、拖动、长按等手势的对象。一个识别器同一时刻只能添加在一个视图上；把它添加到另一个视图，它会从原来的视图上移除。
-
-一个触点经过命中测试后确定一个目标视图。添加在目标视图上的识别器，以及添加在目标视图所有祖先视图（沿 `superview` 向上的各层父视图）上的识别器，都会收到这个触点的触摸。只是在画面上重叠、但不是祖先的兄弟视图，收不到这次触摸。
-
-例如，`parentView` 包含 `childView`，两者各有一个拖动识别器 `parentPan` 和 `childPan`。触摸落在 `childView` 上时，两个识别器都会收到触摸。但收到触摸不等于识别成功；默认情况下，两个识别器中只有一个能识别成功。
-
-同时识别是指允许两个识别器在同一次交互中都识别成功。UIKit 会调用识别器代理的 `gestureRecognizer(_:shouldRecognizeSimultaneouslyWith:)`，询问两个识别器能否同时识别。下面的方法写在遵循 `UIGestureRecognizerDelegate` 的对象中，`parentPan` 和 `childPan` 是这个对象保存的识别器属性，两个识别器的 `delegate` 都已设为这个对象。
+1. 调用 `getpid()` 获取当前进程的 PID。
+2. 准备查询路径 `[CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]`，含义是“查询内核中、指定 PID 的进程信息”。
+3. 准备一个 `kinfo_proc` 结构体作为缓冲区，调用 `sysctl`。系统把进程信息写入缓冲区。
+4. 确认调用成功后，从 `kp_proc.p_un.__p_starttime` 读取启动时间。启动时间分为秒 `tv_sec` 和微秒 `tv_usec` 两部分，合并后为 `tv_sec + tv_usec / 1_000_000.0` 秒。
 
 ```swift
-func gestureRecognizer(
-    _ gestureRecognizer: UIGestureRecognizer,
-    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
-) -> Bool {
-    (gestureRecognizer === parentPan && otherGestureRecognizer === childPan)
-        || (gestureRecognizer === childPan && otherGestureRecognizer === parentPan)
+import Darwin
+
+func processStartTime() -> TimeInterval? {
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+    var info = kinfo_proc()
+    var size = MemoryLayout<kinfo_proc>.stride
+    guard sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0 else {
+        return nil
+    }
+    let start = info.kp_proc.p_un.__p_starttime
+    return TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000
 }
 ```
 
-返回 `true` 只是允许这两个识别器同时识别，并不保证它们都识别成功，每个识别器仍要满足自己的识别条件。如果还设置了“等另一个识别器失败后才能成功”的依赖，也要一起考虑。识别成功后，每个识别器调用自己的动作方法，分别更新父视图和子视图。
+`processStartTime()` 返回的是时间戳。时间戳是从固定时间原点（1970 年 1 月 1 日 00:00:00 UTC）算起的时刻；耗时要用两个时间戳相减得到。时间戳记录的是进程创建的时刻，与何时查询无关。例如：10:00:00.000 系统创建进程，10:00:00.200 进入 `main()`，10:00:00.300 调用 `processStartTime()`，得到的仍是 10:00:00.000。
 
-祖先视图上的识别器能收到触摸，与子视图是否在 `touchesBegan` 中调用 `super` 无关：UIKit 先把触摸交给相关的手势识别器，再把触摸回调交给视图。所以子视图不转发触摸回调，也挡不住父视图的识别器。识别器如何取消视图收到的触摸，见下文 [同一按钮的点击与长按协调](#同一按钮的点击与长按协调)。
+用进程创建时间作起点时，还要注意两点：
+
+- 进程创建时间可能早于用户点击图标的时间。系统预热是指系统在用户打开应用之前，提前创建进程并执行部分启动工作。发生预热时，进程创建时间可能比用户点击早很多，而预热期间用户还没开始等待，所以统计时要把预热阶段和用户实际等待的时间分开。
+- 起点和终点必须来自同一种时钟、使用相同的单位。`processStartTime()` 返回的是从 1970 年起算的秒数，终点也要用同一种时钟读取，例如 `Date().timeIntervalSince1970`，两者相减才是耗时。
+
+### 启动优化的三个方向
+
+启动优化先确定测量的起点和终点，再把启动过程分为三段：进入 `main` 之前、`main` 到首屏显示、首屏显示之后。只有减少用户等待期间执行的工作，启动耗时才会下降。
+
+**方向一：减少首屏不需要的初始化。** 初始化是为某个功能提前创建对象、读取配置、准备运行条件。如果首屏用不到某个功能，就把这个功能的初始化推迟到功能第一次被使用时。这样首屏更快显示，代价是第一次使用该功能时要多等这部分时间。例如分享 SDK 只在用户第一次点击“分享”时初始化。`+load`、`+initialize` 和功能入口的执行时机、同步等待及注册顺序见 [Objective-C 类初始化与按需准备](../language/swift-objc-runtime.md#initialize-的触发时机与执行限制)。
+
+**方向二：把耗时工作移出主线程。** 主线程负责显示界面和处理触摸。在主线程上同步扫描文件、解析大量数据或解码大图，都会推迟界面显示。例如，启动时先读取一份很小的首页摘要并显示界面，再在后台线程读取和解析完整的历史记录，完成后回到主线程刷新对应区域。这种做法有两个限制：
+
+- 只有不操作 UIKit 的工作才能移到后台线程，UIKit 对象要在主线程上使用。
+- 工作移到后台线程后，主线程继续执行其他工作，后台工作完成后再回到主线程更新界面。如果主线程同步等待后台工作，主线程仍被占用，启动耗时保持原样。
+
+**方向三：减少首屏的视图和布局工作。** 只创建当前要显示的界面；按显示尺寸准备图片；避免重复创建约束。例如首页有多个标签页时，先创建默认标签页的内容，其他标签页在用户切换过去时再创建；列表优先配置当前屏幕上显示的项目。布局优化见 [UIKit 布局、列表与 MVVM](uikit-layout-and-mvvm.md)。
+
+`main` 之前的耗时来自上文 [main 之前的启动工作与 dyld](#main-之前的启动工作与-dyld) 中的各项工作。已经确认耗时发生在 `main` 之前时，可以减少 `+load` 等启动阶段的初始化代码，去掉不需要的依赖，并减少动态库数量和需要修正的地址，见下面两节。
+
+验证优化效果时注意三点：
+
+- 根据测量出的各阶段耗时判断瓶颈。
+- 每次测量保持设备、启动类型、数据和缓存条件一致。启动类型例如设备重启后第一次启动应用，或应用刚被关闭后再次启动。
+- 同时检查首屏可以交互的时间，确认耗时没有只是转移到用户接下来的操作上。
+
+### 动态库数量与启动开销
+
+启动时每多加载一个自定义动态库，系统就要多做一份固定的工作：打开文件、建立内存映射、处理依赖关系、修正地址。内存映射是把文件内容对应到进程的地址空间，代码被访问到时，系统才从文件中读取对应的部分。系统会缓存部分工作结果，但剩下的开销仍会随动态库的数量、大小和实际访问的数据增加。
+
+例如，把 10 个各约 1 MB 的动态库合并成 1 个约 10 MB 的动态库。代码总量基本不变，但要加载和管理的库从 10 个变成 1 个；原来跨库的部分符号引用，在构建时就能确定地址。合并减少的只是每个库各自的固定开销，代码本身的加载和初始化工作保持不变，所以启动耗时的下降比例小于库数量的下降比例。
+
+合并动态库有三个局限：
+
+- `+load` 等初始化代码合并后照样执行，执行时间保持不变。
+- 系统框架（例如 UIKit）有共享缓存等专门优化。共享缓存是系统预先合并、预先链接好的系统库集合，所有进程共用。所以上面的开销规律只适用于自定义动态库。
+- “自定义动态库控制在 6 个以内”是经验值，iOS 没有规定数量上限。启动开销随库的数量逐渐增加，在 6 个处没有突变。
+
+静态链接也能减少独立的动态库。静态链接在构建时把库的代码复制进可执行文件，运行时不再单独加载这个库。构建速度、代码共享和可合并库的取舍见 [静态链接与动态链接的取舍](../engineering/xcode-and-testing.md#静态链接与动态链接的取舍)。
+
+### 删除无用代码与地址修正成本
+
+删除无用代码能否加快启动，取决于删掉的内容是否减少了加载时需要修正的指针。
+
+dyld 加载可执行文件时要修正两类指针。Rebase 修正指向本模块内部的指针：系统每次把可执行文件加载到随机的地址，模块内部的指针要按实际加载地址调整。Binding 修正指向其他动态库中符号的指针：dyld 查到符号的实际地址后，把地址写入指针。两种操作的机制与示例见 [Rebase 与 Binding：地址修正](../engineering/xcode-and-testing.md#rebase-与-binding地址修正)。
+
+类的元数据是描述类的数据，记录类有哪些方法、父类是谁等信息。元数据中保存着指向方法实现、父类等的指针，这些指针在加载时都需要修正。所以删除一个确实留在最终产物中的无用类后，元数据中的指针随之消失，Rebase 和 Binding 的工作就会减少。
+
+删除代码对修正工作的影响，取决于删掉的内容：
+
+- 只保存数值的全局变量（例如 `int count = 0;`）在加载地址变化时保持原值，无需修正。只有保存地址的指针才需要修正。
+- 修正次数取决于元数据中的指针数量，与方法数量没有固定比例。删除 10 个方法后减少了多少次修正，要实际测量。
+- 已经被链接器裁剪掉的代码没有进入最终产物，运行时本来就没有对应的修正工作，再删除这部分源码对启动耗时没有影响。裁剪条件见 [静态库的目标文件提取与代码裁剪](../engineering/xcode-and-testing.md#静态库的目标文件提取与代码裁剪)。
+
+删除前要确认三点：代码没有被运行时按名称查找（例如通过 `NSClassFromString` 查找类）；代码没有被配置文件引用；代码没有作为 `+load` 等初始化入口被执行。优化后分别测量代码体积、地址修正次数和首屏耗时三项指标。
+
+## 为什么一个应用可以有多个 UIWindow
+
+UIWindow 是 UIView 的子类，作为视图层级的根容器承载界面，并把事件交给窗口内的视图。UIWindow 是应用进程中的一个视图对象，与桌面系统中带标题栏、可以拖动的窗口是不同的概念。同一个应用进程可以创建多个 UIWindow。
+
+多数应用只需要一个主 UIWindow。额外的 UIWindow 会叠在主 UIWindow 上面显示，所以用户看到的一屏画面可能由多个 UIWindow 叠加而成。
+
+例如，主 UIWindow 显示首页；另一个背景透明的 UIWindow 只放一个悬浮的调试按钮。用户看到的是首页上浮着一个按钮，应用内部其实有两个 UIWindow。这只是一种做法，悬浮按钮也可以用主 UIWindow 中的普通 UIView 实现。
+
+首页和详情页之间的切换由视图控制器完成，例如 push 或 present，不需要为每个页面新建 UIWindow。
+
+## 关键窗口与 makeKeyAndVisible()
+
+关键窗口（key window）是 UIKit 指定的、接收键盘输入等没有触摸坐标的事件的窗口。这类事件没有坐标，UIKit 无法按位置判断交给哪个窗口，所以交给关键窗口。关键窗口身份和可见状态由不同的操作设置：
+
+| 操作 | 作用 |
+|-|-|
+| `makeKey()` | 请求窗口成为关键窗口，窗口保持原来的显示状态 |
+| `isHidden = false` | 显示窗口，关键窗口保持不变 |
+| `makeKeyAndVisible()` | 显示窗口，并把窗口设为关键窗口 |
+
+`makeKeyAndVisible()` 还会把窗口放到 `windowLevel` 相同或更低的其他窗口前面。`windowLevel` 是窗口的层级值，层级值大的窗口显示在上面。窗口叠放的前后顺序由 `windowLevel` 和显示的先后决定，与关键窗口身份各自独立。
+
+非关键窗口照样显示，也照样接收落在自己范围内的触摸，因为触摸事件按触摸位置分发。
+
+“关键窗口只有一个”是针对一个 Scene 而言的。不使用 Scene 的传统应用只有一个关键窗口；使用多个 Scene 时，每个 Scene 各有一个关键窗口。
+
+## 触摸事件分发：命中测试、响应链与手势
+
+事件分发是把一个事件交给合适的对象处理。UIApplication 和 UIWindow 都参与分发，因为两者负责的层级不同：UIApplication 在应用内选择窗口，UIWindow 在窗口内选择视图。
+
+触摸事件的路径可以简化为：
+
+```text
+系统 → UIApplication → 触摸所在的 UIWindow → 窗口内的目标 UIView
+```
+
+这条路径省略了手势识别器，手势识别器的参与方式见 [父子视图的手势识别与同时识别](#父子视图的手势识别与同时识别)。
+
+找到目标视图，以及找到之后继续传递事件，分别由两套机制负责：
+
+- 命中测试：UIKit 根据触摸位置和视图层级，找出触摸落在哪个视图上。命中测试找到的视图是第一个接收这次触摸的视图。
+- 响应链：由每个响应对象的 `next` 属性串起来的一条链。目标视图不继续处理的事件，可以沿响应链传给下一个对象。
+
+下面先说明命中测试，包括局部坐标、`hitTest(_:with:)`、事件穿透和扩大命中区域；再说明响应链和手势识别。
 
 ### UIView 的局部坐标与 bounds
 
-UIView 的局部坐标系用于描述视图内部的位置。默认情况下，bounds.origin 为 (0, 0)，可见矩形的左上角对应局部坐标 (0, 0)，x 轴向右，y 轴向下。
+命中测试使用的坐标都是视图自己的局部坐标。局部坐标系是以视图自身为参照的坐标系。默认情况下，`bounds.origin` 为 (0, 0)，视图可见区域的左上角就是局部坐标 (0, 0)，x 轴向右，y 轴向下，单位是点（pt）。
 
-bounds 为 CGRect(x: 0, y: 0, width: 50, height: 50) 的按钮，局部坐标中的中心点是 (25, 25)，右下角是 (50, 50)，单位是点（pt）。无论按钮放在父视图的什么位置，这些局部坐标都不变。
+例如，一个按钮的 `bounds` 是 `CGRect(x: 0, y: 0, width: 50, height: 50)`。在按钮的局部坐标系中，中心点是 (25, 25)，右下角是 (50, 50)。按钮放在父视图的任何位置，这些局部坐标都不变。
 
-bounds 是视图在自身坐标系中的矩形，frame 是视图在父视图坐标系中的矩形。修改 bounds.origin 后，可见区域左上角的局部坐标就不再是 (0, 0)。UIView.center 使用的是父视图坐标系，与局部中心点不同。
+`bounds` 和 `frame` 的区别如下：
 
-### point(inside:with:) 与 hitTest(_:with:)
+- `bounds` 是视图在自身坐标系中的矩形。
+- `frame` 是视图在父视图坐标系中的矩形。例如按钮放在父视图的 (100, 200) 处，按钮的 `frame.origin` 是 (100, 200)，`bounds.origin` 仍是 (0, 0)。
 
-point(inside:with:) 判断一个局部坐标点是否属于当前视图的命中区域，返回 Bool。hitTest(_:with:) 在当前视图及其子视图中寻找触摸目标，返回 UIView?；找不到目标时返回 nil。
+修改 `bounds.origin` 后，可见区域左上角的局部坐标就不再是 (0, 0)，`UIScrollView` 滚动时改变的就是 `bounds.origin`。`UIView.center` 使用父视图坐标系。例如按钮的 `frame` 是 `CGRect(x: 100, y: 200, width: 50, height: 50)` 时，`center` 是 (125, 225)，局部坐标中的中心点是 (25, 25)。
 
-UIView 默认命中测试可以按以下顺序理解：
+### point(inside:with:) 与 hitTest(\_:with:)
 
-1. 当前视图隐藏、关闭了用户交互（isUserInteractionEnabled 为 false），或 alpha 小于 0.01 时，返回 nil。
-2. 调用当前视图的 point(inside:with:)。结果为 false 时，返回 nil，并跳过当前视图的子树。
-3. 按从前向后的顺序检查子视图。先把触摸点转换到对应子视图的坐标系，再调用子视图的 hitTest(_:with:)。
-4. 某个子视图找到目标时，返回该目标。所有子视图都没有找到目标时，返回当前视图。
+两个方法的分工不同：
 
-两个方法接收的 point 都是当前视图自己坐标系中的坐标。所以重写命中区域时，应该把 point 与 bounds 比较，而不是与 frame（父视图坐标系）比较。
+- `point(inside:with:)` 判断一个局部坐标点是否在当前视图的命中区域内，返回 `Bool`。命中区域是能让当前视图成为触摸目标的范围，默认就是 `bounds`。
+- `hitTest(_:with:)` 在当前视图及其所有子视图中找出触摸目标，返回 `UIView?`；找不到目标时返回 `nil`。
 
-子视图按 subviews 数组的倒序检查，也就是先检查显示在最上面的子视图。触摸开始时确定了目标视图后，这次触摸从头到尾都交给这个视图；手指移到其他视图上，触摸也不会转交给那个视图。
+UIWindow 收到触摸后，从自己开始调用 `hitTest(_:with:)`。UIView 默认的 `hitTest(_:with:)` 按以下顺序执行：
 
-需要让容器自身接管原本命中子视图的触摸时，可以改变 hitTest 的返回值：
+1. 当前视图被隐藏（`isHidden` 为 true）、关闭了用户交互（`isUserInteractionEnabled` 为 false），或 `alpha` 小于 0.01 时，直接返回 `nil`。
+2. 调用当前视图的 `point(inside:with:)`。结果为 false 时，直接返回 `nil`，当前视图的所有子视图都不再检查。
+3. 从最上层的子视图开始，依次检查子视图：先把触摸点转换成子视图的局部坐标，再调用子视图的 `hitTest(_:with:)`。最上层的子视图是 `subviews` 数组中的最后一个，所以检查顺序是数组的倒序。
+4. 某个子视图返回非 `nil` 的目标时，当前视图返回这个目标，不再检查其余子视图。所有子视图都返回 `nil` 时，当前视图返回自己。
+
+例如，窗口中有一个容器视图，容器视图中有一个按钮，用户点击按钮。窗口检查容器视图，容器视图的 `point(inside:with:)` 返回 true，容器视图接着检查按钮；按钮的 `point(inside:with:)` 返回 true，按钮没有子视图，于是按钮返回自己。容器视图和窗口依次把按钮作为结果返回，按钮成为这次触摸的目标。
+
+两个方法接收的 `point` 都是当前视图局部坐标系中的坐标。所以重写命中区域时，要把 `point` 与同样使用局部坐标的 `bounds` 比较。
+
+命中测试在触摸开始时确定目标视图。之后这次触摸从开始到结束都交给这个目标视图；手指移动到其他视图上，触摸仍交给原来的目标视图。
+
+**让容器接管子视图的触摸。** 重写容器的 `hitTest(_:with:)`，把原本返回子视图的结果改为返回容器自己：
 
 ```swift
 final class InterceptingContainer: UIView {
@@ -376,15 +427,26 @@ final class InterceptingContainer: UIView {
 }
 ```
 
-super 返回非 nil，说明触摸点在容器范围内，且默认规则找到了目标。interceptsTouches 为 true 时，容器返回 self，这次触摸的目标就变成容器，子控件收不到触摸。先调用 super 是为了保留隐藏、交互关闭、命中区域等默认判断。容器成为目标后，还要通过触摸方法或手势识别器自己执行动作；另外，这样做也挡不住祖先视图上的手势识别器。
+`InterceptingContainer` 的执行过程如下：
+
+1. `super.hitTest(point, with: event)` 按默认规则查找目标。先调用 `super`，是为了保留隐藏、交互关闭、命中区域等默认判断。
+2. `super` 返回 `nil` 时，说明触摸不在容器范围内或容器不可交互，`InterceptingContainer` 也返回 `nil`。
+3. `super` 返回非 `nil`，且 `interceptsTouches` 为 true 时，容器返回 `self`。这次触摸的目标变成容器，子控件收不到触摸。
+
+容器成为目标后，要自己通过触摸方法或手势识别器执行动作。另外，改变 `hitTest(_:with:)` 的返回值挡不住祖先视图上的手势识别器，原因见 [父子视图的手势识别与同时识别](#父子视图的手势识别与同时识别)。
 
 ### 事件穿透与重叠视图的触摸目标
 
-事件穿透是让覆盖在上面的视图在某些位置不作为触摸目标，于是父视图继续检查下面的兄弟视图。穿透发生在命中测试选择目标的阶段：上面的视图根本没有收到这次触摸，而不是收到后再转给下面的视图。
+事件穿透是让上层视图在某些位置不成为触摸目标，于是命中测试继续检查下层的视图。穿透发生在命中测试选择目标的阶段：命中测试直接选中下层视图，上层视图从头到尾收不到这次触摸。
 
-假设父视图中有下面的按钮 B 和盖在上面的视图 A。UIKit 先检查 A；只要 A 或 A 的子视图被选为目标，B 就不会被选中。只有 A 的 hitTest 返回 nil 时，父视图才会接着检查 B。把 A 的背景色设为透明，A 仍会挡住触摸。
+例如，父视图中有按钮 B，视图 A 盖在 B 上面，A 在 `subviews` 中排在 B 后面。父视图做命中测试时先检查 A：
 
-下面的覆盖层让自身空白区域穿透，同时保留子按钮的触摸响应：
+- A 的 `hitTest(_:with:)` 返回 A 或 A 的子视图时，目标已经确定，父视图停止检查，B 收不到触摸。
+- 只有 A 的 `hitTest(_:with:)` 返回 `nil` 时，父视图才接着检查 B。
+
+命中测试只看 `hitTest(_:with:)` 的返回值，与背景色无关，所以背景透明的 A 仍会成为目标并挡住触摸。
+
+**方案一：空白处穿透，子按钮照常响应。**
 
 ```swift
 final class PassthroughOverlay: UIView {
@@ -395,9 +457,14 @@ final class PassthroughOverlay: UIView {
 }
 ```
 
-点击覆盖层里的按钮时，super 返回按钮，覆盖层照样返回按钮。点击覆盖层上没有子视图的位置时，super 返回覆盖层自己，覆盖层改为返回 nil，父视图继续检查下面的视图。注意：覆盖层上不需要交互的装饰性子视图仍会被命中、挡住触摸，需要把它们的 isUserInteractionEnabled 设为 false。
+`PassthroughOverlay` 的执行结果如下：
 
-若需要指定一个完全穿透的矩形区域，可以重写 point(inside:with:)：
+- 用户点击覆盖层中的按钮时，`super` 返回按钮，覆盖层原样返回按钮，按钮收到触摸。
+- 用户点击覆盖层上没有子视图的位置时，`super` 返回覆盖层自己，覆盖层改为返回 `nil`，父视图接着检查下层的视图。
+
+覆盖层中只用于展示、不需要交互的子视图（例如一个装饰用的 UIView 色块）仍会被命中，并挡住触摸。要让这些位置也穿透，需要把这些子视图的 `isUserInteractionEnabled` 设为 false。
+
+**方案二：指定一个完全穿透的矩形区域。**
 
 ```swift
 final class HoleOverlay: UIView {
@@ -415,13 +482,16 @@ let overlay = HoleOverlay()
 overlay.passthroughRect = CGRect(x: 40, y: 100, width: 120, height: 60)
 ```
 
-CGRect.zero 是原点 (0, 0)、宽高都为 0 的空矩形，contains 对任何点都返回 false，所以初始状态下没有穿透区域。赋给 passthroughRect 的矩形使用 overlay 自己的坐标系，例如局部点 (60, 120) 就在这个矩形内。
+`HoleOverlay` 的规则如下：
 
-point(inside:with:) 返回 false 时，命中测试会跳过整个覆盖层及其子视图，所以孔洞范围内覆盖层的子按钮也不会响应。如果孔洞要跟随其他视图移动，应在布局变化后重新计算矩形，例如用 overlay.convert(button.bounds, from: button) 得到按钮在 overlay 中的区域。如果孔洞内的子控件需要响应，改用前一种按命中结果判断的方案。
+- `passthroughRect` 的初始值 `CGRect.zero` 是原点为 (0, 0)、宽高都为 0 的矩形，`contains(_:)` 对任何点都返回 false，所以初始状态下没有穿透区域。
+- `passthroughRect` 使用 `overlay` 自己的坐标系。例如局部点 (60, 120) 落在 `CGRect(x: 40, y: 100, width: 120, height: 60)` 内，`point(inside:with:)` 返回 false，这次触摸穿透到下层。
+- `point(inside:with:)` 返回 false 时，命中测试跳过整个覆盖层及其子视图，所以孔洞范围内覆盖层的子按钮也收不到触摸。孔洞内的子按钮需要响应时，改用方案一。
+- 孔洞要跟随某个视图移动时，在布局变化后重新计算矩形。例如 `overlay.convert(button.bounds, from: button)` 把 `button` 的区域转换成 `overlay` 坐标系中的矩形。
 
 ### 扩大按钮的命中区域
 
-重写 point(inside:with:) 可以扩大命中区域，同时保持按钮的显示尺寸和布局尺寸。下面的按钮向四周各扩大 10 pt；当 bounds 为 50×50 pt 时，命中矩形为 70×70 pt。
+重写 `point(inside:with:)` 可以扩大按钮的命中区域，按钮的显示尺寸和布局尺寸保持不变。下面的按钮向四周各扩大 10 pt：当 `bounds` 为 50×50 pt 时，命中区域为 70×70 pt。
 
 ```swift
 final class ExpandedHitButton: UIButton {
@@ -435,15 +505,64 @@ final class ExpandedHitButton: UIButton {
 }
 ```
 
-扩大的区域只有在父视图范围之内才有效。触摸点在父视图范围之外时，父视图的 point(inside:with:) 返回 false，父视图直接返回 nil，根本不会询问按钮。这时还要扩大父视图的命中区域，或者重写父视图的 hitTest 把触摸转给按钮。
+`bounds.insetBy(dx: -10, dy: -10)` 中的负数表示向外扩展，50×50 的 `bounds` 扩展后为 `CGRect(x: -10, y: -10, width: 70, height: 70)`。
 
-clipsToBounds 只控制是否裁剪超出边界的绘制内容。设为 false 后，超出部分能显示出来，但仍然不能响应触摸。
+扩大的区域只有落在父视图范围内的部分才有效。原因是命中测试从父视图向子视图逐层进行：触摸点在父视图范围之外时，父视图的 `point(inside:with:)` 返回 false，父视图直接返回 `nil`，命中测试到父视图就结束，按钮的 `point(inside:with:)` 没有被调用。这时还需要扩大父视图的命中区域，或者重写父视图的 `hitTest(_:with:)`，把触摸转给按钮。
+
+`clipsToBounds` 只控制是否裁剪超出视图边界的绘制内容。父视图的 `clipsToBounds` 设为 false 后，子视图超出父视图的部分能显示出来，但落在超出部分的触摸会被父视图的 `point(inside:with:)` 排除，原因同上。
+
+### 触摸回调与响应链转发
+
+触摸序列是一次触摸从按下、移动到抬起或取消的完整过程。触摸回调是 UIKit 在触摸序列各阶段调用的方法：`touchesBegan(_:with:)`、`touchesMoved(_:with:)`、`touchesEnded(_:with:)`、`touchesCancelled(_:with:)` 分别对应按下、移动、抬起和取消。
+
+`UIResponder` 是所有能接收事件的对象的基类，UIView、UIViewController、UIWindow 和 UIApplication 都继承自 `UIResponder`。`next` 属性指向响应链中的下一个响应对象：
+
+- 普通视图的 `next` 是父视图。
+- 视图控制器的根视图的 `next` 是这个视图控制器。
+
+所以响应链经过视图控制器的根视图时，会先到视图控制器，再继续向上传递。
+
+触摸回调只交给目标视图。子视图在 `touchesBegan(_:with:)` 中处理触摸后，父视图要收到这个回调，必须由子视图转发。触摸方法没有返回值，UIKit 无法根据返回值判断子视图是否“已经处理”。子视图转发有两种方式：调用会转发的父类实现；显式把事件转给下一个响应对象，例如调用 `next?.touchesBegan(touches, with: event)`。
+
+`super` 指继承关系上的父类，`next` 指响应链上的下一个对象。`super.touchesBegan(touches, with: event)` 执行的是当前类的父类实现。`UIResponder` 的默认实现会把事件转给 `next`；如果父类是 `UIButton` 等控件或自定义类，父类实现可能自己处理触摸并停止转发。所以调用 `super` 后，事件能否到达父视图由父类实现决定。
+
+| 子视图的实现方式 | 对这个触摸回调的影响 |
+|-|-|
+| 重写触摸方法，执行自定义逻辑，不调用 `super`，也不显式转发 | 回调停在子视图，不再沿响应链传递 |
+| 执行自定义逻辑后调用 `super` | 是否继续传递由父类实现决定；执行过自定义逻辑不影响之后的转发 |
+| 不重写触摸方法 | 使用继承来的实现；继承的是默认转发行为时，回调会继续传递 |
+
+四个触摸方法要成对重写。如果重写 `touchesBegan(_:with:)` 且不调用 `super`，由子视图自己处理触摸，那么 `touchesMoved(_:with:)`、`touchesEnded(_:with:)`、`touchesCancelled(_:with:)` 也要重写且不调用 `super`，即使方法体为空。只在 `touchesBegan(_:with:)` 中不转发时，后续三个阶段仍会通过继承来的默认实现转发出去，下一个响应对象会收到没有开始阶段的触摸序列。
+
+### 父子视图的手势识别与同时识别
+
+`UIGestureRecognizer` 是手势识别器，根据触摸序列判断用户做了点击、拖动、长按等哪种手势。一个手势识别器同一时刻只能添加在一个视图上；把识别器添加到另一个视图时，识别器会从原来的视图上移除。
+
+命中测试确定目标视图后，目标视图上的识别器，以及目标视图所有祖先视图上的识别器，都会收到这次触摸。祖先视图是沿 `superview` 逐层向上的各层父视图。与目标视图在画面上重叠的兄弟视图，位于另一条视图分支上，兄弟视图上的识别器收不到这次触摸。
+
+例如，`parentView` 包含 `childView`，两者各有一个拖动识别器 `parentPan` 和 `childPan`。手指落在 `childView` 上时，`parentPan` 和 `childPan` 都会收到触摸。两个识别器收到触摸后各自判断手势；默认情况下，其中只有一个能识别成功。
+
+同时识别是指允许两个识别器在同一次触摸中都识别成功。UIKit 会调用识别器代理的 `gestureRecognizer(_:shouldRecognizeSimultaneouslyWith:)`，询问两个识别器能否同时识别。下面的方法写在视图控制器中：视图控制器遵循 `UIGestureRecognizerDelegate`，用属性保存 `parentPan` 和 `childPan`，并把两个识别器的 `delegate` 都设为视图控制器。
+
+```swift
+func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+) -> Bool {
+    (gestureRecognizer === parentPan && otherGestureRecognizer === childPan)
+        || (gestureRecognizer === childPan && otherGestureRecognizer === parentPan)
+}
+```
+
+返回 true 只表示允许 `parentPan` 和 `childPan` 同时识别，不保证两者都识别成功，每个识别器仍要满足自己的识别条件，例如拖动距离。如果还用 `require(toFail:)` 设置了“等另一个识别器失败后才能成功”的依赖，依赖关系同样生效。两个识别器都识别成功后，各自调用自己的动作方法，分别移动父视图和子视图。
+
+UIKit 先把触摸交给目标视图及其祖先上的手势识别器，再把触摸回调交给视图。所以识别器收到触摸早于视图的触摸回调，子视图在 `touchesBegan(_:with:)` 中是否调用 `super`，对父视图的识别器没有影响。识别器识别成功后如何取消视图收到的触摸，见 [同一按钮的点击与长按协调](#同一按钮的点击与长按协调)。
 
 ### 同一按钮的点击与长按协调
 
-按钮的点击用 touchUpInside 事件处理，长按用 UILongPressGestureRecognizer 识别。把长按识别器直接添加到按钮上，只有从按钮范围内开始的按压才会被识别为长按。
+按钮的点击用 `.touchUpInside` 事件处理，`.touchUpInside` 表示手指在按钮范围内抬起。长按用 `UILongPressGestureRecognizer` 识别。长按识别器直接添加到按钮上时，只有从按钮范围内开始的按压才会被识别为长按。
 
-以下代码写在 UIViewController 子类中。button 是已经创建好的 UIButton 属性，setupInteractions() 在界面初始化时调用一次。
+以下代码写在 `UIViewController` 子类中。`button` 是已经创建好的 `UIButton` 属性，`setupInteractions()` 在界面初始化时调用一次。
 
 ```swift
 private func setupInteractions() {
@@ -474,45 +593,48 @@ private func setupInteractions() {
 }
 ```
 
-按住不到 0.5 秒就在按钮上松手，立即触发 touchUpInside。按住达到 0.5 秒、且手指移动不超过允许距离时，长按识别成功，进入 began 状态。
+用户的操作有两种结果：
 
-cancelsTouchesInView 为 true 时，长按识别成功后，按钮收到的触摸会被取消，所以这次松手不会再触发 touchUpInside。被取消的是按钮的触摸，长按识别器自己的状态不受影响。
+- 按住不到 0.5 秒就在按钮上松手：长按识别失败，按钮触发 `.touchUpInside`，执行 `handleTap()`。
+- 按住达到 0.5 秒，且手指移动没有超过允许距离：长按识别成功，进入 `.began` 状态，执行 `handleLongPress(_:)`。
 
-如果按钮用的是 touchDown（按下时就触发），那么长按识别成功时，动作已经执行过了，取消触摸也撤销不了。
+`cancelsTouchesInView` 为 true 时，长按识别成功后，UIKit 取消按钮收到的触摸，按钮收到 `touchesCancelled(_:with:)`。所以这次松手不会再触发 `.touchUpInside`。UIKit 取消的是按钮的触摸，长按识别器继续跟踪触摸，松手时进入 `.ended`。
 
-如果把长按识别器添加到页面的根视图上，从根视图上任何位置开始的按压都可能被识别为长按。只希望按钮响应长按时，就把识别器添加到按钮上；按钮扩大的命中区域也算在按钮范围内。
+如果按钮的动作绑定在 `.touchDown`（手指按下就触发）上，按下时动作已经执行。长按识别成功后再取消触摸，也撤销不了已经执行的动作。
+
+长按识别器添加在哪个视图上，决定了响应范围。长按识别器添加到页面的根视图上时，从根视图任何位置开始的按压都可能被识别为长按。只希望按钮响应长按时，就把识别器添加到按钮上；按钮扩大后的命中区域也算按钮范围。
 
 ### 长按状态与取消后的恢复
 
-UILongPressGestureRecognizer 是连续手势识别器：识别成功后，还会持续跟踪触摸的变化，并在结束或被取消时再次调用动作方法。
+`UILongPressGestureRecognizer` 是连续手势识别器：识别成功后，识别器会继续跟踪触摸，在手指移动、抬起或触摸被取消时再次调用动作方法。动作方法通过 `gesture.state` 区分当前阶段。
 
 | 状态 | 含义 | 适合执行的操作 |
-| --- | --- | --- |
-| .began | 达到长按识别条件 | 保存原状态，开启临时效果 |
-| .changed | 长按已经开始，触摸信息发生变化 | 按需要更新连续交互 |
-| .ended | 已识别的长按正常结束，例如用户松手 | 恢复原状态，结束临时效果 |
-| .cancelled | 已识别的长按被中断 | 同样恢复原状态并清理 |
-| .failed | 在识别开始前未满足条件 | 不执行仅属于长按成功路径的操作 |
+|-|-|-|
+| `.began` | 达到长按条件，长按识别成功 | 保存原状态，开启临时效果 |
+| `.changed` | 长按已经开始，手指位置等触摸信息发生变化 | 按需要更新连续交互，例如跟随手指移动 |
+| `.ended` | 已识别的长按正常结束，例如用户松手 | 恢复原状态，结束临时效果 |
+| `.cancelled` | 已识别的长按被中断 | 同样恢复原状态并清理 |
+| `.failed` | 识别成功之前条件就不满足，例如按住时间不够就松手 | 不执行只属于长按成功的操作 |
 
-例如，长按开始后来电界面弹出并接管了交互，UIKit 取消当前触摸，识别器进入 cancelled。来电横幅不一定会取消触摸，只有触摸被系统实际中断时才会进入 cancelled。
+例如，长按开始后来电界面弹出并接管了交互，UIKit 取消当前触摸，识别器进入 `.cancelled`。识别器只在触摸被系统实际中断时进入 `.cancelled`；来电横幅这类不接管交互的界面出现时，触摸可能继续保留。
 
-长按开始后，手指移出按钮，长按并不会因此取消。如果需要“移出按钮就结束”，要在 changed 状态中自己检查手指位置。
+长按开始后，手指移出按钮，长按仍会继续，识别器保持在 `.changed` 状态。需要“移出按钮就结束”时，要在 `.changed` 状态中用 `gesture.location(in: button)` 读取手指位置，自己判断手指是否已经离开 `button.bounds`。
 
-临时效果要在 began 时保存原状态，在 ended 和 cancelled 时都恢复。只在 ended 中恢复的话，长按被取消时临时效果会残留。
+临时效果（例如长按时把按钮放大）要在 `.began` 时保存原状态，在 `.ended` 和 `.cancelled` 时都恢复。只在 `.ended` 中恢复的话，长按被取消时临时效果会一直留在界面上。
 
 ## 屏幕键盘：触摸位置与文字接收对象
 
-第一响应者是当前优先接收键盘输入等事件的响应对象。在文本输入中，成为第一响应者的输入框就是文字的输入目标；但触摸事件仍按触摸位置分发，不会都交给这个输入框。
+第一响应者是当前优先接收键盘输入等事件的响应对象。在文字输入中，成为第一响应者的输入框就是文字的输入目标。触摸事件仍按触摸位置分发。
 
-假设页面同时显示用户名框和密码框，使用手机自带的屏幕键盘输入：
+假设页面同时显示用户名框和密码框，用户使用屏幕键盘输入：
 
 1. 用户点击密码框。UIKit 根据触摸位置找到密码框，密码框成为第一响应者，系统显示屏幕键盘。
-2. 用户点击屏幕键盘上的 A 键。这次触摸有坐标，键盘利用该坐标判断用户点击了哪个键。
+2. 用户点击屏幕键盘上的 A 键。这次触摸有坐标，键盘用这个坐标判断用户按了哪个键。
 3. 系统把字母 A 交给当前的第一响应者，也就是密码框。A 键的位置只用来判断按的是哪个键，与文字写进哪个输入框无关。
-4. 用户点击用户名框后，再按同一个 A 键，文字就输入到用户名框。键盘位置没变，变的是第一响应者。
+4. 用户点击用户名框，用户名框成为第一响应者。用户再按同一个 A 键，字母 A 就输入到用户名框。键盘位置没变，变的是第一响应者。
 
-所以，点击屏幕键盘时有触摸坐标，但这个坐标只用来确定按键；文字写到哪里，由第一响应者决定。
+所以，点击屏幕键盘时有触摸坐标，但触摸坐标只用来确定按键；文字写到哪个输入框，由第一响应者决定。
 
-关键窗口决定事件交给哪个窗口，第一响应者决定交给窗口中的哪个对象。标准的文本输入控件只有在所在窗口是关键窗口、且自己成为第一响应者时，才能正常弹出屏幕键盘。
+关键窗口和第一响应者分工不同：关键窗口决定键盘输入交给哪个窗口，第一响应者决定交给窗口中的哪个对象。标准文本输入控件只有在所在窗口是关键窗口、并且自己成为第一响应者时，才能正常弹出屏幕键盘。
 
 外接键盘的按键事件完全没有触摸坐标，文字同样交给第一响应者。
