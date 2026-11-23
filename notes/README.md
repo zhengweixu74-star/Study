@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 43 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 44 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
@@ -15,7 +15,7 @@
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
 | [网络与存储](#网络与存储) | 6 |
 | [实验与统计](#实验与统计) | 1 |
-| [AI 辅助开发](#ai-辅助开发) | 1 |
+| [AI 辅助开发](#ai-辅助开发) | 2 |
 | [数据结构](data-structures/README.md) | 1 |
 | [操作系统基础](operating-systems/README.md) | 2 |
 
@@ -88,7 +88,8 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [AI Agent 原理与开发验证](ai/agents-and-development.md) | 模型与 Agent、工具调用、Skill／Tool／MCP、AGENTS.md 的加载与代码定位、代码审查与开发验证、AI 辅助验收与设备操作 |
+| [AI Agent 运行原理与上下文管理](ai/agent-principles.md) | Agent 与 Harness、工具调用循环、模型幻觉、Skill／Tool／MCP、Skill 格式与上下文控制、AGENTS.md 的加载、用项目导航定位代码 |
+| [AI 辅助开发的检查与验证](ai/development-review-and-verification.md) | 判断条件、技术方案检查、代码审查、验证证据的范围、AI 辅助验收与设备操作、跨端 UI 一致性验证、AI 辅助开发与跨平台复用 |
 
 ## 数据结构
 
