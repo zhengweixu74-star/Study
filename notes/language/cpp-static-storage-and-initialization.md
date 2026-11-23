@@ -45,4 +45,4 @@ void work() {
 
 pre-main 是指进入 `main` 之前的启动阶段。在 pre-main 阶段构造的全局对象，如果构造函数做了大量工作，就会增加启动耗时。函数内的静态对象则在第一次执行到声明时构造，耗时算在第一次调用这个函数的地方。
 
-启动流程见 [iOS 应用启动、窗口与输入事件](../ios/app-lifecycle-and-events.md#main-之前的启动工作与-dyld)。静态库与动态库的区别见 [Xcode 工程管理与自动化测试](../engineering/xcode-and-testing.md#编译链接嵌入与装载)。注意“静态存储期”与“静态库”无关：对象是否具有静态存储期，与对象的代码来自静态库还是动态库互不影响。
+启动流程见 [iOS 应用生命周期、启动与窗口](../ios/app-lifecycle-and-events.md#main-之前的启动工作与-dyld)。静态库与动态库的区别见 [Xcode 工程管理与自动化测试](../engineering/xcode-and-testing.md#编译链接嵌入与装载)。注意“静态存储期”与“静态库”无关：对象是否具有静态存储期，与对象的代码来自静态库还是动态库互不影响。

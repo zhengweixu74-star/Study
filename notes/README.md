@@ -2,14 +2,14 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 42 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 43 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
 | 分类 | 文档数 |
 | --- | --- |
 | [语言与运行时](#语言与运行时) | 5 |
-| [iOS 界面、事件与调度](#ios-界面事件与调度) | 10 |
+| [iOS 界面、事件与调度](#ios-界面事件与调度) | 11 |
 | [Android 界面与动画](android/README.md) | 8 |
 | [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
@@ -34,7 +34,8 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md) | Darwin 与 XNU、基础系统组件、应用框架、系统服务及通知协作示例 |
-| [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | 应用运行状态与生命周期回调、Scene 生命周期、启动到首帧、自定义启动页、main 之前的 dyld 工作、动态库数量、启动计时与启动优化；多个 UIWindow 与关键窗口；事件分发、响应链、手势同时识别、命中测试、事件穿透、扩大点击区域、点击与长按协调；屏幕键盘与第一响应者 |
+| [iOS 应用生命周期、启动与窗口](ios/app-lifecycle-and-events.md) | 应用运行状态与生命周期回调、Scene 生命周期、启动到首帧、LaunchScreen 与自定义启动页、main 之前的 dyld 工作、启动计时与启动优化、动态库数量与地址修正；多个 UIWindow 与关键窗口 |
+| [UIKit 触摸事件、手势与键盘输入](ios/touch-events-and-gestures.md) | 触摸事件分发路径、局部坐标与 bounds、hitTest 命中测试、事件穿透、扩大点击区域；响应链与触摸回调；手势同时识别、点击与长按协调、长按状态；屏幕键盘与第一响应者 |
 | [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 控制器初始化与视图加载、push 与 present、sheet 样式、viewDidLayoutSubviews、UIButton 与 tintColor；frame 与 Auto Layout、transform、autoresizingMask、固有内容尺寸与优先级、约束复用；视图层级与前后顺序、子视图回调、容器控制器、分栏界面；UITableView 重用、Cell 倒计时、行删除与批量更新、UICollectionView；Cell ViewModel、MVVM、长列表性能与高度缓存、reload 后定位 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter；OpenCombine 的 Subject、@Published、CurrentValueSubject、receive(on:)、removeDuplicates；CombineX 的订阅关系；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
 | [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD 的 sync 与 async、barrier 单写多读、死锁、DispatchGroup 与 DispatchSemaphore、OperationQueue；i++ 与线程安全、CAS、锁的分类与等待方式、优先级反转；RunLoop 模式、Source0 与 Source1、Timer、CADisplayLink 与弱引用代理 |
