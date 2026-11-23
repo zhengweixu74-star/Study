@@ -90,7 +90,7 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [AI Agent 运行原理与上下文管理](ai/agent-principles.md) | Agent 与 Harness、工具调用循环、模型幻觉、Skill／Tool／MCP、Skill 格式与上下文控制、AGENTS.md 的加载、用项目导航定位代码 |
-| [AI 辅助开发的检查与验证](ai/development-review-and-verification.md) | 判断条件、技术方案检查、代码审查、验证证据的范围、AI 辅助验收与设备操作、跨端 UI 一致性验证、AI 辅助开发与跨平台复用 |
+| [AI 辅助开发的检查与验证](ai/development-review-and-verification.md) | AI 辅助开发的流程、判断条件、技术方案检查、双端分别实现与共享实现的选择、代码审查、验证证据的范围、AI 辅助验收与设备操作、跨端 UI 一致性验证 |
 
 ## 数据结构
 
