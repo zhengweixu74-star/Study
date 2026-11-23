@@ -269,7 +269,7 @@ SQLite 的回滚日志和 WAL 是两种不同的日志模式：
 | Swift actor | 隔离自身状态，协调对隔离状态的访问 | 持久化与崩溃恢复；跨 await 的多步操作自动不可分割 |
 | 数据库事务 | 在数据库管理范围内共同提交或撤销修改，并按数据库规则协调并发与恢复 | 自动包含网络请求、其他独立存储或任意外部副作用 |
 
-actor 的访问与重入规则见[Swift 语言基础](../language/swift-basics.md#actor-的默认隔离与重入)。锁的分类和等待行为见[iOS 线程与任务调度](../ios/threads-and-scheduling.md#常见锁与分类维度)。
+actor 的访问与重入规则见[Swift 语言基础](../language/swift-basics.md#actor-的默认隔离与重入)。锁的分类和等待行为见[iOS 线程、GCD 与同步](../ios/threads-and-scheduling.md#锁的分类)。
 
 Swift 的 catch 处理抛出的错误，defer 在退出作用域时执行清理。进程崩溃或被强制终止时，catch 和 defer 中的代码都不会执行。数据库重启后，依靠磁盘上的日志恢复数据。
 

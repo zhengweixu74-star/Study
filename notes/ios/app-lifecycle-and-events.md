@@ -50,7 +50,7 @@ RunLoop 是在一个线程上反复执行的循环：没有事件时，RunLoop �
 3. UIApplication 把事件交给触摸所在的 UIWindow，UIWindow 再把事件交给按钮。UIApplication 和 UIWindow 决定“把事件交给谁”，具体过程见 [UIKit 触摸事件、手势与键盘输入](touch-events-and-gestures.md)。
 4. 按钮执行动作方法。
 
-主线程同一时刻只执行一段代码，RunLoop 等当前代码执行完，才处理下一个事件。如果按钮的动作方法在主线程上执行了 2 秒，新的触摸和界面刷新都要等这 2 秒结束才执行，用户就会感到卡顿。运行模式和输入源见 [iOS 线程与任务调度](threads-and-scheduling.md#runloop-与运行模式)。
+主线程同一时刻只执行一段代码，RunLoop 等当前代码执行完，才处理下一个事件。如果按钮的动作方法在主线程上执行了 2 秒，新的触摸和界面刷新都要等这 2 秒结束才执行，用户就会感到卡顿。运行模式和输入源见 [RunLoop、Timer 与 CADisplayLink](runloop-timer-and-displaylink.md#runloop-与运行模式)。
 
 ## 应用运行状态与生命周期回调
 

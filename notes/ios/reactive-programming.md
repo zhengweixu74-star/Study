@@ -60,7 +60,7 @@
 
 使用上述闭包接口且 `queue` 为 `nil` 时，通知中心在调用 `post` 的线程上同步调用回调。同步指回调执行完后，这次 `post` 才返回。回调线程由发送线程决定，与注册观察者的线程无关：观察者在主线程注册，后台线程发送通知时，回调就在后台线程执行。
 
-`queue` 的类型是 `OperationQueue?`，用于指定回调的执行队列。传入 `.main` 时，回调在主队列执行。`queue` 参数只规定回调在哪个队列执行，没有规定 `post` 在回调执行之前还是之后返回，代码不应依赖其中任何一种顺序。任务队列和线程的区别见[线程与任务调度](threads-and-scheduling.md#operation-与-operationqueue)。更新 UIKit 界面的代码需要在主线程执行。
+`queue` 的类型是 `OperationQueue?`，用于指定回调的执行队列。传入 `.main` 时，回调在主队列执行。`queue` 参数只规定回调在哪个队列执行，没有规定 `post` 在回调执行之前还是之后返回，代码不应依赖其中任何一种顺序。任务队列和线程的区别见[iOS 线程、GCD 与同步](threads-and-scheduling.md#operation-与-operationqueue)。更新 UIKit 界面的代码需要在主线程执行。
 
 下面的示例中只有一个匹配的观察者，回调里也没有再次发送通知：
 
@@ -320,7 +320,7 @@ DispatchQueue.main.async {
 
 在后台线程调用 `send` 时，后台线程和主线程并行运行。主线程可能在后台线程执行 `send` 之后的语句之前，就已经执行接收闭包。异步提交只保证接收闭包在主线程执行，不保证接收闭包晚于后台线程的后续语句。
 
-GCD 基础概念见[iOS 线程与任务调度](threads-and-scheduling.md)。
+GCD 基础概念见[iOS 线程、GCD 与同步](threads-and-scheduling.md#gcd-的队列与提交方式)。
 
 ## CombineX 的订阅关系与事件传递
 

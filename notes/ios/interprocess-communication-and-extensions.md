@@ -136,4 +136,4 @@ Mach 消息通过内核管理的端口传递数据。内核是操作系统中管
 
 选择通信方式时，需要同时确定四件事：双方是否属于同一开发团队、传递的是文件还是事件、是否需要持续连接、接收方是否正在运行。一方保存数据后，接收方不会因此被唤醒；接收方收到 Darwin 通知后，还要读取共享存储才能取得业务数据。
 
-相关笔记：[iOS 线程与任务调度](threads-and-scheduling.md)；[Darwin、应用框架与系统服务](darwin-frameworks-and-services.md)；[iOS 文件存储](../network-and-storage/ios-file-storage.md)。
+相关笔记：[RunLoop、Timer 与 CADisplayLink](runloop-timer-and-displaylink.md)；[Darwin、应用框架与系统服务](darwin-frameworks-and-services.md)；[iOS 文件存储](../network-and-storage/ios-file-storage.md)。

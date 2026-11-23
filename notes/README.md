@@ -2,14 +2,14 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 44 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 46 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
 | 分类 | 文档数 |
 | --- | --- |
 | [语言与运行时](#语言与运行时) | 5 |
-| [iOS 界面、事件与调度](#ios-界面事件与调度) | 11 |
+| [iOS 界面、事件与调度](#ios-界面事件与调度) | 12 |
 | [Android 界面与动画](android/README.md) | 8 |
 | [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
@@ -17,7 +17,7 @@
 | [实验与统计](#实验与统计) | 1 |
 | [AI 辅助开发](#ai-辅助开发) | 2 |
 | [数据结构](data-structures/README.md) | 1 |
-| [操作系统基础](operating-systems/README.md) | 2 |
+| [操作系统基础](operating-systems/README.md) | 3 |
 
 ## 语言与运行时
 
@@ -38,7 +38,8 @@
 | [UIKit 触摸事件、手势与键盘输入](ios/touch-events-and-gestures.md) | 触摸事件分发路径、局部坐标与 bounds、hitTest 命中测试、事件穿透、扩大点击区域；响应链与触摸回调；手势同时识别、点击与长按协调、长按状态；屏幕键盘与第一响应者 |
 | [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 控制器初始化与视图加载、push 与 present、sheet 样式、viewDidLayoutSubviews、UIButton 与 tintColor；frame 与 Auto Layout、transform、autoresizingMask、固有内容尺寸与优先级、约束复用；视图层级与前后顺序、子视图回调、容器控制器、分栏界面；UITableView 重用、Cell 倒计时、行删除与批量更新、UICollectionView；Cell ViewModel、MVVM、长列表性能与高度缓存、reload 后定位 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter；OpenCombine 的 Subject、@Published、CurrentValueSubject、receive(on:)、removeDuplicates；CombineX 的订阅关系；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
-| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD 的 sync 与 async、barrier 单写多读、死锁、DispatchGroup 与 DispatchSemaphore、OperationQueue；i++ 与线程安全、CAS、锁的分类与等待方式、优先级反转；RunLoop 模式、Source0 与 Source1、Timer、CADisplayLink 与弱引用代理 |
+| [iOS 线程、GCD 与同步](ios/threads-and-scheduling.md) | 进程与线程、逻辑 CPU 与线程状态、线程接口与任务调度接口；数据竞争、i++ 与线程安全方式、CAS 与 ABA、锁的分类与等待方式、优先级反转；GCD 的 sync 与 async、barrier 单写多读、死锁；DispatchGroup 与 DispatchSemaphore；OperationQueue 的依赖、取消与异步任务限流 |
+| [RunLoop、Timer 与 CADisplayLink](ios/runloop-timer-and-displaylink.md) | RunLoop 与运行模式、Source0 与 Source1、Timer 的调度与重复触发、倒计时与单调时钟、CADisplayLink 的回调时机与动画进度、Timer 与 CADisplayLink 的停止与引用、弱引用代理 |
 | [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画与渲染管线、anchorPoint 与 position、UIViewPropertyAnimator、图层重用、圆角裁剪与离屏渲染、shouldRasterize、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
 | [iOS 图片加载、解码与内存](ios/image-loading-decoding-and-memory.md) | 共享加载服务、压缩数据与像素内存、降采样与 ImageIO、提前解码、缓存与释放、长列表图片任务调度、过期回调校验；Kingfisher 与 SDWebImage |
 | [iOS 进程间通信与应用扩展](ios/interprocess-communication-and-extensions.md) | App Extension、App Groups 共享目录、Darwin 通知、UNIX domain socket，以及 XPC 的使用条件 |
@@ -101,6 +102,7 @@
 | --- | --- |
 | [虚拟内存、按需分配与缺页异常](operating-systems/virtual-memory-and-page-faults.md) | 虚拟地址与物理内存、页表、按需分配、缺页异常及非法访问 |
 | [macOS 隔离标记](operating-systems/macos-quarantine.md) | 隔离标记的含义、首次打开时的影响，以及查看与移除 |
+| [内核、用户态与系统调用](operating-systems/kernel-and-user-mode.md) | 内核的职责、用户态与内核态、系统调用，以及进入内核、线程阻塞与线程切换的区别 |
 
 ## 文档锚点、内部链接与交叉引用
 

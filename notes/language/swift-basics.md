@@ -1573,7 +1573,7 @@ C 接口是指库公开的函数、类型和调用约定采用 C 兼容的形式
 
 Core Foundation 最初用 C 实现，但接口是 C 风格，并不能说明当前系统版本的内部实现只用 C。使用系统框架时，应依据公开接口文档描述的行为，不依赖未公开的内部实现。
 
-调用示例见[iOS 线程与任务调度中的 Source0 示例](../ios/threads-and-scheduling.md#source0-示例后台压缩完成后刷新预览)。
+调用示例见[RunLoop、Timer 与 CADisplayLink 中的 Source0 示例](../ios/runloop-timer-and-displaylink.md#source0-示例后台压缩完成后刷新预览)。
 
 ## 存储属性、计算属性与访问器
 

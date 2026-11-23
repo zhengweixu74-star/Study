@@ -657,7 +657,7 @@ prepareForReuse() 在已有的 Cell 被取出重用时调用，而不是在 Cell
 
 Cell 离开屏幕时不会被释放，也不会立即调用 prepareForReuse()。更新倒计时文字的 Timer 应在 willDisplay 中启动、在 didEndDisplaying 中停止，prepareForReuse() 中再清理一次旧状态。Cell 再次显示时，创建一个新的 Timer。
 
-截止时间保存在数据模型中，Cell 保存一份副本，每次刷新用当前时间计算剩余时间。离开屏幕时只停止刷新，截止时间不变；再次显示时立即重新计算，所以离屏期间过去的时间也会算进去。Timer 的停止与引用机制见 [Timer 的停止、引用与重新创建](threads-and-scheduling.md#timer-的停止引用与重新创建)。
+截止时间保存在数据模型中，Cell 保存一份副本，每次刷新用当前时间计算剩余时间。离开屏幕时只停止刷新，截止时间不变；再次显示时立即重新计算，所以离屏期间过去的时间也会算进去。Timer 的停止与引用机制见 [Timer 与 CADisplayLink 的停止与引用](runloop-timer-and-displaylink.md#停止回调与引用关系)。
 
 下面是一个只显示倒计时的 Cell。截止时间用 Date 表示，所有方法都在主线程调用。Cell 用系统的 textLabel 显示文字；数据更新时，可以对已显示的 Cell 再次调用 configure。
 

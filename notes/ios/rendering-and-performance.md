@@ -457,7 +457,7 @@ shadowView.layer.shadowPath = UIBezierPath(
 
 以点击推送后直达评论为例：录制一次自动滚动到目标评论的过程，选中停顿所在的时间段，查看延迟出现在 App 的事件处理／布局／提交，还是后续的渲染准备／GPU 执行。Animation Hitches 标出的是延迟所在的阶段；进一步定位具体业务代码，还要结合 [Time Profiler](#time-profiler-的采样与统计边界) 等工具中的调用栈和线程状态。
 
-[CADisplayLink](threads-and-scheduling.md#cadisplaylink-的原理与适用场景) 通过回调间隔观察流畅度的迹象；Animation Hitches 用于录制并分析一次具体交互的渲染时间线。
+[CADisplayLink](runloop-timer-and-displaylink.md#cadisplaylink-的回调时机) 通过回调间隔观察流畅度的迹象；Animation Hitches 用于录制并分析一次具体交互的渲染时间线。
 
 ### 同次录制中的时间线关联
 
