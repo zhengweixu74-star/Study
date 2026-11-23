@@ -249,6 +249,32 @@ model.click.send(())
 
 读取 model.count 得到属性的当前值；访问 model.\$count 得到该属性的发布者，即向订阅者提供值的对象。sink 建立订阅，并在收到值时执行接收闭包。两者都能使用 sink，只说明两者都能向订阅者发送值，不代表两者保存当前值的方式相同，也不代表新订阅者收到值的时机相同。
 
+### CurrentValueSubject：可主动发送的当前状态
+
+`CurrentValueSubject<Output, Failure>` 是保存当前值的 Subject。创建时必须提供初始值；读取 `value` 得到当前值；调用 `send(_:)` 发送新值，并把新值保存为当前值。新订阅者订阅时立即收到当前值，之后再接收新发送的值。
+
+下面的示例使用系统 Combine。注释为预期结果，未编译运行。
+
+```swift
+import Combine
+
+let notes = CurrentValueSubject<[String], Never>([])
+notes.send(["笔记 A"])
+
+let subscription = notes.sink { value in
+    print(value)
+}
+// 立即输出：["笔记 A"]
+```
+
+| 对比项 | CurrentValueSubject | PassthroughSubject |
+| --- | --- | --- |
+| 初始值 | 创建时必须提供 | 不需要 |
+| 当前值 | 保存，可通过 `value` 读取 | 不保存 |
+| 新订阅者 | 立即收到当前值，再接收之后发送的值 | 只接收订阅之后发送的值 |
+
+Kotlin 的 `StateFlow` 与 `CurrentValueSubject` 相近，对应关系和区别见[StateFlow 与 MutableStateFlow](../android/stateflow-and-lifecycle-collection.md#stateflow-与-mutablestateflow)。
+
 ## receive(on:) 与主队列异步调度
 
 调度器是安排动作在何处、何时执行的对象。`DispatchQueue.main` 表示主队列；主队列的任务在主线程执行。`.ocombine` 把这个队列适配为 OpenCombine 的调度器接口，不会创建另一个队列。

@@ -79,4 +79,6 @@ SavedStateHandle 应保存重建界面所需的最小信息，不应装入大量
 
 两端共同的数据流可以表达为：用户输入 → 业务或数据层执行加载 → 状态持有者更新状态 → 当前有效界面刷新。具体任务是否取消、结果是否保留，应由任务所属作用域和业务需要决定。
 
+用 StateFlow 暴露状态、用 repeatOnLifecycle 按生命周期收集状态的完整示例见[ViewModel 状态暴露与页面收集：StateFlow 与 repeatOnLifecycle](stateflow-and-lifecycle-collection.md)。
+
 相关笔记：[UIKit 布局、列表与 MVVM](../ios/uikit-layout-and-mvvm.md)；[Swift 基础语义与内存管理](../language/swift-basics.md#基础语义与内存管理)。

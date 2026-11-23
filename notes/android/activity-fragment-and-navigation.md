@@ -24,6 +24,26 @@ View 是实际参与显示、布局和输入事件的视图对象。Activity 和
 
 “Activity 与系统对接”表示系统以 Activity 为单位管理启动、显示状态等行为，不表示整个应用只能有一个 Activity。应用采用多少个 Activity，由页面组织和系统交互需求决定。
 
+## Activity、Window 与 DecorView
+
+Activity 不继承自 View，而是 `Context` 的间接子类。`Context` 是访问资源、获取系统服务和启动组件的入口对象。常规 Activity 通过 Window 显示界面，View 树挂在 Window 上：
+
+```text
+MainActivity（Activity，不是 View）
+└── Window（Activity 持有的窗口对象，不是 View）
+    └── DecorView（整棵 View 树的根视图，是 ViewGroup）
+        └── 内容区域（id 为 android.R.id.content 的 ViewGroup）
+            └── LinearLayout（activity_main.xml 的根视图）
+                ├── TextView（id 为 title）
+                └── Button（id 为 refresh）
+```
+
+- Window 承载 Activity 的整棵 View 树。
+- DecorView 是 Window 中最外层的 View，其他 View 都位于 DecorView 之下。
+- `setContentView(R.layout.activity_main)` 加载布局并创建 View 对象，再把布局的根视图放入内容区域。
+
+UIViewController 同样不是 UIView，而是通过 `view` 属性持有根视图。Activity 与根视图之间多了一层 Window，因此 `Activity.findViewById()` 通过 Window 在整棵 View 树中查找，见[从资源 ID 获取内容](resources-and-r-class.md#从资源-id-获取内容)。
+
 ## 页面如何组合与切换
 
 Activity 与 Fragment 的职责划分，使系统管理窗口和应用组织页面可以分别进行。Activity 提供宿主环境，Fragment 划分页面逻辑；多个 Fragment 可以切换显示，也可以同时组成一个界面。

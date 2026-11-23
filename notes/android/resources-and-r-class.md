@@ -99,7 +99,16 @@ val icon = ContextCompat.getDrawable(this, R.drawable.ic_note)
 3. 系统按当前设备配置选择匹配的资源。
 4. `getString()` 返回选中的文字。
 
-`R.id.title` 只是整数。Activity 调用 `findViewById(R.id.title)` 时，系统在 Activity 当前的 View 树中查找控件。不同布局可以声明同名 id，并共用同一个整数。同一棵 View 树中有多个控件使用相同 id 时，`findViewById()` 只返回第一个匹配的控件。
+`R.id.title` 只是整数。系统加载布局时创建 View 对象，并把 XML 中声明的 id 设置到对应的 View 上。`findViewById(R.id.title)` 在查找范围内寻找 id 等于 `R.id.title` 的 View 并返回；找不到时返回 `null`。拿到 View 对象后，代码才能修改该 View，例如设置文字。不同布局可以声明同名 id，并共用同一个整数。同一查找范围中有多个控件使用相同 id 时，`findViewById()` 只返回第一个匹配的控件。
+
+查找范围由调用者决定：
+
+| 调用方式 | 查找范围 |
+| --- | --- |
+| `view.findViewById(id)` | `view` 自身及 `view` 的全部后代 View |
+| `activity.findViewById(id)` | Activity 不是 View。Activity 把查找交给自己的 Window，Window 从根视图 DecorView 开始查找整棵 View 树，见[Activity、Window 与 DecorView](activity-fragment-and-navigation.md#activitywindow-与-decorview) |
+
+列表的每一行都可能包含 id 为 `title` 的控件。ViewHolder 调用 `itemView.findViewById(R.id.title)`，把查找范围限定在当前行，因此得到的是当前行的标题控件，见[ViewHolder 与 ViewGroup 的区别](listview-recyclerview-and-viewholder.md#viewholder-与-viewgroup-的区别)。
 
 ## 资源限定符与多语言
 
