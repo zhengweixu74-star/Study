@@ -2,204 +2,92 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 42 篇学习笔记。内容限于通用概念、工作机制和独立示例；通过篇内目录与笔记之间的内部链接查阅相关内容。
-
-整理日期：2026-10-09。
+按 10 个主题整理的 42 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
 | 分类 | 文档数 |
 | --- | --- |
-| [语言与运行时](language/) | 5 |
-| [iOS 界面、事件与调度](ios/) | 10 |
-| [Android 界面与动画](android/) | 8 |
-| [跨平台与宿主通信](cross-platform/) | 3 |
-| [软件设计与工程工具](engineering/) | 5 |
-| [网络与存储](network-and-storage/) | 6 |
-| [实验与统计](statistics/) | 1 |
-| [AI 辅助开发](ai/) | 1 |
-| [数据结构](data-structures/) | 1 |
+| [语言与运行时](#语言与运行时) | 5 |
+| [iOS 界面、事件与调度](#ios-界面事件与调度) | 10 |
+| [Android 界面与动画](android/README.md) | 8 |
+| [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
+| [软件设计与工程工具](#软件设计与工程工具) | 5 |
+| [网络与存储](#网络与存储) | 6 |
+| [实验与统计](#实验与统计) | 1 |
+| [AI 辅助开发](#ai-辅助开发) | 1 |
+| [数据结构](data-structures/README.md) | 1 |
 | [操作系统基础](operating-systems/README.md) | 2 |
 
 ## 语言与运行时
 
-[Kotlin 协程与 suspend](language/kotlin-coroutines-and-suspend.md)：协程与挂起函数、启动与顺序执行、挂起与阻塞的区别，以及与 Swift Task、async 和 await 的对应关系。
-
 | 文档 | 内容范围 |
 | --- | --- |
-| [Swift 语言基础](language/swift-basics.md) | 类型安全、值类型与引用类型的选择、可选类型、条件逗号与逻辑与、枚举与类型转换；属性与 mutating、协议泛型及 some/any、闭包引用语义与捕获、weak/unowned 与委托、集合遍历、stride 步长与边界、数组 last、reverse() 与 reversed()；Swift 与 C 接口互操作；Task、Task.detached、async let 子任务、await 等待结果及任务局部值；Result 与关联值提取；Data、UTF-8 解码、可选字符串打印与换行；声明、定义与实现及 C++ 对照；函数、方法、函数值与闭包表达式 |
-| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 自动释放池、Page 与嵌套边界；对象布局、关联对象的宿主与 key、retain 与 copy、关联闭包循环引用及弱引用包装、方法派发、消息转发与 Method Swizzling；Objective-C 互操作、KVC、KVO、+load、自动注册、+initialize 与按需初始化；扩展方法、协议要求与协议见证表条目 |
-
-相关专题：[Swift KVC 按键访问属性](language/swift-objc-runtime.md#kvc-按键访问属性)。
-
-[TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md)：Node.js 运行环境与浏览器的区别、类型标注与推断、number 与 Int、Double 的区别、接口与泛型、类型擦除、异步与线程、Worker 消息通信及回调执行位置。
-
-相关专题：[协议继承与类继承的区别](language/swift-basics.md#协议继承与类继承的区别)。
-
-相关专题：[ARC 与 Android GC](language/swift-basics.md#arc-与-android-gc引用计数可达性与引用环)。内容范围：强引用计数、GC Roots、可达性、引用环与内存泄漏。
-
-相关专题：[结构体、枚举与值的生命周期](language/swift-basics.md#结构体枚举与值的生命周期)。内容范围：ARC 与 GC 的管理边界、值内部的强引用、作用域与生命周期，以及局部值、替换和返回值的清理规则。
-
-相关专题：[defer 与作用域退出](language/swift-basics.md#defer-与作用域退出)。内容范围：延后执行、退出作用域、提前返回时解锁，以及函数无法退出时的执行边界。
-
-相关专题：[实例存储属性与局部变量的初始化](language/swift-basics.md#实例存储属性与局部变量的初始化)；[为什么扩展不能添加实例存储属性](language/swift-basics.md#为什么扩展不能添加实例存储属性)。内容范围：声明与初始化、读取前赋值、可选属性的 nil、lazy 延迟初始化，以及实例存储与扩展的限制。
-
-初始化与任务类型：[指定初始化方法与便利初始化方法](language/swift-basics.md#指定初始化方法与便利初始化方法)；[required、override 与初始化方法继承](language/swift-basics.md#requiredoverride-与初始化方法继承)；[UIViewController 的 init?(coder:) 与纯代码初始化](language/swift-basics.md#uiviewcontroller-的-initcoder-与纯代码初始化)；[任务结果类型与 Void、Never](language/swift-basics.md#任务结果类型与-voidnever)。内容范围：多个初始化入口、自动继承条件、解码初始化路径，以及任务结果与错误类型。
-
-[C++ 静态存储期对象与初始化](language/cpp-static-storage-and-initialization.md)：静态存储期、静态数据成员、构造函数、全局对象与静态局部对象的初始化时机。
-
-补充专题：[inout 与内存独占访问](language/swift-basics.md#inout-与内存独占访问)；[actor 的默认隔离与重入](language/swift-basics.md#actor-的默认隔离与重入)；[MainActor、主队列与异步调用](language/swift-basics.md#mainactor主队列与异步调用)；[数组值语义、写时复制与返回值](language/swift-basics.md#数组值语义写时复制与返回值)；[自定义 CoW 与引用唯一性检查](language/swift-basics.md#自定义-cow-与引用唯一性检查)；[ArraySlice 的存储保留与索引](language/swift-basics.md#arrayslice-的存储保留与索引)；[类的两阶段初始化与 self 使用时机](language/swift-basics.md#类的两阶段初始化与-self-使用时机)。
-
-并发补充：[Task、Task.detached 与任务局部值](language/swift-basics.md#tasktaskdetached-与任务局部值)；[DispatchGroup 与 DispatchSemaphore](ios/threads-and-scheduling.md#dispatchgroup-与-dispatchsemaphore)。内容范围：任务与闭包、上下文继承、自动调度、完成通知、信号量初始值与配对规则。
-
-并发与函数专题：[函数签名与回调类型](language/swift-basics.md#函数签名与回调类型)；[Sendable 与 @Sendable](language/swift-basics.md#sendable-与-sendable)；[Swift 6 的并发检查与版本条件](language/swift-basics.md#swift-6-的并发检查与版本条件)。内容范围：函数值、捕获检查、actor 串行执行器、MainActor，以及并发检查和执行规则的版本条件。
-
-补充专题：[引用赋值、浅拷贝与深拷贝](language/swift-basics.md#引用赋值浅拷贝与深拷贝)；[Codable 与序列化](language/swift-basics.md#codable-与序列化)；[CodingKeys 的作用与枚举语法](language/swift-basics.md#codingkeys-的作用与枚举语法)；[序列化复制的边界](language/swift-basics.md#序列化复制的边界)。
+| [Swift 语言基础](language/swift-basics.md) | ARC 与 Android GC、值的生命周期、weak 与 unowned、闭包与 Delegate、协议继承；值类型与引用类型、可选类型与可选绑定、函数值与闭包；actor 隔离与重入、MainActor、Sendable、Swift 6 并发检查、Task 与 async let；浅拷贝与深拷贝、Codable；符号引用与对象引用、声明与定义；属性、初始化方法与两阶段初始化；some 与 any、逃逸闭包、捕获列表；集合与 KeyPath、写时复制、ArraySlice；相等与对象身份、defer |
+| [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 分类与类扩展、自动释放池、+load 与 +initialize、关联对象、实例布局与类型元数据、isa、静态派发与虚方法表、内联与编译优化选项、协议见证表、Selector 与 IMP、消息转发、Method Swizzling、@objcMembers、KVC 与 KVO |
+| [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md) | Node.js 与浏览器、类型标注与推断、number 与 Int／Double、接口与泛型、类型擦除、事件循环与异步、Worker 消息通信及回调执行位置 |
+| [C++ 静态存储期对象与初始化](language/cpp-static-storage-and-initialization.md) | 静态存储期、静态数据成员、构造函数、全局对象与静态局部对象的初始化时机 |
+| [Kotlin 协程与 suspend](language/kotlin-coroutines-and-suspend.md) | 协程与挂起函数、启动与执行顺序、挂起与阻塞，以及与 Swift Task、async、await 的对应关系 |
 
 ## iOS 界面、事件与调度
 
-[iOS 本地多语言与即时切换](ios/localization-and-language-switching.md)：文案键、.strings 与 String Catalog、本地 Bundle 选择、UserDefaults 语言偏好、通知刷新已有界面，以及 Locale 的语言与地区区别。
-
-相关专题：[Cell 中的倒计时与可见性](ios/uikit-layout-and-mvvm.md#cell-中的倒计时与可见性)；[Timer 的停止、引用与重新创建](ios/threads-and-scheduling.md#timer-的停止引用与重新创建)。内容范围：离屏停止刷新、再次显示时按截止时间计算、invalidate 与引用清理，以及 common 模式的边界。
-
-并发、动画与圆角专题：[单线程并发与挂起恢复的触发者](language/swift-basics.md#单线程并发与挂起恢复的触发者)；[transform 与 bounds、center、frame](ios/uikit-layout-and-mvvm.md#transform-与-boundscenterframe)；[UIViewPropertyAnimator 的正向、反向与暂停](ios/rendering-and-performance.md#uiviewpropertyanimator-的正向反向与暂停)；[shouldRasterize 与位图缓存](ios/rendering-and-performance.md#shouldrasterize-与位图缓存)；[静态图片的圆角预处理](ios/rendering-and-performance.md#静态图片的圆角预处理)。内容范围：主线程任务交替执行、挂起与恢复的职责、显示变换与布局、可暂停的缩放动画，以及圆角裁剪和缓存的性能边界。
-
-第三方库用法：[Kingfisher：网络图片与占位图](ios/image-loading-decoding-and-memory.md#kingfisher网络图片与占位图)；[RxSwift：输入组合、事件序列与搜索订阅](ios/reactive-programming.md#rxswiftobservable-与订阅)。
-
-相关专题：[触摸回调与响应链转发](ios/app-lifecycle-and-events.md#触摸回调与响应链转发)；[父子视图的手势识别与同时识别](ios/app-lifecycle-and-events.md#父子视图的手势识别与同时识别)。内容范围：触摸回调的转发条件、super 与 next、识别器的观察范围和同时识别条件。
-
-启动页与控件：[LaunchScreen、自定义启动页与异步加载](ios/app-lifecycle-and-events.md#launchscreen自定义启动页与异步加载)；[控制器初始化、视图加载与页面展示](ios/uikit-layout-and-mvvm.md#控制器初始化视图加载与页面展示)；[UIButton 的 system 类型与 tintColor](ios/uikit-layout-and-mvvm.md#uibutton-的-system-类型与-tintcolor)。内容范围：系统启动界面与动态启动页、素材加载和关闭回调、页面出现与倒计时，以及系统按钮的标题颜色。
-
-[iOS 内存泄漏与无用对象排查](ios/memory-leak-diagnosis.md)：预期释放时机、Allocations 分代筛选、Memory Graph 强引用追踪、分配调用栈与 Leaks 的判断边界，以及修改后的复测。
-
-[iOS 进程间通信与应用扩展](ios/interprocess-communication-and-extensions.md)：App Extension、主要通信方式、App Groups 共享目录、Darwin 通知、UNIX domain socket 路径与数据传递，以及 XPC 的使用边界。
-
-[Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md)：Darwin 与 XNU 的关系、基础系统组件、应用框架、系统服务及通知协作示例。
-
 | 文档 | 内容范围 |
 | --- | --- |
-| [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | UIApplication、AppDelegate、应用运行状态与生命周期回调、前台与激活的区别、Scene 生命周期、启动到首帧、动态库数量与无用代码优化、UIWindow、触摸分发与键盘输入 |
-| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | push 与 present、出现消失回调、pageSheet 与 formSheet、视图身份与层级、布局、UITableView 重用及创建数量、行删除与批量更新、预取、ViewModel 与容器控制器 |
-| [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter、OpenCombine、订阅生命周期、状态与事件、CurrentValueSubject、调度；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
-| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、pthread／Thread 与任务调度接口、GCD、OperationQueue、Swift Concurrency、DispatchGroup 与 DispatchSemaphore、线程安全、锁、RunLoop、Timer 与 CADisplayLink；Source0／Source1、Mach 消息；显示回调的时间进度、停止与弱引用代理 |
-| [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画、图层重用、渲染管线、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
-
-相关专题：[图层重用时的状态管理](ios/rendering-and-performance.md#图层重用时的状态管理)；[UITableView 的行删除与批量更新](ios/uikit-layout-and-mvvm.md#uitableview-的行删除与批量更新)。
-
-相关专题：[圆角、边界裁剪与离屏渲染](ios/rendering-and-performance.md#圆角边界裁剪与离屏渲染)。内容范围：cornerRadius、masksToBounds、clipsToBounds、离屏渲染条件、shadowPath，以及圆角图片与外部阴影的组合。
-
-布局与图层专题：[viewDidLayoutSubviews 的调用时机与用途](ios/uikit-layout-and-mvvm.md#viewdidlayoutsubviews-的调用时机与用途)；[anchorPoint、position 与图层几何](ios/rendering-and-performance.md#anchorpointposition-与图层几何)。内容范围：重复布局回调、按 bounds 更新图层、锚点与 position 的关系，以及改变锚点时的位移。
-
-相关专题：[内核、逻辑 CPU 与线程并发](ios/threads-and-scheduling.md#内核的职责与进程信息)；[进程创建时间与启动计时起点](ios/app-lifecycle-and-events.md#进程创建时间与启动计时起点)。
-
-相关专题：[获取锁失败后的等待行为](ios/threads-and-scheduling.md#获取锁失败后的等待行为)；[局部坐标、命中测试与点击长按协调](ios/app-lifecycle-and-events.md#uiview-的局部坐标与-bounds)；[UICollectionView 分区、重点回调与布局协议](ios/uikit-layout-and-mvvm.md#分区项目与分区边距)。
-
-[iOS 图片加载、解码与内存](ios/image-loading-decoding-and-memory.md)：共享加载服务、压缩数据与像素内存、降采样与 ImageIO、提前解码、缓存引用与释放、共享任务取消、过期回调校验、内存预算与验证。
-
-相关专题：[长列表图片任务调度](ios/image-loading-decoding-and-memory.md#长列表图片任务调度)；[Operation 与 OperationQueue](ios/threads-and-scheduling.md#operation-与-operationqueue)。内容范围：下载与解码分别限流、预取回调、共享任务取消、快速滚动的启动控制，以及任务队列的并发限制与协作式取消。
-
-相关专题：[main 之前的启动工作与 dyld](ios/app-lifecycle-and-events.md#main-之前的启动工作与-dyld)；[动态库数量与启动开销](ios/app-lifecycle-and-events.md#动态库数量与启动开销)；[删除无用代码与地址修正成本](ios/app-lifecycle-and-events.md#删除无用代码与地址修正成本)；[UIApplication 与主线程 RunLoop](ios/app-lifecycle-and-events.md#uiapplication-与主线程-runloop)。内容范围：pre-main 初始化、UIApplication 单例、主事件循环与主线程事件处理。
-
-补充专题：[优先级反转与优先级继承](ios/threads-and-scheduling.md#优先级反转与优先级继承)。
-
-相关专题：[事件穿透与重叠视图](ios/app-lifecycle-and-events.md#事件穿透与重叠视图的触摸目标)、[启动优化的三个方向](ios/app-lifecycle-and-events.md#启动优化的三个方向)、[约束复用与布局计算](ios/uikit-layout-and-mvvm.md#约束对象的创建激活与复用)、[Cell 高度缓存](ios/uikit-layout-and-mvvm.md#不同高度-cell-的测量与缓存)、[SDWebImage 两级缓存与 UIImage 解码](ios/image-loading-decoding-and-memory.md#sdwebimage-的图片加载与两级缓存)。
-
-相关专题：[通知注册、分发与观察关系清理](ios/reactive-programming.md#notificationcenter-与通知回调)；[未设置约束的子视图与 autoresizingMask](ios/uikit-layout-and-mvvm.md#添加子视图但不设置约束)；[调整同级顺序与更换父视图](ios/uikit-layout-and-mvvm.md#调整同级视图的前后顺序)。
+| [Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md) | Darwin 与 XNU、基础系统组件、应用框架、系统服务及通知协作示例 |
+| [iOS 应用启动、窗口与输入事件](ios/app-lifecycle-and-events.md) | 应用运行状态与生命周期回调、Scene 生命周期、启动到首帧、自定义启动页、main 之前的 dyld 工作、动态库数量、启动计时与启动优化；多个 UIWindow 与关键窗口；事件分发、响应链、手势同时识别、命中测试、事件穿透、扩大点击区域、点击与长按协调；屏幕键盘与第一响应者 |
+| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 控制器初始化与视图加载、push 与 present、sheet 样式、viewDidLayoutSubviews、UIButton 与 tintColor；frame 与 Auto Layout、transform、autoresizingMask、固有内容尺寸与优先级、约束复用；视图层级与前后顺序、子视图回调、容器控制器、分栏界面；UITableView 重用、Cell 倒计时、行删除与批量更新、UICollectionView；Cell ViewModel、MVVM、长列表性能与高度缓存、reload 后定位 |
+| [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter；OpenCombine 的 Subject、@Published、CurrentValueSubject、receive(on:)、removeDuplicates；CombineX 的订阅关系；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
+| [iOS 线程与任务调度](ios/threads-and-scheduling.md) | 进程与线程、GCD 的 sync 与 async、barrier 单写多读、死锁、DispatchGroup 与 DispatchSemaphore、OperationQueue；i++ 与线程安全、CAS、锁的分类与等待方式、优先级反转；RunLoop 模式、Source0 与 Source1、Timer、CADisplayLink 与弱引用代理 |
+| [Core Animation 渲染与性能分析工具](ios/rendering-and-performance.md) | 图层动画与渲染管线、anchorPoint 与 position、UIViewPropertyAnimator、图层重用、圆角裁剪与离屏渲染、shouldRasterize、卡顿监测、Time Profiler、Animation Hitches 与 MetricKit |
+| [iOS 图片加载、解码与内存](ios/image-loading-decoding-and-memory.md) | 共享加载服务、压缩数据与像素内存、降采样与 ImageIO、提前解码、缓存与释放、长列表图片任务调度、过期回调校验；Kingfisher 与 SDWebImage |
+| [iOS 进程间通信与应用扩展](ios/interprocess-communication-and-extensions.md) | App Extension、App Groups 共享目录、Darwin 通知、UNIX domain socket，以及 XPC 的使用条件 |
+| [iOS 内存泄漏与无用对象排查](ios/memory-leak-diagnosis.md) | 预期释放时机、Allocations 分代筛选、Memory Graph 强引用追踪、分配调用栈与 Leaks，以及修改后的复测 |
+| [iOS 本地多语言与即时切换](ios/localization-and-language-switching.md) | 文案键、.strings 与 String Catalog、本地 Bundle 选择、语言偏好保存、通知刷新已有界面，以及 Locale 的语言与地区 |
 
 ## Android 界面与动画
 
-[Android 分类目录](android/README.md)：8 篇文档。
-
-[Android 触摸事件与 View 事件处理](android/touch-events-and-view-dispatch.md)：MotionEvent 与触摸序列、ACTION_DOWN 用法、监听器返回值、OnTouchListener 与 onTouchEvent 的调用关系，以及取消处理与 UIKit 对照。
-
-[Android 列表复用：ListView、RecyclerView 与 ViewHolder](android/listview-recyclerview-and-viewholder.md)：ListView 与 RecyclerView 的区别、Adapter 的职责与 UITableViewDataSource 对照、视图复用、ViewHolder 及其与 ViewGroup 的区别、创建与绑定流程、局部更新、ListAdapter 及性能边界。
-
-| 文档 | 内容范围 |
-| --- | --- |
-| [ValueAnimator、插值器与滚动动画](android/valueanimator-and-interpolation.md) | 每帧执行顺序、插值器对象与动画进度、动画值、滚动距离与取消行为 |
-
-[Android View、ViewGroup 与 XML 布局](android/view-system-and-layout.md)：View 与 ViewGroup 的职责、容器嵌套、UIKit 对照、XML 布局，以及 Android 布局预览的示例数据。
-
-[Android 页面生命周期与状态保存](android/activity-lifecycle-and-state.md)：Activity 配置变化与重建、Jetpack ViewModel、进程结束后的状态恢复、SavedStateHandle 与异步结果。
-
-布局补充：[常见布局容器及与 UIKit 的对照](android/view-system-and-layout.md#常见布局容器及与-uikit-的对照)。内容范围：LinearLayout、FrameLayout、ConstraintLayout、RelativeLayout 与 XML 的关系。
-
-[Activity、Fragment 与页面组织](android/activity-fragment-and-navigation.md)：Activity 与 Fragment 的职责、宿主和窗口关系、Activity 与 Window、DecorView 的持有关系、页面组合、清单声明、启动流程及 UIViewController 对照。
-
-[Android 页面生命周期与状态保存](android/activity-lifecycle-and-state.md)：补充 Activity 的基本回调、Fragment 实例与其视图的生命周期，以及视图引用的清理时机。
-
-[Android 资源与 R 类](android/resources-and-r-class.md)：资源 ID、命名规则、XML 与代码引用、findViewById 的查找范围、资源限定符、多语言，以及多模块中的 R 类。
-
-[ViewModel 状态暴露与页面收集：StateFlow 与 repeatOnLifecycle](android/stateflow-and-lifecycle-collection.md)：StateFlow 与 MutableStateFlow、私有可变与公开只读状态、viewModelScope 与 Dispatchers.IO 的执行顺序、lifecycleScope 与 repeatOnLifecycle 的内外层协程，以及页面不可见时停止收集。
+8 篇文档，列表见 [Android 分类目录](android/README.md)。
 
 ## 跨平台与宿主通信
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [WebView 与 Lynx 双向通信](cross-platform/webview-and-lynx-bridge.md) | WebView 和 Lynx 的消息、原生模块、请求回调与事件通知 |
+| [WebView 与 Lynx 双向通信](cross-platform/webview-and-lynx-bridge.md) | WebView 和 Lynx 的消息、原生模块注册、请求回调与事件通知 |
 | [Lynx 渲染、线程模型与资源更新](cross-platform/lynx-rendering-and-updates.md) | Lynx 渲染、双线程、首帧直出、后台接管与动态资源更新 |
 | [KMP 跨平台编译与鸿蒙库集成](cross-platform/kmp-compilation-and-harmony-libraries.md) | 共享源码与平台产物、源码依赖与已发布库、.so、ArkTS、HAR，以及接口和版本匹配 |
 
 ## 软件设计与工程工具
 
-[Swift 第三方库与依赖接入](engineering/xcode-and-testing.md#swift-第三方库与依赖接入)：UIKit 与第三方库的区别、Swift Package Manager 接入，以及 Alamofire、Kingfisher、RxSwift 的分类导航。
-
-[iOS 组件化：职责、接口与依赖](engineering/ios-modularization.md)：组件边界、Swift 协议协作、模块与仓库的区别、SDK 与 API、源码与二进制交付、XCFramework 的平台和架构匹配、Swift Package／Framework／CocoaPods 的用途，以及收益和维护成本。
-
 | 文档 | 内容范围 |
 | --- | --- |
-| [设计模式与 Swift 实践](engineering/design-patterns.md) | 策略、工厂、单例、建造者，以及 Swift 示例与独立验证 |
-| [Xcode 工程管理与自动化测试](engineering/xcode-and-testing.md) | 源码编辑与搜索、工程与构建、静态与动态链接取舍、Rebase 与 Binding、XCTest、Swift Testing 与测试计划；UI 测试目标 App、命令行工具与设备端 Driver、无障碍快照与截图 |
+| [设计模式与 Swift 实践](engineering/design-patterns.md) | 耦合与解耦、依赖反转与依赖注入，策略、工厂、单例、建造者模式及 Swift 示例 |
+| [Xcode 工程管理与自动化测试](engineering/xcode-and-testing.md) | 源码搜索与索引、界面预览、第三方库接入；编译、链接、嵌入与装载，静态与动态链接、Rebase 与 Binding、IPA 与 Mach-O、ASLR、包体积优化；XCTest、Swift Testing、测试计划与 UI 测试 |
 | [CocoaPods、Podfile 与依赖管理](engineering/cocoapods-and-podfile.md) | Ruby DSL、依赖声明与版本范围、Molinillo 与 Xcodeproj、锁文件、YAML、Gemfile，以及用 Python 读取 Podfile |
-
-相关专题：[耦合与解耦](engineering/design-patterns.md#耦合与解耦)；[依赖反转与依赖注入](engineering/design-patterns.md#依赖反转与依赖注入)。内容范围：耦合的含义、解耦目的与三个实例、源码依赖方向、模块边界，以及依赖反转与依赖注入的区别。
-
-[Xcode：界面预览与 Android 布局预览](engineering/xcode-and-testing.md#界面预览与-android-布局预览)：Xcode 预览能力与 UIKit 接入条件。
-
-相关专题：[编译、链接、嵌入与装载](engineering/xcode-and-testing.md#编译链接嵌入与装载)；[静态库的目标文件提取与代码裁剪](engineering/xcode-and-testing.md#静态库的目标文件提取与代码裁剪)；[动态库的打包、启动装载与延迟装载](engineering/xcode-and-testing.md#动态库的打包启动装载与延迟装载)；[静态链接与动态链接的取舍](engineering/xcode-and-testing.md#静态链接与动态链接的取舍)；[Rebase 与 Binding：地址修正](engineering/xcode-and-testing.md#rebase-与-binding地址修正)。
-
-相关专题：[IPA、.app 与 Mach-O](engineering/xcode-and-testing.md#ipaapp-与-mach-o)；[Mach-O 的加载信息](engineering/xcode-and-testing.md#mach-o-的加载信息)；[预设虚拟地址、ASLR 与物理内存](engineering/xcode-and-testing.md#预设虚拟地址aslr-与物理内存)。内容范围：安装分发包与应用目录、可执行文件的加载信息、启动地址随机化，以及虚拟地址与物理地址的映射。
-
-相关专题：[Swift 编译优化选项与体积](language/swift-objc-runtime.md#swift-编译优化选项与体积)；[iOS 包体积优化](engineering/xcode-and-testing.md#ios-包体积优化)。内容范围：`-Osize` 与内联、Dead Code Stripping、资源与依赖精简、符号与 `dSYM`、资源变体和 App Thinning。
-
-[Gradle 构建脚本与 .kts 文件](engineering/gradle-build-scripts.md)：构建脚本、.kt 与 .kts 的区别，以及 Groovy 与 Kotlin 两种写法。
+| [iOS 组件化：职责、接口与依赖](engineering/ios-modularization.md) | 组件边界、协议协作、模块与仓库、SDK 与 API、源码与二进制交付、XCFramework、Swift Package／Framework／CocoaPods 的用途，以及收益和维护成本 |
+| [Gradle 构建脚本与 .kts 文件](engineering/gradle-build-scripts.md) | 构建脚本、.kt 与 .kts 的区别，以及 Groovy 与 Kotlin 两种写法 |
 
 ## 网络与存储
 
-第三方库用法：[Alamofire：请求与响应模型](network-and-storage/network-and-proxy.md#alamofire请求与响应模型)。
-
 | 文档 | 内容范围 |
 | --- | --- |
-| [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；Alamofire 响应容器、Result 与模型值；请求信息、HTTP 响应头与正文 |
-| [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份边界 |
-| [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件存储、Keychain、SQLite、Core Data 与 SwiftData；编码与磁盘写入的区别；数据库事务、ACID、提交与崩溃恢复、锁与事务边界、重复转账去重；SQLite 建表约束、参数绑定、WAL 并发和数据库迁移 |
-| [数据库索引与 B+ 树](network-and-storage/database-index-and-btree.md) | 索引与全表扫描、B+ 树结构与树高估算、与有序数组和二叉查找树等结构的比较；B 树的键与数据、查找与分裂；InnoDB 不用哈希表的原因与自适应哈希索引；聚簇索引、二级索引与回表；覆盖索引；逐层查找规则、页目录，以及重复键和唯一索引的分界值；联合索引的键、排序与最左前缀原则；索引下推的生效条件与回表次数；索引失效的常见场景；MySQL 和 SQLite 的查询计划、深分页与分页游标 |
-| [SQL 多表查询：JOIN 与 UNION](network-and-storage/sql-join-and-union.md) | 内连接、左连接、右连接与全外连接的替代写法；表别名与列别名；UNION 与 UNION ALL 的去重和 OR 改写；ON 条件与 WHERE 条件；SQL 子句的逻辑执行顺序；嵌套循环连接、eq_ref、驱动表与外连接改写 |
+| [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；HTTP 方法与文件上传、请求正文格式、gzip；URLSession、会话配置、重定向与 URLCache；Alamofire 的请求与响应模型 |
+| [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份规则 |
+| [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件、Keychain、SQLite、Core Data 与 SwiftData；数据库事务、ACID 与崩溃恢复；SQLite 建表约束、参数绑定、WAL 并发和数据库迁移 |
+| [数据库索引与 B+ 树](network-and-storage/database-index-and-btree.md) | 索引与全表扫描、B+ 树与 B 树、InnoDB 与自适应哈希索引、聚簇索引与回表、覆盖索引、联合索引与最左前缀、索引下推、索引失效、查询计划与深分页 |
+| [SQL 多表查询：JOIN 与 UNION](network-and-storage/sql-join-and-union.md) | 各种连接与全外连接的替代写法、别名、UNION 与 UNION ALL、ON 与 WHERE、子句的逻辑执行顺序、嵌套循环连接与驱动表 |
 | [MySQL 事务并发、锁与日志](network-and-storage/mysql-transactions-and-logs.md) | 并发异常与隔离级别、MVCC、快照读与当前读、索引锁、乐观锁与悲观锁、redo log 与 binlog |
-
-相关专题：[HTTP 请求方法与文件上传](network-and-storage/network-and-proxy.md#http-请求方法安全性与幂等性)。内容范围：HTTP 方法、安全性与幂等性、GET 与 POST、multipart 字段与 boundary、两层头部、服务端解析，以及 Swift URLSession 上传。
-
-相关专题：[请求正文格式与 JSON 字段](network-and-storage/network-and-proxy.md#请求正文格式与-json-字段)；[使用 JSON 上传文件](network-and-storage/network-and-proxy.md#使用-json-上传文件)；[gzip 压缩与抓包正文显示](network-and-storage/network-and-proxy.md#gzip-压缩与抓包正文显示)。内容范围：JSON 与 multipart 字段表示、Base64 文件上传、正文格式与 gzip 压缩的区别，以及抓包预览与原始字节。
-
-相关专题：[URLSession 请求流程](network-and-storage/network-and-proxy.md#urlsession-的职责与请求流程)、[会话配置与连接条件](network-and-storage/network-and-proxy.md#urlsessionconfiguration-与连接条件)、[代理与重定向](network-and-storage/network-and-proxy.md#urlsessiondelegate-与重定向决定)、[URLCache 与 HTTP 缓存规则](network-and-storage/network-and-proxy.md#urlcache-与-http-缓存规则)。
 
 ## 实验与统计
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [A/B 实验与统计](statistics/ab-testing.md) | A/B 显著性、p 值、有效样本量与结果解读 |
-
-实验与统计补充：[使用人数少时的功能上线判断](statistics/ab-testing.md#使用人数少时的功能上线判断)。内容范围：人数与数据核对、体验价值与开发维护成本、可能损失、观察与停止条件，以及逐步开放的依据。
-
-实验与统计补充：[客户端精准曝光实验与服务端实验](statistics/ab-testing.md#客户端精准曝光实验与服务端实验)；[实验参与范围与统计结果](statistics/ab-testing.md#实验参与范围与统计结果)。内容范围：基本术语、两种实验的区别、配置获取与曝光流程，以及统计分母、绝对提升与相对提升。
+| [A/B 实验与统计](statistics/ab-testing.md) | 显著性、p 值与有效样本量；使用人数少时的功能上线判断；客户端精准曝光实验与服务端实验；实验参与范围、统计分母、绝对提升与相对提升 |
 
 ## AI 辅助开发
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [AI Agent 原理与开发验证](ai/agents-and-development.md) | 模型与 Agent、工具调用、Skill / Tool / MCP、代码审查与开发验证；AI 辅助验收、Mock 与设备操作的分工、等待条件、证据范围与时间收益评估 |
-
-相关专题：[Codex 的 AGENTS.md 加载与代码定位](ai/agents-and-development.md#codex-的-agentsmd-加载与代码定位)。内容范围：启动指令加载、按需读取、分层导航、语义匹配与源码验证。
+| [AI Agent 原理与开发验证](ai/agents-and-development.md) | 模型与 Agent、工具调用、Skill／Tool／MCP、AGENTS.md 的加载与代码定位、代码审查与开发验证、AI 辅助验收与设备操作 |
 
 ## 数据结构
 
@@ -207,15 +95,14 @@
 
 ## 操作系统基础
 
-[操作系统基础目录](operating-systems/README.md)：2 篇文档。
-
-[虚拟内存、按需分配与缺页异常](operating-systems/virtual-memory-and-page-faults.md)：虚拟地址与物理内存、页表、按需分配、缺页异常及非法访问。
-
-[macOS 隔离标记](operating-systems/macos-quarantine.md)：含义、首次打开时的影响，以及查看与移除。
+| 文档 | 内容范围 |
+| --- | --- |
+| [虚拟内存、按需分配与缺页异常](operating-systems/virtual-memory-and-page-faults.md) | 虚拟地址与物理内存、页表、按需分配、缺页异常及非法访问 |
+| [macOS 隔离标记](operating-systems/macos-quarantine.md) | 隔离标记的含义、首次打开时的影响，以及查看与移除 |
 
 ## 文档锚点、内部链接与交叉引用
 
-锚点是文档中用于定位跳转目标的标记。HTML 可用 `id` 声明锚点，Markdown 链接可通过片段标识指向该位置。
+锚点是文档中跳转目标的标记。HTML 用 `id` 声明锚点，Markdown 链接用 `#` 加片段标识跳到这个位置。
 
 ```html
 <a id="symbol-search"></a>
@@ -225,6 +112,6 @@
 [符号搜索](#symbol-search)
 ```
 
-同一文档中的锚点 id 应保持唯一。修改标题但保留 id 时，基于该 id 的链接仍可定位。具体是否支持 HTML 锚点，由文档渲染器决定。
+同一文档中的锚点 id 必须唯一。修改标题时保留原来的 id，基于这个 id 的链接仍然有效。是否支持 HTML 锚点，取决于文档渲染器。
 
-交叉引用是在一处内容中指向另一处相关内容。本笔记将原始单文件内部引用转换为分类文档链接，方便从不同主题跳转。
+交叉引用是在一处内容中指向另一处相关内容，本笔记之间通过相对链接互相引用。

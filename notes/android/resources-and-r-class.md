@@ -2,7 +2,7 @@
 
 [返回 Android 分类目录](README.md)
 
-资源是与代码分开存放的布局、图片、文字、颜色和尺寸等内容，通常位于模块的 `res/` 目录。R 类是构建工具根据资源生成的类，用整数字段保存资源 ID。资源 ID 是用来标识资源的整数，不是资源内容本身。
+资源是与代码分开存放的布局、图片、文字、颜色和尺寸等内容，通常位于模块的 `res/` 目录。R 类是构建工具根据资源生成的类，用整数字段保存资源 ID。资源 ID 是标识资源的整数，代码要用资源 ID 向系统查询，才能得到资源内容。
 
 ## R 类解决什么问题
 
@@ -12,7 +12,7 @@ Kotlin 代码通过 R 类引用资源。例如，`setContentView(R.layout.activi
 
 ## R 类的结构
 
-下面用 Java 写法示意 R 类的结构。构建工具不一定生成可见的 `R.java` 源文件，示例中的数值也只用于说明。
+下面用 Java 写法示意 R 类的结构，字段数值是示例值。构建工具可能直接生成编译后的 R 类，项目中不一定有 `R.java` 源文件。
 
 ```java
 public final class R {
@@ -31,8 +31,8 @@ public final class R {
 
 - `layout`、`id`、`string` 是 R 类按资源类型划分的内部类。
 - `static` 表示代码不创建对象也能访问字段，例如 `R.string.refresh`。
-- 构建工具分配整数值。资源变化后，整数值可能改变。开发者不应手动修改 R 类，也不应持久保存资源 ID。
-- 资源字段不一定是编译期常量。编译期常量是编译时就已确定、可以直接写入调用处的值。库模块的资源字段不是编译期常量。Android Gradle Plugin 是 Gradle 用来构建 Android 工程的插件。Android Gradle Plugin 8.0 起，应用模块的资源字段默认也不带 `final`，因此不能用作 Java `switch` 的 `case` 值。
+- 构建工具分配整数值。资源变化后，整数值可能改变。所以开发者不要手动修改 R 类，也不要把资源 ID 持久保存下来。
+- 编译期常量是编译时就已确定、可以直接写入调用处的值。库模块的资源字段不是编译期常量。Android Gradle Plugin（Gradle 构建 Android 工程所用的插件）从 8.0 起，应用模块的资源字段默认也不带 `final`。不带 `final` 的字段不能用作 Java `switch` 的 `case` 值。
 
 ## 资源与字段的对应规则
 
@@ -49,7 +49,7 @@ public final class R {
 
 文件型资源用不带扩展名的文件名作为资源名。`values/` 中的条目用 `name` 属性作为资源名，`strings.xml` 这个文件名不参与命名。
 
-`@+id/title` 中的加号表示：名为 title 的 id 尚不存在时，构建工具创建 id。`@id/title` 表示引用已有 id。
+`@+id/title` 中的加号表示：名为 title 的 id 还不存在时，构建工具新建这个 id。`@id/title` 表示引用已有 id。
 
 ## 资源名称与资源内容
 
@@ -64,7 +64,7 @@ public final class R {
 
 `app_name` 是资源名称，“我的笔记”是资源内容。`getString(R.string.app_name)` 返回“我的笔记”。
 
-`app_name` 只是常用名称，本身没有特殊作用。清单文件通过 `android:label="@string/app_name"` 引用该条目后，“我的笔记”才会成为应用的显示名称。
+`app_name` 是惯用名称，系统不会特殊对待这个名称。清单文件写入 `android:label="@string/app_name"` 引用 `app_name` 条目，“我的笔记”因此成为应用的显示名称。
 
 ## 资源命名限制
 
@@ -79,11 +79,11 @@ public final class R {
 文件型资源名只能包含小写字母、数字和下划线，并且需要能作为合法的字段名，例如不能以数字开头。
 
 - `ic-note.png` 不合法。连字符在 Kotlin 和 Java 中是减号，不能直接作为字段名的一部分。
-- `IcNote.png` 不合法。Kotlin 和 Java 都允许标识符包含大写字母，所以大写限制来自 Android 构建工具。一个常见推断是：统一小写可以避免不同文件系统处理大小写的差异。此推断不是官方给出的原因。
+- `IcNote.png` 不合法。Kotlin 和 Java 都允许标识符包含大写字母，所以大写限制来自 Android 构建工具。常见的解释是：统一小写可以避开不同文件系统在大小写处理上的差异。官方没有给出这个原因。
 
 ## 从资源 ID 获取内容
 
-代码需要把资源 ID 交给相应的 API，才能得到资源内容或对象。
+代码把资源 ID 传给 `getString()`、`findViewById()` 等 API，才能得到资源内容或 View 对象。
 
 ```kotlin
 setContentView(R.layout.activity_main)
@@ -99,7 +99,13 @@ val icon = ContextCompat.getDrawable(this, R.drawable.ic_note)
 3. 系统按当前设备配置选择匹配的资源。
 4. `getString()` 返回选中的文字。
 
-`R.id.title` 只是整数。系统加载布局时创建 View 对象，并把 XML 中声明的 id 设置到对应的 View 上。`findViewById(R.id.title)` 在查找范围内寻找 id 等于 `R.id.title` 的 View 并返回；找不到时返回 `null`。拿到 View 对象后，代码才能修改该 View，例如设置文字。不同布局可以声明同名 id，并共用同一个整数。同一查找范围中有多个控件使用相同 id 时，`findViewById()` 只返回第一个匹配的控件。
+`R.id.title` 本身只是一个整数。View 对象和 id 的关联按以下顺序建立和使用：
+
+1. 系统加载布局时创建 View 对象，并把 XML 中声明的 id 设置到对应的 View 上。
+2. `findViewById(R.id.title)` 在查找范围内寻找 id 等于 `R.id.title` 的 View 并返回；找不到时返回 `null`。
+3. 代码拿到 View 对象后修改 View，例如设置文字。
+
+不同布局可以声明同名 id，同名 id 共用同一个整数。同一查找范围中有多个控件使用相同 id 时，`findViewById()` 只返回第一个匹配的控件。
 
 查找范围由调用者决定：
 

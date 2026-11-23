@@ -44,9 +44,9 @@ end
 
 `do ... end` 包围的是 Ruby 代码块，调用方把代码块交给 `target` 方法执行。`ENV` 提供当前进程的环境变量。在这个例子中，修改环境变量会改变 Podfile 执行后得到的依赖配置。
 
-`Pod::Podfile` 是 CocoaPods 用来表示整份 Podfile 配置的 Ruby 类，`Pod` 是命名空间，`Podfile` 是类名。CocoaPods 加载一份 Podfile 时，会创建对应的 `Pod::Podfile` 对象，并在该对象作为 `self` 的上下文中执行文件内容。`self` 表示当前方法调用默认作用的对象，因此省略接收者的 `target` 和 `pod` 调用能够找到 CocoaPods 提供的方法。
+`Pod::Podfile` 是 CocoaPods 用来表示整份 Podfile 配置的 Ruby 类，`Pod` 是命名空间，`Podfile` 是类名。CocoaPods 加载一份 Podfile 时，会创建对应的 `Pod::Podfile` 对象，并在该对象作为 `self` 的上下文中执行文件内容。`self` 是省略接收者时方法调用默认作用的对象。文件中的 `target`、`pod` 调用没有写接收者，因此 Ruby 在 `Pod::Podfile` 对象上查找这两个方法，找到的正是 CocoaPods 提供的方法。
 
-进入 `target` 的代码块，不表示为每个 pod 创建一个新的 `Pod::Podfile` 对象。CocoaPods 在整份配置对象中维护各个目标的配置对象 `TargetDefinition`，并把当前执行的 `pod` 声明记录到当前目标。每次 `pod` 调用增加的是依赖声明，不是另一份 Podfile。
+整份 Podfile 只对应一个 `Pod::Podfile` 对象。`Pod::Podfile` 对象为每个目标维护一个配置对象 `TargetDefinition`。执行 `target` 代码块时，CocoaPods 把其中每次 `pod` 调用作为一条依赖声明，记录到当前目标的 `TargetDefinition` 中。
 
 ```text
 一个 Podfile 对应的配置对象
@@ -56,7 +56,7 @@ end
 
 ## 依赖声明与版本范围
 
-`pod library_name, '~> 5.9'` 的作用是记录“当前目标需要 Alamofire，版本应满足这个范围”。执行这一行不等于立即下载 Alamofire，也不意味着所有符合范围的版本都会被安装。CocoaPods 后续要结合其他依赖要求确定一个可用版本。
+`pod library_name, '~> 5.9'` 的作用是记录“当前目标需要 Alamofire，版本应满足这个范围”。执行这一行只记录要求，不下载 Alamofire。CocoaPods 后续结合其他依赖要求，从符合范围的版本中确定一个版本安装。
 
 `~>` 是版本要求运算符。上界由运算符和后面版本号的位数共同决定：
 
@@ -66,7 +66,7 @@ end
 | `'~> 5.9.0'` | `>= 5.9.0` 且 `< 5.10.0` | 允许 `5.9.1`，不允许 `5.10.0` |
 | `'5.9.1'` | 固定为 `5.9.1` | 不自动改为其他版本 |
 
-这里以普通正式版本说明范围，不展开预发布版本的选择规则。`'~> 5.9'` 没有单独写出 `< 6.0`，但 Ruby 的版本要求规则已经通过 `~>` 和 `5.9` 两段版本号表达了这个上界。
+上表只考虑普通正式版本，预发布版本另有选择规则。`'~> 5.9'` 没有写出 `< 6.0`；按 Ruby 的版本要求规则，`~>` 加上两段版本号 `5.9`，就表示上界为 `< 6.0`。
 
 ## Molinillo 解析依赖与 Xcodeproj 集成工程
 
@@ -74,9 +74,9 @@ end
 
 假设库 A 要求公共依赖 C 的版本 `>= 1.0` 且 `< 3.0`，库 B 要求 C 的版本 `>= 2.0` 且 `< 4.0`。两个要求的交集是 `>= 2.0` 且 `< 3.0`。如果存在 C 2.5，且其他条件都满足，2.5 就可以成为候选版本。若 A 要求 `< 2.0`，B 又要求 `>= 2.0`，则这两个要求没有共同版本。
 
-Molinillo 会尝试候选版本，并继续检查候选版本引入的依赖。发现冲突时，解析器可以撤销先前的版本选择，尝试其他候选版本；这称为回溯。找不到满足全部要求的组合时，CocoaPods 报告依赖冲突。仅检查每一条 `pod` 声明自身是否合法，不能代替整组依赖解析。
+Molinillo 会尝试候选版本，并继续检查候选版本引入的依赖。发现冲突时，解析器可以撤销先前的版本选择，尝试其他候选版本；这称为回溯。找不到满足全部要求的组合时，CocoaPods 报告依赖冲突。每条 `pod` 声明单独看都合法时，整组声明仍可能冲突，因此需要对整组依赖一起解析。
 
-解析结果需要进一步接入 Xcode。Xcodeproj 是用于读取、创建和修改 Xcode 工程等文件的 Ruby 库。CocoaPods 决定应生成哪些目标、文件引用和构建配置，再通过 Xcodeproj 等组件写入工程文件。Xcodeproj 本身不负责从版本范围中选择 pod 版本。
+解析结果需要进一步接入 Xcode。Xcodeproj 是用于读取、创建和修改 Xcode 工程等文件的 Ruby 库。CocoaPods 决定应生成哪些目标、文件引用和构建配置，再通过 Xcodeproj 等组件写入工程文件。选择 pod 版本由 CocoaPods 借助 Molinillo 完成，Xcodeproj 只负责读写工程文件。
 
 常规 `pod install` 流程可以概括为：
 
@@ -85,7 +85,7 @@ Molinillo 会尝试候选版本，并继续检查候选版本引入的依赖。�
 3. CocoaPods 生成依赖工程、构建配置和必要的集成脚本，并把这些配置接入用户工程。
 4. CocoaPods 写入锁文件等安装结果。
 
-这不是“依赖解析完成前绝不会下载任何文件”的保证。对于某些外部来源，CocoaPods 可能先获取文件，以取得解析所需的 podspec；缓存也可能使部分依赖无需重新下载。
+上述顺序是概括，下载也可能发生在解析之前。对于某些外部来源，CocoaPods 可能先获取文件，以取得解析所需的 podspec；缓存也可能使部分依赖无需重新下载。
 
 默认单个 Pods 工程配置下，常见产物包括 `Pods/Pods.xcodeproj`、保存构建参数的 `.xcconfig` 文件，以及把用户工程和 Pods 工程组织在一起的 `.xcworkspace`。CocoaPods 还会配置用户工程对依赖的引用及必要的链接、资源处理等步骤。不同选项下产物结构可以不同。`pod install` 完成依赖安装与工程集成后，应用的实际编译和链接仍由后续 Xcode 构建执行。
 
@@ -103,9 +103,9 @@ Podfile.lock 记录 CocoaPods 已经确定的依赖版本，使后续安装能�
 | `pod update Alamofire` | 请求重新选择 Alamofire 的版本，并按依赖关系更新必要的相关依赖和锁文件 |
 | `pod update` | 请求更新全部依赖，不继续把原有版本锁定作为更新限制 |
 
-更新仍受 Podfile 的版本要求等条件限制。`pod update Alamofire` 不表示可以忽略 `'~> 5.9'` 而直接升级到 6.0。锁文件也不是完整运行环境的快照；Ruby 工具版本、系统环境或可变的本地依赖等条件仍可能影响结果。
+更新仍受 Podfile 的版本要求等条件限制。例如 Podfile 声明 `'~> 5.9'` 时，`pod update Alamofire` 只会在 `< 6.0` 的范围内选择新版本，不会升级到 6.0。锁文件只记录依赖版本；Ruby 工具版本、系统环境或可变的本地依赖等条件仍可能影响结果。
 
-修改 Podfile 后，已有 Podfile.lock 在下一次成功安装前可能仍代表旧结果。读取锁文件只能说明其中记录了什么，不能单凭锁文件断言当前工作目录已完成相应安装。
+修改 Podfile 后，在下一次成功安装之前，Podfile.lock 可能仍记录旧的结果。锁文件只说明其中记录了哪些版本；当前工作目录是否已按锁文件完成安装，需要另外检查。
 
 ## YAML 与锁文件中的数据
 
@@ -121,15 +121,15 @@ DEPENDENCIES:
   - Alamofire (~> 5.9)
 ```
 
-在这个例子中，`PODS` 和 `DEPENDENCIES` 是两个键，每个键对应一个列表。YAML 解析器把 `Alamofire (5.9.1)` 读取为一个字符串；库名和括号内版本的含义由 CocoaPods 定义，并不是 YAML 自动生成的两个字段。
+在这个例子中，`PODS` 和 `DEPENDENCIES` 是两个键，每个键对应一个列表。YAML 解析器把 `Alamofire (5.9.1)` 读取为一个字符串；库名和括号内版本的含义由 CocoaPods 定义，CocoaPods 再从这个字符串中拆出库名和版本。
 
-Podfile 使用 Ruby 表达并执行配置逻辑，Podfile.lock 使用 YAML 保存结果数据。YAML 本身不执行 Podfile 中的 `if`、`target` 或 `pod` 调用。
+Podfile 使用 Ruby 表达并执行配置逻辑，Podfile.lock 使用 YAML 保存结果数据。YAML 只描述数据，没有 `if`、方法调用这类执行逻辑。
 
 ## Gemfile 与 Ruby 工具版本
 
 gem 是 Ruby 软件包的发布单位。CocoaPods 自身以名为 `cocoapods` 的 gem 发布。Gemfile 声明项目使用的 Ruby 软件包及版本要求，Bundler 是根据 Gemfile 安装这些软件包并管理版本组合的工具。
 
-例如下面把 CocoaPods 工具版本固定为 1.16.2；该版本号仅用于示例，不代表最新版：
+例如下面把 CocoaPods 工具版本固定为 1.16.2，1.16.2 只是示例版本号：
 
 ```ruby
 source 'https://rubygems.org'
@@ -148,7 +148,7 @@ bundle exec pod install
 
 第一条命令安装 Gemfile 要求的 Ruby 软件包，并依据已有 Gemfile.lock 使用锁定版本；首次确定版本时会生成 Gemfile.lock。第二条命令在 Bundler 选定的 Ruby 软件包环境中运行 `pod install`，再由 CocoaPods 安装 Podfile 描述的 iOS 依赖。
 
-因此，Gemfile/Gemfile.lock 可以控制“使用哪个版本的 CocoaPods 工具”，Podfile/Podfile.lock 则控制“应用使用哪些 pod 版本”。仅共享 Podfile.lock，不等于已经统一 CocoaPods 工具版本。
+因此，Gemfile/Gemfile.lock 可以控制“使用哪个版本的 CocoaPods 工具”，Podfile/Podfile.lock 则控制“应用使用哪些 pod 版本”。团队只共享 Podfile.lock 时，各成员使用的 CocoaPods 工具版本仍可能不同；统一工具版本还需要共享 Gemfile 和 Gemfile.lock。
 
 ## 用 Python 读取 Podfile
 
@@ -161,7 +161,7 @@ CocoaPods 的两个命令输出格式不同：
 | `pod ipc podfile Podfile` | YAML |
 | `pod ipc podfile-json Podfile` | JSON |
 
-JSON 是另一种结构化数据格式，可以由 Python 标准库的 `json` 模块解析。不能直接把第一个命令的 YAML 输出交给 `json.loads`。
+JSON 是另一种结构化数据格式，可以由 Python 标准库的 `json` 模块解析。`json.loads` 只能解析 JSON，因此 Python 读取时使用第二个命令。
 
 下面的示例假设 Podfile 所在目录有适用的 Gemfile，且已经执行过 `bundle install`。代码使用该 Bundler 环境中的 CocoaPods：
 
@@ -189,12 +189,12 @@ def parse_podfile(path: str) -> dict:
 
 Python 先把路径解析为存在的绝对路径，再运行 CocoaPods。`cwd` 指定子进程的工作目录，`--project-directory` 指定 CocoaPods 的项目目录。`stdout` 保存正常输出，错误输出仍单独发送到标准错误流，避免错误信息被混入 JSON。`check=True` 让非零退出状态触发异常；命令成功后，`json.loads` 把输出转成 Python 数据。
 
-没有使用 Bundler 的环境，可以明确选择直接运行 `pod ipc podfile-json`。不要在 Bundler 执行失败后自动改用另一个系统版本的 CocoaPods，否则同一输入可能得到不同结果。
+项目不使用 Bundler 时，可以直接运行 `pod ipc podfile-json`。Bundler 执行失败时，应直接报告失败；自动改用系统中另一个版本的 CocoaPods，可能让同一份 Podfile 得到不同结果。
 
-这个命令得到的是执行后的依赖声明，不是一次 `pod install`：命令本身不完成依赖解析、下载和工程集成，也不运行正常安装流程中的 `post_install` 钩子。钩子是 Podfile 注册给 CocoaPods、由指定阶段调用的代码块。Podfile 顶层的任意 Ruby 代码仍会执行，因此读取工具只能执行可信文件，不能把这一方式当作无副作用的纯文本解析。
+`pod ipc podfile-json` 只执行 Podfile 并输出依赖声明，与 `pod install` 不同：这个命令不做依赖解析、下载和工程集成，也不运行正常安装流程中的 `post_install` 钩子。钩子是 Podfile 注册给 CocoaPods、由指定阶段调用的代码块。Podfile 顶层的任意 Ruby 代码仍会执行，可能产生副作用，因此读取工具只能用于可信的 Podfile。
 
-结果中的 `target_definitions` 及目标的 `children` 表示目标层级。处理工具需要保留层级，并按 `inherit!` 等设置解释父子目标之间的依赖继承；不能把所有目标的依赖合并后，当作每个 target 都拥有同一组依赖。实际已确定的版本应另外读取 Podfile.lock，并考虑锁文件可能尚未更新的情况。
+结果中的 `target_definitions` 及目标的 `children` 表示目标层级。处理工具需要保留层级，并按 `inherit!` 等设置解释父子目标之间的依赖继承；每个 target 的依赖要按层级分别计算。实际已确定的版本应另外读取 Podfile.lock，并考虑锁文件可能尚未更新的情况。
 
-环境变量、被加载的辅助文件和 CocoaPods 工具版本都可能影响结果。以上条件需要与实际安装时一致。例如 `USE_NETWORK=1` 与变量未设置时，前面的条件示例会产生不同声明。Podfile 自己向标准输出打印文本，也可能污染 JSON 输出；文件和辅助代码应把诊断信息写到标准错误流，不能由读取工具随意截取或忽略异常输出。
+环境变量、被加载的辅助文件和 CocoaPods 工具版本都可能影响结果，读取时这些条件需要与实际安装时一致。例如 `USE_NETWORK=1` 与变量未设置时，前面的条件示例会产生不同声明。Podfile 自己向标准输出打印的文本会混进 JSON 输出，可能导致解析失败；Podfile 和辅助代码应把诊断信息写到标准错误流。读取工具遇到异常输出时应报告错误，而不是自行截取部分内容继续解析。
 
-结构化输出通常不保留原始代码、注释和格式，因此不适合直接用于保真改写 Podfile。若必须在不执行 Ruby 的情况下分析文件，可以使用 Ruby 语法解析器构建 AST，即表示代码语法结构的树。静态工具应只解释明确支持的写法；无法确定的动态表达式应报告为未知，不能静默忽略并声称已得到完整依赖集合。
+结构化输出通常不保留原始代码、注释和格式，因此不适合直接用于保真改写 Podfile。若必须在不执行 Ruby 的情况下分析文件，可以使用 Ruby 语法解析器构建 AST，即表示代码语法结构的树。静态工具只解释明确支持的写法；遇到无法确定的动态表达式时，应报告为未知，并说明得到的依赖集合可能不完整。

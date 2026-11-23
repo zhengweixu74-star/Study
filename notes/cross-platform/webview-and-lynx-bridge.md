@@ -13,14 +13,12 @@
 - [Lynx 原生模块注册与回调](#lynx-原生模块注册与回调)
 - [Lynx 事件监听与原生通知](#lynx-事件监听与原生通知)
 
-整理网页和 Lynx 页面与 Native 之间的消息、模块、回调和事件机制。代码为示例，接入时需要匹配实际 SDK 版本。
-
 ## Web、WebView、Lynx 与 ReactLynx
 
-**在 App 内展示页面时，Web 页面通常由 WebView 中的浏览器引擎渲染，Lynx 移动端页面由 Lynx 引擎渲染。两者都可以使用 JavaScript，但构建界面的路径不同。**
+**在 App 内展示页面时，Web 页面通常由 WebView 中的浏览器引擎渲染，Lynx 移动端页面由 Lynx 引擎渲染。两者都使用 JavaScript，但构建界面的方式不同。**
 
 - **Web** 是基于 HTML、CSS、JavaScript 等标准构建网页的技术体系。HTML 描述内容结构，CSS 描述样式，JavaScript 实现交互逻辑。
-- **WebView** 是 App 中承载网页的组件。iOS 的 `WKWebView` 由 WebKit 提供，负责加载和显示网页。WebKit 主要使用 C++ 等语言实现，Apple 平台接口还涉及 Objective-C／Objective-C++；业务代码可以用 Swift 调用这些接口，不能因此认为 WebKit 是用 Swift 实现的。
+- **WebView** 是 App 中承载网页的组件。iOS 的 `WKWebView` 由 WebKit 提供，负责加载和显示网页。WebKit 主要用 C++ 实现，Apple 平台上的接口层还用到 Objective-C／Objective-C++。业务代码用 Swift 调用这些接口，WebKit 本身并非用 Swift 实现。
 - **Lynx** 提供跨平台的页面运行、样式、布局和渲染能力。**ReactLynx** 是基于 Lynx 的 React 风格 UI 框架，负责组件、状态和更新计算。二者与 JavaScript 引擎的分工见[框架与引擎](lynx-rendering-and-updates.md#页面描述到平台-ui-的渲染流程)。
 
 以下对比 iOS App 中普通网页与 Lynx 原生渲染页面：
@@ -33,9 +31,9 @@
 | JS 环境 | 浏览器提供 `window`、`document` 等对象 | Lynx 提供自己的接口，不能直接假定完整浏览器接口可用 |
 | 调用宿主业务 | 可通过 `postMessage` 等机制桥接 | 可通过 `NativeModules` 等机制桥接 |
 
-**使用 JavaScript 不等于运行网页。**`window`、`document` 属于浏览器环境提供的对象，不是 JavaScript 语言自身的能力。例如 `document.getElementById("title").textContent = "商品详情"` 依赖浏览器接口，不能直接搬到普通 ReactLynx 页面。ReactLynx 通常通过组件状态驱动界面更新。
+**JavaScript 是语言，网页是浏览器环境中的一种运行场景。**`window`、`document` 由浏览器环境提供，JavaScript 语言本身没有这些对象。例如 `document.getElementById("title").textContent = "商品详情"` 依赖浏览器接口，放到普通 ReactLynx 页面中无法运行。ReactLynx 页面通常通过修改组件状态来更新界面。
 
-Lynx 渲染原生界面，也不代表 JS 能直接调用任意 Swift 方法；App 的原生业务能力仍需通过模块或组件接口暴露。Lynx 也有 Web 端适配能力，因此上述对比限定为移动端原生渲染场景，不表示 Lynx 只能运行在移动端。
+Lynx 渲染的是原生界面，但 JS 只能调用 App 通过模块或组件接口暴露的原生能力，无法直接调用任意 Swift 方法。上述对比只针对移动端原生渲染场景；Lynx 也能适配 Web 端运行。
 
 ## XML、HTML 与界面描述
 
@@ -50,7 +48,7 @@ Lynx 渲染原生界面，也不代表 JS 能直接调用任意 Swift 方法；A
 </product>
 ```
 
-`product`、`name`、`price` 是应用约定的标签。XML 解析器读取内容和层级，但 XML 本身没有规定商品名显示成标题、价格显示成红色。应用需要另外实现这些规则。
+`product`、`name`、`price` 是应用约定的标签。XML 解析器只读取内容和层级；商品名显示成标题、价格显示成红色，这些显示规则由应用另外实现。
 
 用 HTML 描述网页内容：
 
@@ -69,11 +67,11 @@ Lynx 渲染原生界面，也不代表 JS 能直接调用任意 Swift 方法；A
 | 闭合要求 | 必须成对，空元素可写为 `<name/>` | 部分结束标签允许省略；`img`、`br` 等元素没有结束标签 |
 | 错误处理 | 违反基本结构规则时，解析器报错并停止正常解析 | 浏览器按标准的错误恢复规则处理许多不规范写法 |
 
-XML 也能描述界面，前提是框架规定标签对应什么组件，并负责创建组件。不能把 XML 限定为“只能存数据”。同样，ReactLynx 中的 `<view>`、`<text>` 是 JSX 中的 Lynx 元素描述；标签外观相似，不代表它们就是 HTML 网页元素。
+XML 也能描述界面：框架规定每个标签对应什么组件，并负责创建组件，例如 Android 的 XML 布局。ReactLynx 中的 `<view>`、`<text>` 是 JSX 中的 Lynx 元素描述，写法像 HTML 标签，但由 Lynx 引擎解释，属于 Lynx 元素。
 
 ## JSBridge 的职责与接口分工
 
-**按广义用法，JSB 是连接 JavaScript 与 Native、让两侧调用功能和传递数据的桥接机制。** JSB 是机制的统称，具体接口负责其中的某个环节。
+**广义上，JSB（JSBridge）是连接 JavaScript 与 Native 的桥接机制，让两侧互相调用功能、传递数据。** JSB 是这类机制的统称，下表中的每个接口负责其中一个环节。
 
 | 内容 | 在桥接中的职责 |
 |-|-|
@@ -83,11 +81,11 @@ XML 也能描述界面，前提是框架规定标签对应什么组件，并负�
 | `LynxModule`、导出方法、注册、`NativeModules` | 提供 Lynx 的 JS → Native 模块调用及结果回调 |
 | `sendGlobalEvent`、`GlobalEventEmitter` | 在 Native 发事件的场景中，实现 Native → JS 通知 |
 
-典型的业务桥接链路是：前端调用 → Native 根据注册信息路由到处理对象 → 校验输入 → 执行业务 → 回传结果。桥接成功仅说明消息或调用完成，不等于帖子发布等业务操作已经成功。
+典型的业务桥接链路是：前端调用 → Native 根据注册信息找到处理对象 → 校验输入 → 执行业务 → 回传结果。桥接成功只说明消息送达或调用完成；帖子发布等业务操作是否成功，要看 Native 回传的业务结果。
 
-不能把 `NativeModules` 或事件通知笼统说成“完全独立于 JSB 的通信方式”。JSB 可以指 JavaScript 与原生代码之间的桥接机制，也可能被用作某个 SDK 的名称。讨论是否使用 JSB 时，需要区分桥接机制和具体 SDK。
+`NativeModules` 和事件通知都属于广义 JSB 机制。JSB 一词有两种用法：一是指 JavaScript 与原生代码之间的桥接机制，二是某个 SDK 的名称。讨论是否使用 JSB 时，先说清指的是桥接机制还是某个 SDK。
 
-以下代码用于说明通信机制。WebKit 与 Lynx 的接口不能相互混用；Lynx 接入细节需要匹配实际 SDK 版本。
+以下代码演示通信机制。WebKit 与 Lynx 的接口各自独立，不能混用；Lynx 的接入细节以实际 SDK 版本为准。
 
 ## WKWebView：JavaScript 调用 Native
 
@@ -114,7 +112,7 @@ final class ProductMessageHandler: NSObject, WKScriptMessageHandler {
 }
 ```
 
-创建 `WKWebView` 前登记入口，并把配置传给该 WebView：
+创建 `WKWebView` 前登记入口，再把配置传给 `WKWebView`：
 
 ```swift
 let handler = ProductMessageHandler()
@@ -144,13 +142,13 @@ JS 发送到 openDetail，参数为 { productId: "123" }
   → handler 读取参数并执行原生业务
 ```
 
-`WKUserContentController` 管理消息入口与接收对象的登记关系，并参与 WebKit 的消息分发。真正接收业务回调的是遵循 `WKScriptMessageHandler` 的 `handler` 对象。协议规定了接收方法的形式，协议本身不是接收对象。
+`WKUserContentController` 记录每个消息入口对应哪个接收对象，并参与 WebKit 的消息分发。接收业务回调的是遵循 `WKScriptMessageHandler` 协议的 `handler` 对象；`WKScriptMessageHandler` 协议只规定接收方法的形式。
 
-`userContentController(_:didReceive:)` 虽然以 `userContentController` 开头，却是 `handler` 实现的方法。第一个参数只是把有关的 `WKUserContentController` 实例传给 `handler`。`openDetail` 也是开发者约定的入口名，不会自动变成同名 Swift 方法或自动完成跳转。
+`userContentController(_:didReceive:)` 虽然以 `userContentController` 开头，却是 `handler` 实现的方法；第一个参数把发出消息的 `WKUserContentController` 实例传给 `handler`。`openDetail` 是开发者约定的入口名，WebKit 只按这个名称找到 `handler`；跳转到详情页的代码要由开发者在 `handler` 中编写。
 
 ## WKWebView：Native 执行 JavaScript
 
-**Native 把一段 JS 源代码作为字符串传给 `webView.evaluateJavaScript`。WebKit 在该 WebView 的页面 JS 环境中执行代码，并通过完成回调把执行结果或错误传回 Native。**
+**Native 把一段 JS 源代码作为字符串传给 `webView.evaluateJavaScript`。WebKit 在 `webView` 页面的 JS 环境中执行这段代码，再调用完成回调，把执行结果或错误传回 Native。**
 
 页面先定义可调用的函数：
 
@@ -165,7 +163,7 @@ window.receiveProduct = function(productId) {
 </script>
 ```
 
-Native 在这个函数已经定义后调用：
+页面定义 `receiveProduct` 之后，Native 调用：
 
 ```swift
 let script = """
@@ -183,13 +181,13 @@ webView.evaluateJavaScript(script) { result, error in
 
 流程：`Swift 创建字符串 → WebKit 执行字符串中的 JS → receiveProduct("123") 修改页面并返回字符串 → Native 完成回调收到结果`。
 
-Swift 创建 `script` 时只是在创建字符串，尚未执行 JS。JS 函数体由 JavaScript 引擎运行；Swift 的完成闭包由原生侧执行。示例中的 `result` 对应 JS 返回的“更新成功”，不需要再额外调用 `postMessage` 才能获得这个返回值。
+Swift 创建 `script` 时只创建了字符串，JS 还没有执行。JS 函数体由 JavaScript 引擎运行，Swift 的完成闭包由原生侧执行。示例中的 `result` 就是 JS 返回的“更新成功”，完成回调直接拿到这个返回值，无需页面再调用 `postMessage`。
 
-调用必须针对正确的 WebView，并确保页面函数已经定义。该接口的完成回调不等于函数内部所有异步任务已经完成；若函数另行发起网络请求，需要按其异步协议接收结果。示例采用固定参数；实际传入动态字符串时应通过 JSON 序列化等方式正确编码，避免直接拼接未转义内容。三引号语法见[Swift 多行字符串](../language/swift-basics.md#多行字符串与脚本执行)。
+调用前要确认两点：调用的是正确的 WebView，页面函数已经定义。完成回调在 JS 函数同步返回后触发；如果函数内部另外发起网络请求，请求结果要通过另外约定的异步方式传回。示例使用固定参数；传入动态字符串时，先用 JSON 序列化等方式编码，再放入脚本，避免直接拼接未转义的内容。三引号语法见[Swift 多行字符串](../language/swift-basics.md#多行字符串与脚本执行)。
 
 ## callbackId 与请求响应关联
 
-**`callbackId` 是自行封装桥接协议时，为请求分配的关联标识。** 它不是 `WKWebView` 自动提供的字段，也不是函数本身。这里的“协议”指双方约定的消息格式和处理规则，不是 Swift 的 `protocol`。
+**`callbackId` 是开发者自行封装桥接协议时，为每个请求分配的关联标识。** `callbackId` 由封装代码生成，`WKWebView` 不提供这个字段；`callbackId` 只是一个标识，回调函数保存在前端。这里的“协议”指双方约定的消息格式和处理规则，与 Swift 的 `protocol` 无关。
 
 例如，前端连续查询两个商品：
 
@@ -205,19 +203,19 @@ Swift 创建 `script` 时只是在创建字符串，尚未执行 JS。JS 函数�
 1. 前端保存回调函数，并将 `callbackId` 连同请求参数发给 Native。
 2. Native 执行对应业务。返回结果时，Native 携带同一个 `callbackId`。
 3. 前端统一的响应入口读取 `callbackId`，找到并调用对应回调，把结果传进去。
-4. 对一次性请求回调，前端在完成后移除对应记录。
+4. 一次性请求的回调执行完后，前端移除对应记录。
 
-即使 B 先完成，`cb_2` 也能定位到 B 的函数，不必假定响应与请求顺序一致。Native 通过 `evaluateJavaScript` 把响应交给前端入口，随后由页面 JS 查表并执行回调；不是把 JS 函数体交给 Swift 执行。
+即使 B 先完成，前端也能通过 `cb_2` 找到 B 的回调函数，所以响应顺序可以与请求顺序不同。Native 通过 `evaluateJavaScript` 把响应交给前端入口，页面 JS 再查表并执行回调；JS 函数体始终在 JS 环境中执行。
 
-这是协议设计示例，不代表所有 JSB 都要求业务方手动维护 `callbackId`。Lynx 的[模块回调](#lynx-原生模块注册与回调)已提供函数参数的桥接能力，普通使用方可以直接传函数。
+以上是自行设计协议的做法。有些桥接框架已经封装了这层关联，例如 Lynx 的[模块回调](#lynx-原生模块注册与回调)支持直接把函数作为参数传给 Native，使用方无需手动维护 `callbackId`。
 
 ## Lynx 原生模块注册与回调
 
-**`NativeModules` 是 Lynx 提供给 JS 的原生模块访问入口。原生侧实现模块、导出方法并注册后，JS 才能通过模块名和方法名调用对应能力。**
+**`NativeModules` 是 Lynx 提供给 JS 的原生模块访问入口。原生侧实现模块、导出方法并注册模块后，JS 才能通过模块名和方法名调用原生能力。**
 
-这里的“原生模块”是一组提供给 JS 调用的原生功能，iOS 中通常用类承载。它与 Swift／Xcode 的编译模块不是同一概念：一个 App 或 Framework 模块中可以定义多个 Lynx 原生模块，不需要为每个原生模块建立一个 Target。编译模块的定义见[Target、模块和产物](../engineering/xcode-and-testing.md#target模块与构建产物)。
+这里的“原生模块”是一组提供给 JS 调用的原生功能，iOS 中通常用一个类实现。Lynx 原生模块与 Swift／Xcode 的编译模块是两个概念：一个 App 或 Framework 编译模块中可以定义多个 Lynx 原生模块，无需为每个 Lynx 原生模块建立 Target。编译模块的定义见[Target、模块和产物](../engineering/xcode-and-testing.md#target模块与构建产物)。
 
-下面以公开 SDK 的 Swift 写法示意；宿主需要先导入实际 SDK 提供的 `LynxModule` 声明：
+下面按公开 SDK 的 Swift 写法示意。宿主需要先导入实际 SDK 提供的 `LynxModule` 声明：
 
 ```swift
 import Foundation
@@ -252,7 +250,7 @@ final class ProductModule: NSObject, LynxModule {
 globalConfig.registerModule(ProductModule.self)
 ```
 
-这里的 `globalConfig` 指宿主已经创建、并用于对应 Lynx 环境的配置对象。注册和容器初始化须使用同一套有效配置；具体初始化入口以所接入的 SDK 为准。
+`globalConfig` 是宿主已经创建的 Lynx 环境配置对象。注册模块和初始化容器必须使用同一个配置对象；具体初始化入口以接入的 SDK 为准。
 
 前端在 Lynx 的后台 JavaScript 环境中调用：
 
@@ -271,15 +269,15 @@ JS 通过 NativeModules 指定模块、方法、参数和回调
   → JavaScript 引擎执行函数体，console.log 输出结果
 ```
 
-**原生侧调用 `callback(...)` 与执行 JS 函数体是两个环节。** Native 拿到的是 Lynx 提供的原生可调用封装。原生业务代码触发封装并传入结果；Lynx 将调用转交给对应 JS 环境，最终由 JavaScript 引擎执行前端函数体。
+**原生侧调用 `callback(...)` 与执行 JS 函数体是两个环节。** Native 拿到的 `callback` 是 Lynx 提供的原生封装。原生业务代码调用 `callback` 并传入结果；Lynx 把调用转交给对应的 JS 环境，再由 JavaScript 引擎执行前端函数体。
 
-“后台 JavaScript 环境”指运行在后台 JS 线程的执行环境，不是 App 退到后台。JS 从后台线程调用模块，也不能据此断定原生方法及其全部后续业务都在同一线程执行；线程安排需看 SDK 和原生实现。已有双线程分工见[线程模型](lynx-rendering-and-updates.md#双线程首帧直出与后台接管)。
+“后台 JavaScript 环境”指运行在后台 JS 线程上的执行环境，与 App 退到后台无关。JS 从后台线程调用模块时，原生方法及其后续业务在哪个线程执行，由 SDK 和原生实现决定。已有双线程分工见[线程模型](lynx-rendering-and-updates.md#双线程首帧直出与后台接管)。
 
-示例同步返回固定结果，因此不需要因“回调”这个名称就添加 `@escaping`。若原生实现保存闭包，或让闭包可能在当前方法返回后执行，再根据 Swift 的规则使用[逃逸闭包](../language/swift-basics.md#逃逸闭包与执行时机)。
+示例在方法内同步调用 `callback`，所以 `callback` 参数无需标注 `@escaping`。原生实现保存闭包，或在当前方法返回后才执行闭包时，才按 Swift 规则把参数声明为[逃逸闭包](../language/swift-basics.md#逃逸闭包与执行时机)。
 
 ## Lynx 事件监听与原生通知
 
-**前端先通过 `GlobalEventEmitter` 登记事件处理函数。Native 发送事件名称和数据后，Lynx 调用该事件对应的前端函数。** 事件由事件名称和本次携带的数据组成；不要求前端先发起一次请求。
+**前端先通过 `GlobalEventEmitter` 登记事件处理函数。Native 发送事件名称和数据后，Lynx 调用该事件对应的前端函数。** 事件由事件名称和本次携带的数据组成；Native 可以主动发送事件，前端无需先发起请求。
 
 前端在后台 JavaScript 环境中登记：
 
@@ -294,7 +292,7 @@ function handleLoginChanged(data) {
 emitter.addListener("loginStateChanged", handleLoginChanged);
 ```
 
-`addListener` 保存事件名与函数的对应关系，登记时不立即执行函数。`loginStateChanged` 是双方约定的事件名，`handleLoginChanged` 是开发者编写的函数名，两者不需要同名。
+`addListener` 保存事件名与函数的对应关系，登记时不执行函数。`loginStateChanged` 是双方约定的事件名，`handleLoginChanged` 是开发者编写的函数名，两者可以不同名。
 
 Native 完成登录后，向对应页面的 `LynxView` 实例发送事件：
 
@@ -305,7 +303,7 @@ lynxView.sendGlobalEvent(
 )
 ```
 
-`lynxView` 指已创建并加载该页面的实例。`withParams` 外层数组表示传给 JS 处理函数的参数列表；内层字典是第一个参数的内容。因此，前端函数的 `data` 收到 `{ isLoggedIn: true }`。
+`lynxView` 是已经创建并加载该页面的 `LynxView` 实例。`withParams` 的外层数组是传给 JS 处理函数的参数列表，内层字典是第一个参数的内容。所以前端函数的 `data` 收到 `{ isLoggedIn: true }`。
 
 ```text
 前端先登记 loginStateChanged 的监听函数
@@ -314,7 +312,7 @@ lynxView.sendGlobalEvent(
   → JS 引擎执行 handleLoginChanged(data)
 ```
 
-Native 只需要知道事件名，不需要知道前端函数名。这里的“全局”指对应 Lynx 页面／JS 环境范围，不表示自动通知 App 中所有 Lynx 页面。Native 发事件只是这个事件系统的一种用法，前端也可以使用事件机制。
+Native 只需知道事件名，无需知道前端函数名。`sendGlobalEvent` 中的“全局”指接收事件的 `LynxView` 页面及其 JS 环境范围；其他 Lynx 页面收不到这次事件。Native 发事件只是这个事件系统的一种用法，前端代码之间也可以用事件机制通信。
 
 监听不再需要时，用登记时的同一个函数引用移除：
 
@@ -322,4 +320,4 @@ Native 只需要知道事件名，不需要知道前端函数名。这里的“�
 emitter.removeListener("loginStateChanged", handleLoginChanged);
 ```
 
-事件与请求回调的区别：事件监听可接收多次状态变化，不需要每次先发出请求；一次请求对应一次结果时，则使用模块回调或约定的 `callbackId` 协议。登记前发出的事件不能仅凭上述接口假定会自动补发。
+事件与请求回调的区别：事件监听可以多次接收状态变化，前端无需每次先发请求；一次请求对应一次结果时，使用模块回调或约定的 `callbackId` 协议。登记之前发出的事件，上述接口不保证补发。

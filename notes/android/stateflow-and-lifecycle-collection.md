@@ -41,9 +41,9 @@ class NotesViewModel(private val api: NotesApi) : ViewModel() {
 `NotesApi` 是示例中假设的网络接口，`fetchNotes()` 返回笔记列表。
 
 - `_notes` 是私有的 `MutableStateFlow`，保存当前笔记列表，初始值是空列表。只有 `NotesViewModel` 能修改 `_notes`。
-- `notes` 是公开的 `StateFlow`，与 `_notes` 指向同一份状态，但类型只允许读取和收集，不允许赋值。页面通过 `notes` 读取和观察列表。
+- `notes` 是公开的 `StateFlow`，与 `_notes` 指向同一个对象。`StateFlow` 类型只提供读取和收集，不提供赋值。页面通过 `notes` 读取和观察列表。
 
-这种写法使笔记列表只有 `NotesViewModel` 一个修改者。页面想刷新数据只能调用 `load()`，不能直接把列表改成其他值。列表状态出错时，只需检查 `NotesViewModel` 中修改 `_notes` 的位置。
+这种写法让 `NotesViewModel` 成为笔记列表唯一的修改者。页面想刷新数据只能调用 `load()`，无法直接给列表赋值。列表状态出错时，只需检查 `NotesViewModel` 中修改 `_notes` 的位置。
 
 Swift 中的对应写法是：ViewModel 保存私有的 `CurrentValueSubject`，对外只暴露 `AnyPublisher`；或者声明 `@Published private(set) var notes`，外部只能读取和订阅，不能赋值。
 
@@ -92,7 +92,7 @@ lifecycleScope.launch {
 
 ## 外层协程与内层协程
 
-示例中有两种协程。`launch` 创建协程后会立即开始执行，`repeatOnLifecycle` 不负责启动 `launch` 创建的协程，而是另外创建自己的协程。
+示例中有两层协程。`lifecycleScope.launch` 创建外层协程，外层协程创建后立即开始执行。`repeatOnLifecycle` 在外层协程中另外创建内层协程。
 
 | 协程 | 创建并启动者 | 存活时间 | 执行内容 |
 | --- | --- | --- | --- |
@@ -109,13 +109,13 @@ lifecycleScope.launch {
 
 ## 页面不可见时停止收集
 
-页面在后台时，用户看不到界面，继续刷新列表只会消耗 CPU 和电量。`repeatOnLifecycle(Lifecycle.State.STARTED)` 在 `onStop()` 时取消收集，避免这部分开销。
+页面在后台时，用户看不到界面，继续刷新列表只会白白消耗 CPU 和电量。`repeatOnLifecycle(Lifecycle.State.STARTED)` 在 `onStop()` 时取消收集，省掉这部分开销。
 
-停止收集不会让页面丢失最终状态。`StateFlow` 始终保存当前值，页面重新进入 `STARTED` 状态时，新的 `collect` 立即收到当前值。例如页面在后台期间，`_notes` 从 3 条更新为 4 条；页面重新可见后，`collect` 立即收到 4 条笔记。页面错过的只是后台期间的中间值。
+停止收集后，页面回来时仍能拿到最新状态。`StateFlow` 始终保存当前值，页面重新进入 `STARTED` 状态时，新的 `collect` 立即收到当前值。例如页面在后台期间，`_notes` 从 3 条更新为 4 条；页面重新可见后，`collect` 立即收到 4 条笔记。页面只错过后台期间出现过的中间值。
 
-旋转屏幕时，旧 Activity 被销毁，旧 Activity 的外层协程和内层协程都被取消。新 Activity 再次执行收集代码，进入 `STARTED` 状态后立即从同一个 `NotesViewModel` 得到当前列表，不需要仅因旋转重新请求网络。
+旋转屏幕时，旧 Activity 被销毁，旧 Activity 的外层协程和内层协程都被取消。新 Activity 再次执行收集代码，进入 `STARTED` 状态后立即从同一个 `NotesViewModel` 得到当前列表，所以旋转不会引起重复的网络请求。
 
-UIKit 中的近似做法是：在 `viewWillAppear` 中用 `sink` 订阅发布者，在 `viewDidDisappear` 中取消订阅。`repeatOnLifecycle` 根据生命周期自动开始和取消收集，不需要在两个回调中分别编写代码。
+UIKit 中的近似做法是：在 `viewWillAppear` 中用 `sink` 订阅发布者，在 `viewDidDisappear` 中取消订阅。`repeatOnLifecycle` 根据生命周期自动开始和取消收集，开发者只需在一处编写收集代码。
 
 [相关笔记：Android 页面生命周期与状态保存](activity-lifecycle-and-state.md)
 
