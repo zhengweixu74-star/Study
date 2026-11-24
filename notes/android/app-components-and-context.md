@@ -2,7 +2,7 @@
 
 [返回 Android 分类目录](README.md)
 
-本文说明 Android 的四种应用组件、Service 与 WorkManager 的后台任务、Context 与 Application，以及清单权限和运行时权限。Activity 的职责和启动流程见[Activity、Fragment 与页面组织](activity-fragment-and-navigation.md)。
+本文说明 Android 的四种应用组件、Service 的线程与后台运行规则、前台 Service 与 WorkManager、Context 与 Application，以及清单权限和运行时权限。Activity 的职责和启动流程见[Activity、Fragment 与页面组织](activity-fragment-and-navigation.md)。
 
 ## 四种应用组件
 
@@ -19,11 +19,20 @@
 
 ## Service
 
-Service 是没有界面、在后台执行任务的组件。
+Service 是没有界面、在 App 进入后台后仍能执行任务的组件。“后台”在 Android 中有两种含义：
+
+| 说法 | 含义 |
+| --- | --- |
+| App 在后台 | 用户看不到 App 的任何页面，例如用户回到桌面或切换到其他 App |
+| 后台线程 | 主线程以外的线程 |
+
+Service 处理的是第一种情况：App 在后台时，系统是否允许任务继续执行。Service 的代码在哪个线程执行属于第二种情况，见下一节。
 
 ### Service 的代码运行在主线程
 
 系统在主线程上调用 Service 的 `onCreate()`、`onStartCommand()` 等生命周期方法，Service 不会自动创建新线程。在 `onStartCommand()` 中直接下载大文件，主线程同样会被阻塞，界面会卡住。耗时工作要放到子线程或协程中执行。主线程的规则见[Android 主线程、Handler 与 ANR](main-thread-and-handler.md)。
+
+所以 Service 负责让系统允许任务继续执行，耗时工作由子线程或协程完成。例如，播放器内部用自己的线程解码音频，Service 中调用 `player.play()` 只发出开始播放的指令，调用很快返回。
 
 ### 启动方式：startService 与 bindService
 
@@ -34,13 +43,43 @@ Service 是没有界面、在后台执行任务的组件。
 
 一个 Service 可以同时被启动和被绑定。这种情况下，Service 要等两种结束条件都满足后才被销毁。
 
-### 前台 Service、后台限制与 WorkManager
+### App 进入后台后的进程优先级
 
-App 退到后台后，进程仍可以继续运行，但内存不足时系统会优先结束后台进程。iOS App 退到后台后通常很快被挂起，这一点与 Android 不同。
+App 退到后台后，进程仍可以继续运行，已经启动的线程和协程会继续执行。iOS App 退到后台后通常很快被挂起，这一点与 Android 不同，见[iOS 后台执行机制](../ios/background-execution.md)。
 
-前台 Service 是告诉系统“用户正在关心这项任务”的 Service。前台 Service 必须显示一条通知，系统因此不会轻易结束前台 Service 所在的进程。音乐播放、导航这类用户能感知的长任务使用前台 Service。
+内存不足时，系统按进程优先级选择要结束的进程。进程优先级是系统根据进程正在执行的任务，给每个进程排定的重要程度：
 
-Android 8.0（API level 26）起，系统限制后台 App 启动普通 Service。可以延后执行、但必须完成的任务，交给 Jetpack 的 WorkManager。WorkManager 把任务持久化保存，App 被结束或设备重启后，WorkManager 仍会在条件满足时执行任务，例如在连接 Wi-Fi 时同步数据。WorkManager 的用途接近 iOS 的 `BGTaskScheduler`。
+- 用户正在使用的 App 优先级最高，系统最后才结束这类进程。
+- 用户已经离开、也没有执行用户关心的任务的 App 优先级低，系统最先结束这类进程。
+
+Android 8.0（API level 26）起，系统还限制后台 App 的普通 Service。App 进入后台后有一段短暂的窗口期，通常约 1 分钟。窗口期结束后，系统停止 App 的普通 Service，App 也不能再启动新的普通 Service。
+
+Service 的作用是向系统声明 App 仍有任务在进行。普通 Service 只能让任务在后台再执行一小段时间；任务需要长时间运行时，使用前台 Service。
+
+### 前台 Service 与常驻通知
+
+前台 Service 中的“前台”指用户知道这项任务正在进行，与 App 的页面是否显示在屏幕上无关。前台 Service 与普通 Service 一样没有页面，在 App 进入后台后执行任务。
+
+通知（Notification）是 App 交给系统、由系统显示在状态栏和通知栏中的消息卡片。前台 Service 运行期间必须显示一条通知，这条通知通常一直显示到 Service 结束。用户看到通知，就知道 App 仍在运行；用户不需要这项任务时，可以停止 App。系统用这个规则防止 App 在用户不知情时长期运行。
+
+以音乐 App 后台播放为例：
+
+1. 用户点击播放后切换到其他 App。音乐 App 的页面不再显示，进程优先级下降。
+2. 负责播放的 `MusicService` 调用 `startForeground(1, notification)`。参数 `1` 是通知编号，`notification` 是要显示的 `Notification` 对象。
+3. 系统显示带歌名和播放控制按钮的通知，并把音乐 App 进程的优先级提高到接近用户正在使用的级别。内存紧张时，系统也很少结束这个进程，音乐持续播放。
+
+Android 14（API level 34）起，前台 Service 必须在清单中声明用途类型，例如 `mediaPlayback`（媒体播放）、`location`（定位）。系统按声明的类型检查 App 是否具备对应权限。前台 Service 的常见用途有音乐播放、导航、文件上传下载、通话和运动记录。
+
+iOS 锁屏和灵动岛上的“正在播放”与前台 Service 的通知外观相近，作用不同：
+
+| 对比项 | Android 前台 Service 的通知 | iOS 锁屏、灵动岛上的“正在播放” |
+| --- | --- | --- |
+| 是否必须显示 | 必须。App 不显示通知，就不能成为前台 Service | 可选。App 通过 `MPNowPlayingInfoCenter` 提供播放信息后才显示 |
+| 与后台运行的关系 | 显示通知是 App 长时间后台运行的条件 | 只负责展示。App 在后台继续播放依靠 `audio` 后台模式 |
+
+### WorkManager：可延后但必须完成的任务
+
+可以延后执行、但必须完成的任务，交给 Jetpack 的 WorkManager。WorkManager 把任务持久化保存，App 被结束或设备重启后，WorkManager 仍会在条件满足时执行任务，例如在连接 Wi-Fi 时同步数据。WorkManager 的用途接近 iOS 的 `BGTaskScheduler`。
 
 ## BroadcastReceiver 与 ContentProvider
 

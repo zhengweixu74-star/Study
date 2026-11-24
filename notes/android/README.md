@@ -4,10 +4,10 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [Android 系统分层与应用启动](system-architecture-and-app-launch.md) | 系统分层、ART 与 DEX、AOT 与 JIT、进程与 UID 沙盒、Zygote 与 system_server、Binder、冷启动流程、Application 与系统创建 Activity |
+| [Android 系统分层与应用启动](system-architecture-and-app-launch.md) | 系统分层、ART 与 DEX、字节码与机器码、NDK 与 .so、AOT 与 JIT、ART 的堆与 GC 触发时机、ART／Dalvik／JVM、进程与 UID 沙盒、Zygote 与 system_server、Binder、冷启动流程、Application 与系统创建 Activity |
 | [Android 工程结构、依赖库与安装包](project-structure-and-build.md) | 工程目录与 iOS 对照、API level 与 minSdk、AndroidX 与 Jetpack、构建变体、APK 内容、AAB、R8 压缩与混淆 |
 | [Android 资源与 R 类](resources-and-r-class.md) | 资源 ID 与命名规则、XML 与代码引用、findViewById 的查找范围、资源限定符、多语言、多模块中的 R 类 |
-| [Android 应用组件、Context 与权限](app-components-and-context.md) | 四种应用组件、Service 的线程与启动方式、前台 Service 与 WorkManager、BroadcastReceiver、ContentProvider、Context 与 Application、普通权限与运行时权限 |
+| [Android 应用组件、Context 与权限](app-components-and-context.md) | 四种应用组件、后台的两种含义、Service 的线程与启动方式、进程优先级与后台限制、前台 Service 与常驻通知、前台 Service 类型、WorkManager、BroadcastReceiver、ContentProvider、Context 与 Application、普通权限与运行时权限 |
 | [Activity、Fragment 与页面组织](activity-fragment-and-navigation.md) | Activity 与 Fragment 的职责、宿主和窗口、Activity 与 Window、DecorView 的持有关系、页面组合、清单声明、启动流程、显式与隐式 Intent、页面参数与 Parcelable、任务栈与启动模式、UIViewController 对照 |
 | [Android 页面生命周期与状态保存](activity-lifecycle-and-state.md) | Activity 的基本回调、配置变化与重建、Jetpack ViewModel、进程结束后的状态恢复、SavedStateHandle、Fragment 实例与视图的生命周期 |
 | [Android 主线程、Handler 与 ANR](main-thread-and-handler.md) | 主线程规则、Looper、MessageQueue 与 Handler、用 Handler 回到主线程、Dispatchers.Main、消息队列为空时的休眠、ANR 与阈值 |

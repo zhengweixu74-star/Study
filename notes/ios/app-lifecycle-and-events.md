@@ -128,7 +128,7 @@ UIKit 只负责在对应时机调用这些方法。计时器是否暂停、数�
 
 ### 挂起、终止与数据保存
 
-挂起的应用不执行代码。系统直接终止挂起的进程时，应用没有代码在运行，所以 `applicationWillTerminate(_:)` 不会被调用，数据也来不及保存。用户在应用切换器中上滑关闭应用时，`applicationWillTerminate(_:)` 同样可能不被调用。
+挂起的应用不执行代码。应用在后台继续执行代码的几种方式见[iOS 后台执行机制](background-execution.md)。系统直接终止挂起的进程时，应用没有代码在运行，所以 `applicationWillTerminate(_:)` 不会被调用，数据也来不及保存。用户在应用切换器中上滑关闭应用时，`applicationWillTerminate(_:)` 同样可能不被调用。
 
 持久保存是把数据写入文件、数据库等存储，进程结束后数据仍然存在。重要数据应在产生或修改后及时保存；`applicationDidEnterBackground(_:)` 适合再补存一次尚未保存的状态。例如，编辑器每隔几秒把草稿写入文件，应用被挂起后又被终止；用户重新打开应用时，应用读出最近一次保存的草稿，之后的修改会丢失。存储方式见 [iOS 数据持久化](../network-and-storage/ios-data-persistence.md)。
 

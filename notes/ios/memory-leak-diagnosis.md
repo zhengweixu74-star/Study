@@ -4,7 +4,7 @@
 
 排查分三步：先确定对象应该在什么时候释放，再找出超过这个时机仍然存活的对象，最后追踪哪些强引用让对象继续存活。总内存大小和 Leaks 的报告只是辅助证据。
 
-强引用是会保持目标对象存活的对象引用。ARC、引用环与可达性的基本规则见 [ARC 与 Android GC](../language/swift-basics.md#arc-与-android-gc引用计数可达性与引用环)；本文说明如何取得运行时证据。
+强引用是会保持目标对象存活的对象引用。ARC、引用环与可达性的基本规则见 [ARC 与 Android GC](../language/swift-memory-and-references.md#arc-与-android-gc引用计数可达性与引用环)；本文说明如何取得运行时证据。
 
 ## 1. 确定对象的预期释放时机
 

@@ -22,20 +22,68 @@ Framework 是 Android 提供给 App 调用的系统 API 集合。App 使用的 A
 
 ## ART 与 DEX：App 代码如何被执行
 
-ART（Android Runtime）是 Android 上执行 App 代码的虚拟机。虚拟机是用软件实现的程序执行环境，负责加载代码、执行代码并管理内存。
+ART（Android Runtime）是 Android 上执行 App 代码、管理 App 对象内存的虚拟机。虚拟机是用软件实现的程序执行环境，负责加载代码、执行代码并管理内存。每个 App 进程中都运行着一份 ART。
 
-DEX 是 ART 能执行的字节码文件格式。字节码是介于源码和机器码之间的中间格式，需要虚拟机翻译后才能在 CPU 上运行。App 代码的编译链路是：
+### 字节码与机器码
+
+机器码是某种 CPU 能直接执行的二进制指令。每种 CPU 架构有自己的指令集，指令集是这种 CPU 能识别的全部指令及其编码格式。ARM64 的机器码只能在 ARM64 CPU 上执行。
+
+字节码是格式由虚拟机规定、不针对某种 CPU 的指令。CPU 不能直接执行字节码，要由虚拟机把字节码转换成本机 CPU 的机器码，或者由虚拟机逐条解释执行。DEX 是 ART 能执行的字节码文件格式。App 代码的编译链路是：
 
 ```text
 Kotlin／Java 源码 → .class 字节码 → .dex 文件 → 打包进 APK
 ```
+
+以一个 Kotlin 函数为例：
+
+```kotlin
+fun add(a: Int, b: Int): Int = a + b
+```
+
+编译成 DEX 字节码后，用文字表示类似下面的指令（编译器实际生成的寄存器编号可能不同）：
+
+```text
+add-int v0, p0, p1    // 把参数寄存器 p0 和 p1 相加，结果放进 v0
+return v0             // 返回 v0
+```
+
+ART 在 ARM64 设备上把这段字节码编译成机器码，用汇编表示是：
+
+```text
+add w0, w0, w1        // 把 CPU 寄存器 w0 和 w1 相加，结果存回 w0
+ret                   // 返回
+```
+
+汇编是机器码的文字写法。`add w0, w0, w1` 的机器码是 4 字节的 `0x0B010000`，CPU 读取这 4 个字节就执行加法。
+
+两段代码中的寄存器含义不同。DEX 中的 `v0`、`p0`、`p1` 是 DEX 格式规定的虚拟寄存器，只是编号；ARM64 机器码中的 `w0`、`w1` 是 CPU 中真实存在的硬件存储单元。
+
+Android 使用字节码，原因是 Android 设备的 CPU 架构不止一种，例如 ARM64、32 位 ARM，模拟器还使用 x86-64。App 只提供一份 DEX，每台设备上的 ART 把 DEX 转换成本机 CPU 的机器码。iOS 设备都使用 ARM64 架构，Xcode 直接把 Swift 编译成 ARM64 机器码，iOS 上的 App 运行时没有字节码虚拟机这一层。
+
+Android App 中也有直接编译成机器码的代码。NDK 是 Android 提供的 C/C++ 开发工具集，C/C++ 代码经 NDK 编译成 `.so` 动态库。`.so` 中保存的是机器码，APK 的 `lib/` 目录按 CPU 架构分别存放各架构的 `.so`，见[安装包：APK、AAB 与 R8](project-structure-and-build.md#安装包apkaab-与-r8)。
+
+### AOT 与 JIT
 
 ART 把 DEX 编译成机器码的时机有两种：
 
 - AOT（提前编译）：在安装时或设备空闲时，把字节码提前编译成机器码。
 - JIT（即时编译）：在 App 运行时，把执行频繁的代码编译成机器码。
 
-ART 结合使用这两种方式。iOS 的做法是 Xcode 直接把 Swift 编译成机器码，iOS 上的 App 运行时没有这一层字节码虚拟机。
+ART 结合使用这两种方式。
+
+### ART 管理对象内存
+
+App 代码创建对象时，ART 在堆上为对象分配内存。堆是进程中存放对象的内存区域；变量中保存的是指向堆上对象的引用。
+
+ART 中的垃圾回收器（GC）找出不再可达的对象，回收这些对象占用的内存，App 代码不需要编写释放对象的代码。GC 判断对象是否可达的方式，以及 GC 与 Swift ARC 的区别，见[ARC 与 Android GC](../language/swift-memory-and-references.md#arc-与-android-gc引用计数可达性与引用环)。
+
+GC 主要在 App 分配新对象、堆的用量达到 ART 设定的阈值时触发；App 退到后台等时机，ART 也会安排一次回收。GC 的大部分工作在 ART 的后台线程上执行。
+
+### ART、Dalvik 与 JVM
+
+JVM（Java 虚拟机）是在电脑和服务器上运行 Java 程序的虚拟机，执行 `.class` 字节码。Android 使用 ART 执行 DEX 字节码；Android 5.0 之前，Android 使用的虚拟机是 Dalvik。
+
+JVM 与 ART 都从 GC Roots 出发判断对象是否可达，所以 Java 资料中关于 GC Roots 和可达性的知识同样适用于 Android。
 
 ## 进程、沙盒与 Binder
 

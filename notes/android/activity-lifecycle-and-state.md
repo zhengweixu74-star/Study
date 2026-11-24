@@ -82,4 +82,4 @@ SavedStateHandle 只保存重建界面所需的最小信息，例如搜索词和
 
 用 StateFlow 暴露状态、用 repeatOnLifecycle 按生命周期收集状态的完整示例见[ViewModel 状态暴露与页面收集：StateFlow 与 repeatOnLifecycle](stateflow-and-lifecycle-collection.md)。
 
-相关笔记：[UIKit 布局、列表与 MVVM](../ios/uikit-layout-and-mvvm.md)；[Swift 基础语义与内存管理](../language/swift-basics.md#基础语义与内存管理)。
+相关笔记：[UIKit 布局、列表与 MVVM](../ios/uikit-layout-and-mvvm.md)；[Swift 内存管理、值语义与对象引用](../language/swift-memory-and-references.md)。

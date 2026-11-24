@@ -83,7 +83,7 @@ AutoreleasePoolPage 是运行时用来存放登记记录的内存块，记录内
 
 登记 C 后，记录依次是“外层边界、A、内层边界、B、C”，可能在同一个 Page 中，也可能跨越多个 Page。退出内层池时，运行时从最新的记录往前，依次对 C、B 执行 release，直到遇到内层边界，并移除这个边界；外层边界和 A 保持不变。随后登记 D；退出外层池时，再依次对 D、A 执行 release。这里假设 release 过程中没有登记新的对象。
 
-池清空只是对登记的对象各执行一次 release。如果对象还有其他强引用，引用计数不会归零，对象继续存活。ARC 的基本规则见 [ARC 与 Android GC](swift-basics.md#arc-与-android-gc引用计数可达性与引用环)。
+池清空只是对登记的对象各执行一次 release。如果对象还有其他强引用，引用计数不会归零，对象继续存活。ARC 的基本规则见 [ARC 与 Android GC](swift-memory-and-references.md#arc-与-android-gc引用计数可达性与引用环)。
 
 ### Swift 使用场景与按批释放
 
@@ -714,7 +714,7 @@ let name = person.value(forKey: "name") as? String
 
 `setValue(_:forKey:)` 收到 `"name"` 后，按命名规则查找 setter，这里找到的是 `setName:`。`value(forKey:)` 按规则查找 getter，结果以 `Any?` 返回，调用方需要转换类型。找不到访问方法时，如果类允许直接访问实例变量，还会查找名称对应的实例变量。键完全找不到时，KVC 抛出“未定义键”异常，而不是返回 `nil`；给 Int 这类不能为空的属性设置 `nil`，也会抛出异常。
 
-`key` 是单个属性名，`keyPath` 是用点连接的属性路径，例如 `"address.city"`，`value(forKeyPath:)` 沿路径逐级读取。`#keyPath(Person.name)` 在编译时检查属性存在并生成字符串 `"name"`，手写字符串没有这项检查。Swift 原生的 `\Person.name` 是另一种东西：它是带根类型和值类型的 [KeyPath](swift-basics.md#mapkeypathsequencecollection-与-set) 值，不是字符串，也可以用于 struct。
+`key` 是单个属性名，`keyPath` 是用点连接的属性路径，例如 `"address.city"`，`value(forKeyPath:)` 沿路径逐级读取。`#keyPath(Person.name)` 在编译时检查属性存在并生成字符串 `"name"`，手写字符串没有这项检查。Swift 原生的 `\Person.name` 是另一种东西：它是带根类型和值类型的 [KeyPath](swift-collections.md#mapkeypathsequencecollection-与-set) 值，不是字符串，也可以用于 struct。
 
 KVC 负责按键读写属性；KVO 负责在属性变化时调用已注册的观察回调。Swift 中使用 KVO，被观察的属性需要标记 `@objc dynamic`。
 

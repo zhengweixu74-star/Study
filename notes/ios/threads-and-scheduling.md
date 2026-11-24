@@ -100,7 +100,7 @@ DispatchQueue.global(qos: .userInitiated).async {
 
 后台闭包先算出 `total`，再把打印闭包提交给主队列。`DispatchQueue.main.async` 提交后立即返回，打印闭包要等主线程执行完当前工作后才执行。`.userInitiated` 是服务质量等级（QoS），表示任务的紧急程度，系统据此安排优先级；执行任务的线程仍由系统选择。
 
-`Task { ... }` 的执行位置取决于创建时的隔离：在 `MainActor` 隔离范围内创建的 `Task` 继承这个隔离，其中的同步计算仍在主线程执行。`async let` 在声明处就创建子任务，后面的 `await` 只等待结果。具体机制和两个请求的示例见[async let 创建子任务与 await 等待结果](../language/swift-basics.md#async-let-创建子任务与-await-等待结果)。
+`Task { ... }` 的执行位置取决于创建时的隔离：在 `MainActor` 隔离范围内创建的 `Task` 继承这个隔离，其中的同步计算仍在主线程执行。`async let` 在声明处就创建子任务，后面的 `await` 只等待结果。具体机制和两个请求的示例见[async let 创建子任务与 await 等待结果](../language/swift-concurrency.md#async-let-创建子任务与-await-等待结果)。
 
 ## 数据竞争与线程安全
 
@@ -134,7 +134,7 @@ DispatchQueue.global(qos: .userInitiated).async {
 | 自建并发队列与 barrier | 所有读写通过同一个自建并发队列，写入用屏障任务，见[barrier 与单写多读](#barrier-与单写多读) |
 | 初始值为 1 的信号量 | 所有读写使用同一个信号量：先 wait，再访问，最后 signal 一次，见[信号量的计数与配对规则](#信号量的计数与配对规则) |
 
-“检查后修改”要整个放在同一个保护范围内。只保护写入、不保护读取，或者把检查和更新分别加锁时，其他线程都可能在检查和更新之间修改数据。actor 在 await 前后状态可能改变，见[actor 的默认隔离与重入](../language/swift-basics.md#actor-的默认隔离与重入)。
+“检查后修改”要整个放在同一个保护范围内。只保护写入、不保护读取，或者把检查和更新分别加锁时，其他线程都可能在检查和更新之间修改数据。actor 在 await 前后状态可能改变，见[actor 的默认隔离与重入](../language/swift-concurrency.md#actor-的默认隔离与重入)。
 
 用 let 保存类实例，只固定了引用，实例的 var 属性仍可被修改。Objective-C 的 atomic 属性只保证单次读取或单次赋值完整执行；“先读再改”和多个属性之间的一致性要另加同步。
 
@@ -199,7 +199,7 @@ CAS 每次只做一次比较和写入，失败后的重试循环由调用方自�
 
 GCD（Grand Central Dispatch）是 Apple 提供的任务调度机制，由 libdispatch 库实现。任务是要执行的工作，队列决定任务按什么规则执行，线程负责实际执行代码。主队列的任务固定在主线程执行；其他队列的任务由系统选择工作线程执行。
 
-在 Swift 的 GCD 调用中，block 指传给 sync 或 async 的闭包，闭包的内容就是任务要执行的代码。这里的“任务”是一般概念，与 Swift 的 [Task](../language/swift-basics.md#tasktaskdetached-与任务局部值) 类型无关。
+在 Swift 的 GCD 调用中，block 指传给 sync 或 async 的闭包，闭包的内容就是任务要执行的代码。这里的“任务”是一般概念，与 Swift 的 [Task](../language/swift-concurrency.md#tasktaskdetached-与任务局部值) 类型无关。
 
 | 概念 | 对执行的约束 |
 | --- | --- |
@@ -330,7 +330,7 @@ demo.waitUntilFinished()
 
 write 返回时，写入任务只是已经提交。waitUntilFinished 在已提交的任务之后再提交一个同步屏障，调用方阻塞到这个屏障结束才返回，命令行程序因此会等任务执行完再退出。waitUntilFinished 只等待调用之前提交的任务；在 queue 正在执行的任务中调用 waitUntilFinished，任务会等待自己所在的队列，形成死锁。
 
-@unchecked Sendable 表示由开发者保证这个类可以安全地在线程间传递，编译器不再检查（Sendable 的含义见 [Sendable 与 @Sendable](../language/swift-basics.md#sendable-与-sendable)）。示例的线程安全来自私有队列和屏障：value 只在 queue 的任务中被访问；@unchecked Sendable 只关闭检查，本身不提供同步。
+@unchecked Sendable 表示由开发者保证这个类可以安全地在线程间传递，编译器不再检查（Sendable 的含义见 [Sendable 与 @Sendable](../language/swift-concurrency.md#sendable-与-sendable)）。示例的线程安全来自私有队列和屏障：value 只在 queue 的任务中被访问；@unchecked Sendable 只关闭检查，本身不提供同步。
 
 ### 死锁与进程终止
 

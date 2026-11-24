@@ -99,7 +99,7 @@ actionHandler = {
 
 ### 属性、访问器与索引记录
 
-**P 表示属性，M 表示方法。** 实例属性的 getter 和 setter 是访问器方法；索引将访问器归类为方法时，可以显示 M。访问器的职责与编译器优化边界见[属性访问器](../language/swift-basics.md#存储属性计算属性与访问器)。
+**P 表示属性，M 表示方法。** 实例属性的 getter 和 setter 是访问器方法；索引将访问器归类为方法时，可以显示 M。访问器的职责与编译器优化边界见[属性访问器](../language/swift-properties-and-initialization.md#存储属性计算属性与访问器)。
 
 ## 工程与构建
 

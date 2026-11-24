@@ -59,6 +59,6 @@ Swift 的任务是由 Swift 并发运行时管理的一段异步工作。Swift �
 | `scope.launch { ... }` | `Task { ... }` | 都启动一段异步工作；生命周期、上下文继承和父子关系的规则不同 |
 | 在协程中调用 `load()` | 在异步上下文中调用 `await load()` | Kotlin 调用挂起函数时不写任何标记；Swift 必须用 `await` 标出可能挂起的位置 |
 
-Kotlin 的 `suspend` 修饰函数声明，对应 Swift 的 `async`，而不是调用处的 `await`。两种语言中，“可以挂起”都不代表“一定挂起”，也都不会因此切换到主线程或后台线程。Swift 任务的具体挂起过程见 [任务挂起与线程释放](swift-basics.md#任务挂起与线程释放)。
+Kotlin 的 `suspend` 修饰函数声明，对应 Swift 的 `async`，而不是调用处的 `await`。两种语言中，“可以挂起”都不代表“一定挂起”，也都不会因此切换到主线程或后台线程。Swift 任务的具体挂起过程见 [任务挂起与线程释放](swift-concurrency.md#任务挂起与线程释放)。
 
 Android 页面中的协程作用域、线程切换和状态收集见[ViewModel 状态暴露与页面收集：StateFlow 与 repeatOnLifecycle](../android/stateflow-and-lifecycle-collection.md)。

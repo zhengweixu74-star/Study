@@ -52,7 +52,7 @@ UIViewController 的视图加载、出现和消失构成页面生命周期，与
 
 ### 控制器初始化、视图加载与页面展示
 
-控制器初始化、根视图加载和页面展示是三个不同的步骤。`init` 只设置控制器的初始状态，此时根视图还没有加载。初始化方法的分类与 `required init?(coder:)` 见[UIViewController 的初始化路径](../language/swift-basics.md#uiviewcontroller-的-initcoder-与纯代码初始化)。
+控制器初始化、根视图加载和页面展示是三个不同的步骤。`init` 只设置控制器的初始状态，此时根视图还没有加载。初始化方法的分类与 `required init?(coder:)` 见[UIViewController 的初始化路径](../language/swift-properties-and-initialization.md#uiviewcontroller-的-initcoder-与纯代码初始化)。
 
 `loadView()` 是控制器创建根视图的入口。根视图尚未加载时，访问 `view` 会触发加载；`loadViewIfNeeded()` 可以显式要求加载，根视图已经加载时不会再次加载。`isViewLoaded` 用于判断加载状态，`viewIfLoaded` 可以读取已加载的根视图而不触发加载。
 
@@ -76,7 +76,7 @@ UIViewController 的视图加载、出现和消失构成页面生命周期，与
 
 `dismiss(animated:completion:)` 关闭模态展示的页面。调用返回时转场不一定完成，控制器也不一定立即释放：其他对象或异步闭包仍强引用控制器时，控制器会继续存活。
 
-如果页面在异步任务 `await` 期间被关闭，任务恢复后要先检查任务是否已被取消、页面是否还需要这个结果，再修改界面。取消请求不会强制中断代码，具体规则见[Task 的上下文继承与取消](../language/swift-basics.md#上下文继承与取消)。
+如果页面在异步任务 `await` 期间被关闭，任务恢复后要先检查任务是否已被取消、页面是否还需要这个结果，再修改界面。取消请求不会强制中断代码，具体规则见[Task 的上下文继承与取消](../language/swift-concurrency.md#上下文继承与取消)。
 
 ### push、present 与出现消失回调
 
@@ -463,7 +463,7 @@ print(first.superview == nil)     // true
 print(second.superview === parentB) // true
 ```
 
-移除 `first` 只解除 `first` 与 `parentA` 的父子关系，不会移除 `second`。如果写成 `let second = first`，两个变量才指向同一实例；把 `second` 加入另一个父视图会移动这一个视图。对象身份的比较规则见[相等规则与对象身份](../language/swift-basics.md#相等规则与对象身份)。
+移除 `first` 只解除 `first` 与 `parentA` 的父子关系，不会移除 `second`。如果写成 `let second = first`，两个变量才指向同一实例；把 `second` 加入另一个父视图会移动这一个视图。对象身份的比较规则见[相等规则与对象身份](../language/swift-memory-and-references.md#相等规则与对象身份)。
 
 ### UIStackView 与 UIScrollView 的继承和职责
 
@@ -855,7 +855,7 @@ UICollectionViewDelegateFlowLayout 又继承 UICollectionViewDelegate。使用 U
 
 这些回调只对 UICollectionViewFlowLayout 有效，其他布局用各自的接口配置。以上代理协议中的方法都是可选的，按需实现即可。
 
-协议继承的通用规则见[Swift 语言基础中的协议继承](../language/swift-basics.md#协议继承与类继承的区别)。
+协议继承的通用规则见[Swift 基础语法与类型系统中的协议继承](../language/swift-basics.md#协议继承与类继承的区别)。
 
 ## 页面、列表与 Cell ViewModel
 
@@ -885,7 +885,7 @@ ViewModel 决定显示什么数据和状态，View 负责实际更新图标、�
 
 View 持有协议类型的 ViewModel，可以不依赖具体的实现类，但仍依赖这个协议。用闭包或 Publisher 通信也不会消除依赖，仍要明确事件从哪里进入、状态从哪里来、订阅什么时候取消。
 
-语言细节见[Swift 语言基础](../language/swift-basics.md)；状态订阅与执行时序见[响应式编程与事件通知](reactive-programming.md)。
+语言细节见[Swift 基础语法与类型系统](../language/swift-basics.md)；状态订阅与执行时序见[响应式编程与事件通知](reactive-programming.md)。
 
 ## 长列表性能与异步图片复用
 

@@ -177,7 +177,7 @@ RunLoop → CADisplayLink
 
 Timer 的闭包强捕获持有 Timer 的控制器时，也形成同样的环。控制器在环中时引用计数降不到零，`deinit` 不会执行，所以停止回调的代码要放在任务完成、任务取消或页面不再需要回调的时机主动调用。`deinit` 中的 `invalidate()` 只在环被打破后才有机会执行，只作为兜底。
 
-打破引用环的方法：Timer 的闭包用 [weak 捕获](../language/swift-basics.md#weak-与-unowned-的使用条件)；CADisplayLink 和 target/selector 形式的 Timer 强引用 target，要改用弱引用代理作为 target。打破环后仍要调用 `invalidate()`：控制器释放后，RunLoop 还持有 Timer 或 CADisplayLink，回调会继续空转。
+打破引用环的方法：Timer 的闭包用 [weak 捕获](../language/swift-memory-and-references.md#weak-与-unowned-的使用条件)；CADisplayLink 和 target/selector 形式的 Timer 强引用 target，要改用弱引用代理作为 target。打破环后仍要调用 `invalidate()`：控制器释放后，RunLoop 还持有 Timer 或 CADisplayLink，回调会继续空转。
 
 ### 弱引用代理
 
@@ -188,7 +188,7 @@ Timer 的闭包强捕获持有 Timer 的控制器时，也形成同样的环。�
 RunLoop → CADisplayLink
 ```
 
-下面用一个页面的透明度动画演示。`@MainActor` 表示这些类的代码在主线程执行；本例把 `CADisplayLink` 加入主线程 RunLoop，所有 UIKit 访问都在主线程进行。并发概念见 [MainActor、主队列与异步调用](../language/swift-basics.md#mainactor主队列与异步调用)。
+下面用一个页面的透明度动画演示。`@MainActor` 表示这些类的代码在主线程执行；本例把 `CADisplayLink` 加入主线程 RunLoop，所有 UIKit 访问都在主线程进行。并发概念见 [MainActor、主队列与异步调用](../language/swift-concurrency.md#mainactor主队列与异步调用)。
 
 ```swift
 import UIKit

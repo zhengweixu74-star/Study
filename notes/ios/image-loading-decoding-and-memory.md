@@ -169,7 +169,7 @@ prepareForDisplay 只对已有的 UIImage 做解码准备，不下载图片，�
 
 内存缓存是程序在内存中维护的容器，例如保存“图片标识 → UIImage 对象”的字典。清空缓存只删除容器中的记录；其他对象仍引用这张图片时，图片继续留在内存中。
 
-强引用是让目标对象保持存活的引用。ARC（自动引用计数）根据强引用关系管理对象生命周期。缓存和 UIImageView.image 可以同时强引用同一个 UIImage 对象，缓存和图片视图共用这一份图片数据。引用关系的通用规则见[ARC 与 Android GC](../language/swift-basics.md#arc-与-android-gc引用计数可达性与引用环)。
+强引用是让目标对象保持存活的引用。ARC（自动引用计数）根据强引用关系管理对象生命周期。缓存和 UIImageView.image 可以同时强引用同一个 UIImage 对象，缓存和图片视图共用这一份图片数据。引用关系的通用规则见[ARC 与 Android GC](../language/swift-memory-and-references.md#arc-与-android-gc引用计数可达性与引用环)。
 
 例如，一份像素数据占 4 MiB。缓存和图片视图同时引用这份数据时，像素数据仍约占 4 MiB，另有缓存条目和对象管理信息的少量开销。只有程序另外生成缩略图，或者重新解码出另一份像素数据时，内存中才多出一份新数据。
 

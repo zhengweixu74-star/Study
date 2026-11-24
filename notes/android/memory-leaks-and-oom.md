@@ -8,7 +8,7 @@
 
 Android 上的 Kotlin／Java 对象由垃圾回收器（GC）管理。GC 从 GC Roots 出发，沿强引用找出所有可达的对象，回收不可达的对象。GC Roots 是 GC 追踪对象时使用的一组起点，例如静态变量、各线程正在执行的方法中的局部变量。
 
-GC 能回收互相引用、但从 GC Roots 走不到的对象，所以在 Android 上，大多数闭包捕获页面对象时不需要像 Swift 那样写 `[weak self]`。GC 与 ARC 的完整对比见[ARC 与 Android GC：引用计数、可达性与引用环](../language/swift-basics.md#arc-与-android-gc引用计数可达性与引用环)。
+GC 能回收互相引用、但从 GC Roots 走不到的对象，所以在 Android 上，大多数闭包捕获页面对象时不需要像 Swift 那样写 `[weak self]`。GC 与 ARC 的完整对比见[ARC 与 Android GC：引用计数、可达性与引用环](../language/swift-memory-and-references.md#arc-与-android-gc引用计数可达性与引用环)。
 
 内存泄漏是对象已经不再需要、却仍然无法回收的情况。Android 的内存泄漏通常是这种结构：一个存活时间长的对象，仍然引用着一个本该销毁的对象，最常见的被引用对象是 Activity。Activity 持有整棵 View 树，一个 Activity 泄漏会让页面的所有 View 和 View 引用的图片都无法回收。
 

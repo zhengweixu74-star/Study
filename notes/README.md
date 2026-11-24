@@ -2,14 +2,14 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 55 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 61 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
 | 分类 | 文档数 |
 | --- | --- |
-| [语言与运行时](#语言与运行时) | 6 |
-| [iOS 界面、事件与调度](#ios-界面事件与调度) | 12 |
+| [语言与运行时](#语言与运行时) | 11 |
+| [iOS 界面、事件与调度](#ios-界面事件与调度) | 13 |
 | [Android 应用开发](android/README.md) | 14 |
 | [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
@@ -23,11 +23,16 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [Swift 语言基础](language/swift-basics.md) | ARC 与 Android GC、值的生命周期、weak 与 unowned、闭包与 Delegate、协议继承；值类型与引用类型、可选类型与可选绑定、函数值与闭包；actor 隔离与重入、MainActor、Sendable、Swift 6 并发检查、Task 与 async let；浅拷贝与深拷贝、Codable；符号引用与对象引用、声明与定义；属性、初始化方法与两阶段初始化；some 与 any、逃逸闭包、捕获列表；集合与 KeyPath、写时复制、ArraySlice；相等与对象身份、defer |
+| [Swift 基础语法与类型系统](language/swift-basics.md) | 类型安全与动态能力、类型推断与数值转换、运行时类型转换；可选类型与可选绑定；函数签名、回调类型与错误处理；逃逸闭包、捕获列表与可选回调；协议继承、some 与 any；符号引用与对象引用、声明与定义；Swift 与 C 接口互操作；多行字符串、Data 与字符串解码、元组与 Void、defer |
+| [Swift 内存管理、值语义与对象引用](language/swift-memory-and-references.md) | 类型、实例与对象引用；值语义、值类型与引用类型的选择、mutating、函数参数、inout 与独占访问、值的生命周期；ARC 与 Android GC、编译器插入 retain 与 release；weak 与 unowned；闭包与 Delegate；浅拷贝与深拷贝；相等与对象身份 |
+| [Swift 并发：actor、Sendable 与 Task](language/swift-concurrency.md) | actor 的默认隔离与重入、MainActor 与主队列；Sendable 与 @Sendable；Swift 6 并发检查与版本条件；Task 与 Task.detached、任务结果类型、上下文继承与取消、async let、TaskLocal |
+| [Swift 属性、初始化方法与扩展限制](language/swift-properties-and-initialization.md) | 存储属性、计算属性与访问器、lazy 属性；实例属性初始化、指定与便利初始化方法、required 与 override、init?(coder:)、两阶段初始化；扩展中的类型属性与实例存储限制 |
+| [Swift 集合、KeyPath 与写时复制](language/swift-collections.md) | map 与 KeyPath、Sequence、Collection 与 Set、for-in 遍历、stride、last 与 reversed、数组值语义与写时复制、ArraySlice、集合与泛型协议约束 |
+| [Swift Codable 与序列化复制](language/swift-codable-and-serialization.md) | Codable 编码与解码、CodingKeys，以及编码再解码复制对象时的状态保留、对象共享与循环引用问题 |
 | [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 分类与类扩展、自动释放池、+load 与 +initialize、关联对象、实例布局与类型元数据、isa、静态派发与虚方法表、内联与编译优化选项、协议见证表、Selector 与 IMP、消息转发、Method Swizzling、@objcMembers、KVC 与 KVO |
 | [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md) | Node.js 与浏览器、类型标注与推断、number 与 Int／Double、接口与泛型、类型擦除、事件循环与异步、Worker 消息通信及回调执行位置 |
 | [C++ 静态存储期对象与初始化](language/cpp-static-storage-and-initialization.md) | 静态存储期、静态数据成员、构造函数、全局对象与静态局部对象的初始化时机 |
-| [Kotlin 基础语法与 Swift 对照](language/kotlin-basics.md) | 变量与空安全、类与继承、data class、object、companion object、sealed class、函数、扩展函数与 lambda、when 表达式、作用域函数 |
+| [Kotlin 基础语法与 Swift 对照](language/kotlin-basics.md) | 变量与空安全、val 与 const val、Swift let 对照、Array／List／MutableList 与引用语义、类与继承、data class、object、companion object、sealed class、函数、扩展函数与 lambda、when 表达式、作用域函数 |
 | [Kotlin 协程与 suspend](language/kotlin-coroutines-and-suspend.md) | 协程与挂起函数、启动与执行顺序、挂起与阻塞，以及与 Swift Task、async、await 的对应关系 |
 
 ## iOS 界面、事件与调度
@@ -36,6 +41,7 @@
 | --- | --- |
 | [Darwin、应用框架与系统服务](ios/darwin-frameworks-and-services.md) | Darwin 与 XNU、基础系统组件、应用框架、系统服务及通知协作示例 |
 | [iOS 应用生命周期、启动与窗口](ios/app-lifecycle-and-events.md) | 应用运行状态与生命周期回调、Scene 生命周期、启动到首帧、LaunchScreen 与自定义启动页、main 之前的 dyld 工作、启动计时与启动优化、动态库数量与地址修正；多个 UIWindow 与关键窗口 |
+| [iOS 后台执行机制](ios/background-execution.md) | 挂起与后台执行的前提、beginBackgroundTask、后台模式、BGTaskScheduler、后台 URLSession、静默推送，以及与 Android 后台执行方式的对照 |
 | [UIKit 触摸事件、手势与键盘输入](ios/touch-events-and-gestures.md) | 触摸事件分发路径、局部坐标与 bounds、hitTest 命中测试、事件穿透、扩大点击区域；响应链与触摸回调；手势同时识别、点击与长按协调、长按状态；屏幕键盘与第一响应者 |
 | [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 控制器初始化与视图加载、push 与 present、sheet 样式、viewDidLayoutSubviews、UIButton 与 tintColor；frame 与 Auto Layout、transform、autoresizingMask、固有内容尺寸与优先级、约束复用；视图层级与前后顺序、子视图回调、容器控制器、分栏界面；UITableView 重用、Cell 倒计时、行删除与批量更新、UICollectionView；Cell ViewModel、MVVM、长列表性能与高度缓存、reload 后定位 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter；OpenCombine 的 Subject、@Published、CurrentValueSubject、receive(on:)、removeDuplicates；CombineX 的订阅关系；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
