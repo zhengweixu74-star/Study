@@ -20,7 +20,7 @@
 | [Android 应用开发](./notes/android/README.md) | 14 | 系统分层与应用启动；工程结构、依赖库与安装包；资源与 R 类；应用组件、Context 与权限；Activity、Fragment 与页面组织；页面生命周期与状态保存；主线程、Handler 与 ANR；StateFlow 与 repeatOnLifecycle；View、ViewGroup 与 XML 布局；View 绘制流程与屏幕刷新；触摸事件；列表复用；ValueAnimator；内存泄漏与 OOM |
 | [跨平台与宿主通信](./notes/README.md#跨平台与宿主通信) | 2 | WebView 与 Lynx 双向通信；Lynx 渲染、线程模型与资源更新 |
 | [软件设计与工程工具](./notes/README.md#软件设计与工程工具) | 2 | 设计模式与 Swift 实践；Xcode 工程管理与自动化测试 |
-| [网络与存储](./notes/README.md#网络与存储) | 8 | 网络请求与代理；iOS 文件存储；iOS 数据持久化；数据库索引与 B+ 树；SQL 多表查询：JOIN 与 UNION；Android 数据存储；数据库范式；MySQL 事务并发、锁与日志 |
+| [网络与存储](./notes/README.md#网络与存储) | 9 | 网络请求与代理；本机网络路径：网卡、路由表、网关、系统代理与 VPN；iOS 文件存储；iOS 数据持久化；数据库索引与 B+ 树；SQL 多表查询：JOIN 与 UNION；Android 数据存储；数据库范式；MySQL 事务并发、锁与日志 |
 | [实验与统计](./notes/README.md#实验与统计) | 1 | A/B 实验与统计 |
 | [AI 辅助开发](./notes/README.md#ai-辅助开发) | 1 | AI Agent 原理与开发验证 |
 

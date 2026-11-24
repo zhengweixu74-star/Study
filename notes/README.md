@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 61 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 62 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
@@ -13,7 +13,7 @@
 | [Android 应用开发](android/README.md) | 14 |
 | [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
-| [网络与存储](#网络与存储) | 8 |
+| [网络与存储](#网络与存储) | 9 |
 | [实验与统计](#实验与统计) | 1 |
 | [AI 辅助开发](#ai-辅助开发) | 2 |
 | [数据结构](data-structures/README.md) | 1 |
@@ -80,6 +80,7 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；HTTP 方法与文件上传、请求正文格式、gzip；URLSession、会话配置、重定向与 URLCache；Alamofire 的请求与响应模型 |
+| [本机网络路径：网卡、路由表、网关、系统代理与 VPN](network-and-storage/local-network-path-and-vpn.md) | 物理网卡、虚拟网卡与网络服务；子网掩码、路由表与最长前缀匹配；默认网关、路由器与网关的区别；系统代理、例外列表、代理环境变量与代理客户端模式；VPN 隧道封装、VPN 网关与全局隧道绕行；代理叠加 VPN 的路径、出口 IP 地区判定与延迟测量 |
 | [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份规则 |
 | [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件、Keychain、SQLite、Core Data 与 SwiftData；数据库事务、ACID 与崩溃恢复；SQLite 建表约束、参数绑定、WAL 并发和数据库迁移 |
 | [数据库索引与 B+ 树](network-and-storage/database-index-and-btree.md) | 索引与全表扫描、B+ 树与 B 树、InnoDB 与自适应哈希索引、聚簇索引与回表、覆盖索引、联合索引与最左前缀、索引下推、索引失效、查询计划与深分页 |
