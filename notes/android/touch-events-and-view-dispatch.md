@@ -2,7 +2,7 @@
 
 [返回 Android 分类目录](README.md)
 
-本文说明传统 Android View 体系中的触摸事件、ACTION_DOWN 的用途，以及 OnTouchListener 与 onTouchEvent() 的调用关系。View 与 ViewGroup 的基础职责见 [Android View、ViewGroup 与 XML 布局](view-system-and-layout.md)。
+本文说明传统 Android View 体系中的触摸事件、ACTION_DOWN 的用途，OnTouchListener 与 onTouchEvent() 的调用关系，以及 ViewGroup 如何拦截子 View 的触摸事件。View 与 ViewGroup 的基础职责见 [Android View、ViewGroup 与 XML 布局](view-system-and-layout.md)。
 
 ## MotionEvent 与触摸序列
 
@@ -74,7 +74,32 @@ OnTouchListener 返回 false，表示监听器没有消费当前事件，Android
 
 监听器和 onTouchEvent() 都不消费 ACTION_DOWN 时，这个 View 通常收不到同一触摸序列的后续事件。所以自行实现拖动时，通常要在 ACTION_DOWN 时消费事件并记录起点，在 ACTION_MOVE 中计算位移，在 ACTION_UP 时结束拖动。
 
-当前 View 消费 ACTION_DOWN 后，父容器仍可能中途接管触摸。所以 View 还要在收到 ACTION_CANCEL 时清理拖动状态、取消尚未完成的操作，并跳过只应在正常抬起时执行的点击动作。
+当前 View 消费 ACTION_DOWN 后，父容器仍可能中途接管触摸，接管方式见下文[ViewGroup 拦截事件：onInterceptTouchEvent](#viewgroup-拦截事件onintercepttouchevent)。所以 View 还要在收到 ACTION_CANCEL 时清理拖动状态、取消尚未完成的操作，并跳过只应在正常抬起时执行的点击动作。
+
+## ViewGroup 拦截事件：onInterceptTouchEvent
+
+触摸事件从 Activity 的 Window 开始，沿 View 树从父 View 向子 View 逐层传递。ViewGroup 收到事件后，先调用自己的 `onInterceptTouchEvent(event)` 决定是否拦截：
+
+```text
+ViewGroup.dispatchTouchEvent(event)
+    ↓
+调用 onInterceptTouchEvent(event)
+    ├─ 返回 false → 把事件交给手指所在位置的子 View
+    └─ 返回 true  → 拦截事件，交给 ViewGroup 自己的 onTouchEvent(event) 处理
+```
+
+ViewGroup 在手指已经按在子 View 上之后才开始拦截时，系统先向这个子 View 发送 `ACTION_CANCEL`，之后同一触摸序列的事件都交给 ViewGroup 处理。
+
+例如 ScrollView 中放了一个按钮：
+
+1. 手指按下时，ScrollView 的 `onInterceptTouchEvent()` 返回 false，按钮收到 `ACTION_DOWN`，显示按下状态。
+2. 手指开始滑动，移动距离超过系统的滑动阈值后，ScrollView 的 `onInterceptTouchEvent()` 返回 true。
+3. 按钮收到 `ACTION_CANCEL`，取消按下状态，不触发点击。
+4. 后续的 `ACTION_MOVE` 交给 ScrollView 的 `onTouchEvent()`，ScrollView 开始滚动。
+
+子 View 可以调用 `parent.requestDisallowInterceptTouchEvent(true)`，请求父 View 在当前触摸序列中不再拦截。例如可以横向拖动的控件放在纵向列表中，控件确认用户在横向拖动后，调用这个方法阻止列表接管事件。
+
+UIKit 中，滚动视图与按钮之间的冲突通过手势识别器的识别和取消规则解决，见[UIKit 触摸事件、手势与键盘输入](../ios/touch-events-and-gestures.md)。
 
 ## 与 UIKit 触摸回调的对照
 

@@ -2,7 +2,7 @@
 
 [返回 Android 分类目录](README.md)
 
-Android 的 View 体系是以 `View` 和 `ViewGroup` 对象组成界面的 UI 体系。本文说明两类对象的职责、父子关系，以及 XML 和代码创建视图的关系。
+Android 的 View 体系是以 `View` 和 `ViewGroup` 对象组成界面的 UI 体系。本文说明两类对象的职责、父子关系、XML 和代码创建视图的关系，以及布局使用的尺寸单位。View 的测量、布局和绘制流程见[Android View 绘制流程与屏幕刷新](view-drawing-and-frame-refresh.md)。
 
 ## View、ViewGroup 与 UIKit 的对应关系
 
@@ -64,13 +64,25 @@ LinearLayout 的排列思路类似 UIStackView，但两者的尺寸分配规则�
 
 ConstraintLayout 的约束思路类似 UIKit Auto Layout。ConstraintLayout 是一个具体的 ViewGroup 容器；Auto Layout 是 UIKit 的约束布局机制，可用于任何 UIView。界面位置关系复杂时，ConstraintLayout 能在一个容器内表达多种关系，省去只为排列控件而嵌套的容器。嵌套减少后性能是否提升，要看具体场景。
 
-XML 是描述布局的方式。以上容器既可以在 XML 中声明，也可以用 Kotlin 或 Java 代码创建。以上内容针对传统 View 体系；Jetpack Compose 有自己的布局组件。
+XML 是描述布局的方式。以上容器既可以在 XML 中声明，也可以用 Kotlin 或 Java 代码创建。以上内容针对传统 View 体系。Jetpack Compose 是 Android 的声明式 UI 框架，用 Kotlin 函数描述界面应该显示什么，作用接近 SwiftUI；Compose 有自己的布局组件。
 
 ## XML 和代码都可以创建 Android 视图
 
 XML 是描述布局的标记语言；与 UIKit 同一层次的是 Android View 体系。Android XML 标签描述视图类型、属性和嵌套结构。App 加载布局资源时，按标签创建 View／ViewGroup 对象并建立父子关系。
 
 Android 也可以通过 Kotlin 或 Java 直接创建 View／ViewGroup，再调用 addView 建立层级。XML 与代码可以混合使用，例如用 XML 定义主体布局，再在运行时更新文字或添加视图。
+
+## 尺寸单位：px、dp 与 sp
+
+Android 设备的屏幕密度差别很大。屏幕密度是每英寸的物理像素数，单位是 dpi。布局尺寸如果直接用物理像素表示，同一个按钮在高密度屏幕上会显得更小。所以 Android 布局使用与密度无关的单位：
+
+| 单位 | 含义 | 用途 |
+| --- | --- | --- |
+| px | 屏幕上的物理像素 | 很少在布局中直接使用 |
+| dp | 与屏幕密度无关的长度单位，`px = dp × (dpi ÷ 160)` | 布局尺寸、边距；作用接近 iOS 的 pt |
+| sp | 字体专用单位，在 dp 的基础上还会随用户在系统设置中调整的字号缩放 | 文字大小 |
+
+例如 `16dp` 的边距，在 160 dpi 的屏幕上是 16 px，在 480 dpi 的屏幕上是 48 px，两块屏幕上看起来的物理长度相同。用户在系统设置中把字号调大到 1.3 倍时，`18sp` 的文字在 480 dpi 屏幕上显示为 18 × 3 × 1.3 ≈ 70 px。
 
 ## Android 布局编辑器的示例数据来自哪里
 

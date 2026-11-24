@@ -15,13 +15,13 @@
 
 | 分类 | 文档数 | 内容 |
 | --- | --- | --- |
-| [语言与运行时](./notes/README.md#语言与运行时) | 2 | Swift 语言基础；Swift / Objective-C 运行时与方法派发 |
+| [语言与运行时](./notes/README.md#语言与运行时) | 6 | Swift 语言基础；Swift / Objective-C 运行时与方法派发；TypeScript、JavaScript 与 Worker 线程通信；C++ 静态存储期对象与初始化；Kotlin 基础语法与 Swift 对照；Kotlin 协程与 suspend |
 | [iOS 界面、事件与调度](./notes/README.md#ios-界面事件与调度) | 6 | Darwin、应用框架与系统服务；iOS 应用启动、窗口与输入事件；UIKit 布局、列表与 MVVM；响应式编程与事件通知；iOS 线程与任务调度；Core Animation 渲染与性能分析工具 |
-| [Android 界面与动画](./notes/README.md#android-界面与动画) | 4 | ValueAnimator、插值器与滚动动画；Android View、ViewGroup 与 XML 布局；Android 页面生命周期与状态保存；Activity、Fragment 与页面组织 |
+| [Android 应用开发](./notes/android/README.md) | 14 | 系统分层与应用启动；工程结构、依赖库与安装包；资源与 R 类；应用组件、Context 与权限；Activity、Fragment 与页面组织；页面生命周期与状态保存；主线程、Handler 与 ANR；StateFlow 与 repeatOnLifecycle；View、ViewGroup 与 XML 布局；View 绘制流程与屏幕刷新；触摸事件；列表复用；ValueAnimator；内存泄漏与 OOM |
 | [跨平台与宿主通信](./notes/README.md#跨平台与宿主通信) | 2 | WebView 与 Lynx 双向通信；Lynx 渲染、线程模型与资源更新 |
 | [软件设计与工程工具](./notes/README.md#软件设计与工程工具) | 2 | 设计模式与 Swift 实践；Xcode 工程管理与自动化测试 |
-| [网络与存储](./notes/README.md#网络与存储) | 6 | 网络请求与代理；iOS 文件存储；iOS 数据持久化；数据库索引与 B+ 树；SQL 多表查询：JOIN 与 UNION；MySQL 事务并发、锁与日志 |
+| [网络与存储](./notes/README.md#网络与存储) | 8 | 网络请求与代理；iOS 文件存储；iOS 数据持久化；数据库索引与 B+ 树；SQL 多表查询：JOIN 与 UNION；Android 数据存储；数据库范式；MySQL 事务并发、锁与日志 |
 | [实验与统计](./notes/README.md#实验与统计) | 1 | A/B 实验与统计 |
 | [AI 辅助开发](./notes/README.md#ai-辅助开发) | 1 | AI Agent 原理与开发验证 |
 
-[Android 界面与动画](./notes/android/README.md)：4 篇文档，介绍 ValueAnimator、插值器与滚动动画，View、ViewGroup 与 XML 布局，页面生命周期与状态保存，以及 Activity、Fragment 与页面组织。
+[Android 应用开发](./notes/android/README.md)：14 篇文档，从系统分层、应用启动、工程构建和应用组件，到页面、主线程、界面绘制、触摸事件和内存管理。

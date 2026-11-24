@@ -2,18 +2,18 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 46 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 55 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
 | 分类 | 文档数 |
 | --- | --- |
-| [语言与运行时](#语言与运行时) | 5 |
+| [语言与运行时](#语言与运行时) | 6 |
 | [iOS 界面、事件与调度](#ios-界面事件与调度) | 12 |
-| [Android 界面与动画](android/README.md) | 8 |
+| [Android 应用开发](android/README.md) | 14 |
 | [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
-| [网络与存储](#网络与存储) | 6 |
+| [网络与存储](#网络与存储) | 8 |
 | [实验与统计](#实验与统计) | 1 |
 | [AI 辅助开发](#ai-辅助开发) | 2 |
 | [数据结构](data-structures/README.md) | 1 |
@@ -27,6 +27,7 @@
 | [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 分类与类扩展、自动释放池、+load 与 +initialize、关联对象、实例布局与类型元数据、isa、静态派发与虚方法表、内联与编译优化选项、协议见证表、Selector 与 IMP、消息转发、Method Swizzling、@objcMembers、KVC 与 KVO |
 | [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md) | Node.js 与浏览器、类型标注与推断、number 与 Int／Double、接口与泛型、类型擦除、事件循环与异步、Worker 消息通信及回调执行位置 |
 | [C++ 静态存储期对象与初始化](language/cpp-static-storage-and-initialization.md) | 静态存储期、静态数据成员、构造函数、全局对象与静态局部对象的初始化时机 |
+| [Kotlin 基础语法与 Swift 对照](language/kotlin-basics.md) | 变量与空安全、类与继承、data class、object、companion object、sealed class、函数、扩展函数与 lambda、when 表达式、作用域函数 |
 | [Kotlin 协程与 suspend](language/kotlin-coroutines-and-suspend.md) | 协程与挂起函数、启动与执行顺序、挂起与阻塞，以及与 Swift Task、async、await 的对应关系 |
 
 ## iOS 界面、事件与调度
@@ -46,9 +47,9 @@
 | [iOS 内存泄漏与无用对象排查](ios/memory-leak-diagnosis.md) | 预期释放时机、Allocations 分代筛选、Memory Graph 强引用追踪、分配调用栈与 Leaks，以及修改后的复测 |
 | [iOS 本地多语言与即时切换](ios/localization-and-language-switching.md) | 文案键、.strings 与 String Catalog、本地 Bundle 选择、语言偏好保存、通知刷新已有界面，以及 Locale 的语言与地区 |
 
-## Android 界面与动画
+## Android 应用开发
 
-8 篇文档，列表见 [Android 分类目录](android/README.md)。
+14 篇文档，列表见 [Android 分类目录](android/README.md)。
 
 ## 跨平台与宿主通信
 
@@ -77,6 +78,8 @@
 | [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件、Keychain、SQLite、Core Data 与 SwiftData；数据库事务、ACID 与崩溃恢复；SQLite 建表约束、参数绑定、WAL 并发和数据库迁移 |
 | [数据库索引与 B+ 树](network-and-storage/database-index-and-btree.md) | 索引与全表扫描、B+ 树与 B 树、InnoDB 与自适应哈希索引、聚簇索引与回表、覆盖索引、联合索引与最左前缀、索引下推、索引失效、查询计划与深分页 |
 | [SQL 多表查询：JOIN 与 UNION](network-and-storage/sql-join-and-union.md) | 各种连接与全外连接的替代写法、别名、UNION 与 UNION ALL、ON 与 WHERE、子句的逻辑执行顺序、嵌套循环连接与驱动表 |
+| [Android 数据存储：私有目录、键值存储与数据库](network-and-storage/android-data-storage.md) | filesDir 与 cacheDir 的用途、删除时机与备份规则，SharedPreferences 的 apply 与 commit、DataStore、Room，以及与 iOS 存储方式的对照 |
+| [数据库范式：第一、第二、第三范式](network-and-storage/database-normal-forms.md) | 主键、候选键与函数依赖，第一范式，冗余与更新、插入、删除异常，部分依赖与第二范式，传递依赖与第三范式，拆表后的连接查询与反范式 |
 | [MySQL 事务并发、锁与日志](network-and-storage/mysql-transactions-and-logs.md) | 并发异常与隔离级别、MVCC、快照读与当前读、索引锁、乐观锁与悲观锁、redo log 与 binlog |
 
 ## 实验与统计

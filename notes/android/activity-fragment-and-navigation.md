@@ -26,7 +26,7 @@ View 是实际参与显示、布局和输入事件的视图对象。Activity 和
 
 ## Activity、Window 与 DecorView
 
-Activity 是 `Context` 的间接子类，不继承自 View。`Context` 是访问资源、获取系统服务和启动组件的入口对象。常规 Activity 通过 Window 显示界面，View 树挂在 Window 上：
+Activity 是 `Context` 的间接子类，不继承自 View。`Context` 是访问资源、获取系统服务和启动组件的入口对象，见[Context 与 Application](app-components-and-context.md#context-与-application)。常规 Activity 通过 Window 显示界面，View 树挂在 Window 上：
 
 ```text
 MainActivity（Activity，不是 View）
@@ -75,11 +75,57 @@ AndroidManifest.xml 是应用向系统声明组件和配置的清单文件，内
 Intent 是一种消息对象，描述目标组件或希望执行的动作，并可以携带数据。应用把 Intent 传给 `startActivity()`，请求系统启动目标 Activity。
 
 1. 调用方发出启动请求。系统根据 Intent 查找目标 Activity，并检查清单声明、权限和启动条件。
-2. 系统根据启动配置和当前状态，创建新的 Activity 实例或复用已有实例。目标进程还没有运行时，系统先创建进程。
+2. 系统根据启动配置和当前状态，创建新的 Activity 实例或复用已有实例，规则见下文[任务栈与启动模式](#任务栈与启动模式)。目标进程还没有运行时，系统先创建进程，冷启动流程见[Android 系统分层与应用启动](system-architecture-and-app-launch.md)。
 3. 创建新实例时，系统调用 `onCreate()`。应用在 `onCreate()` 中初始化页面，设置 View 内容或配置 Fragment 宿主。
 4. 系统继续推进 Activity 的生命周期并安排窗口显示。Activity 进入可交互状态后，用户可以操作界面。
 
 目标进程已经运行时，启动 Activity 不会新建进程；启动配置允许复用时，系统也不会新建 Activity 实例。在已有 Activity 内切换 Fragment，只改变该 Activity 内部的页面，不经过上面的启动流程。
+
+## 显式 Intent、隐式 Intent 与页面参数
+
+Intent 按是否指定目标组件分为两种：
+
+| 类型 | 写法 | 系统如何找到目标 |
+| --- | --- | --- |
+| 显式 Intent | `Intent(this, DetailActivity::class.java)` | Intent 直接指定目标类 |
+| 隐式 Intent | `Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"))` | Intent 只描述动作和数据。系统在已安装 App 的清单中查找 `<intent-filter>` 声明能处理这个动作的组件；有多个候选时，系统让用户选择 |
+
+`DetailActivity::class.java` 得到 `DetailActivity` 类对应的 Java `Class` 对象，Intent 用 `Class` 对象标识目标 Activity。
+
+启动页面时，参数以键值对的形式放进 Intent，键值对叫 extra：
+
+```kotlin
+// 在 MainActivity 中
+val intent = Intent(this, DetailActivity::class.java)
+intent.putExtra("note_id", note.id)
+startActivity(intent)
+```
+
+```kotlin
+// 在 DetailActivity 的 onCreate() 中
+val noteId = intent.getLongExtra("note_id", -1L)   // 取启动 DetailActivity 的 Intent 中的参数
+```
+
+UIKit 中，调用方可以写 `DetailViewController(noteId: id)`，自己创建页面对象并通过构造函数传参。Android 的 Activity 对象只能由系统创建，所以参数只能通过 Intent 交给系统。系统销毁 Activity 后重新创建时，会把当初的 Intent 再次交给新的 Activity，放在 Intent 中的参数因此不会丢失。
+
+extra 只能存放系统能够序列化保存的类型，例如数字、字符串和实现了 `Parcelable` 接口的对象。`Parcelable` 是 Android 的对象序列化接口，对象按接口规定把字段写入字节数据，系统可以保存和跨进程传递这些字节数据。
+
+## 任务栈与启动模式
+
+任务栈（Task）是用户为完成一件事依次打开的一组 Activity，系统按栈的顺序保存这些 Activity。新启动的 Activity 压入栈顶；用户按返回键时，系统结束栈顶的 Activity，下面的 Activity 重新显示。
+
+Task 的行为类似 `UINavigationController` 的导航栈。区别是 Task 由系统管理，返回操作由系统处理，一个 Task 中还可以包含不同 App 的 Activity。例如笔记 App 调起系统相机拍照时，相机的 Activity 可以压入笔记 App 的 Task。
+
+启动模式（`launchMode`）在清单的 `<activity>` 中声明，决定启动 Activity 时系统新建实例还是复用已有实例：
+
+| 启动模式 | 行为 |
+| --- | --- |
+| `standard`（默认） | 每次启动都新建实例并压入栈顶。连续启动 A 三次，栈中有 3 个 A。 |
+| `singleTop` | 目标 Activity 已在栈顶时不新建实例，系统调用栈顶实例的 `onNewIntent()` 传入新 Intent；不在栈顶时照常新建。 |
+| `singleTask` | 栈中已有目标 Activity 的实例时，系统结束这个实例上方的所有 Activity，复用这个实例并调用 `onNewIntent()`。首页常用这种模式。 |
+| `singleInstance` | 目标 Activity 独占一个 Task，这个 Task 中不放其他 Activity。 |
+
+例如栈中依次是首页、列表页、详情页，首页的启动模式是 `singleTask`。在详情页启动首页时，系统结束详情页和列表页，栈中只剩首页，首页的 `onNewIntent()` 收到新的 Intent。
 
 ## 与 UIViewController 的类比边界
 

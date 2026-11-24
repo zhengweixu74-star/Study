@@ -2,7 +2,7 @@
 
 [返回 Android 分类目录](README.md)
 
-本文用一个笔记列表示例说明：ViewModel 如何在后台线程加载数据并把结果保存为可观察状态，页面如何只在可见期间接收状态并刷新界面。协程、挂起和 `launch` 的基础概念见[Kotlin 协程与 suspend](../language/kotlin-coroutines-and-suspend.md)，ViewModel 跨配置变化存活的规则见[ViewModel 如何跨配置变化保留状态](activity-lifecycle-and-state.md#viewmodel-如何跨配置变化保留状态)。
+本文用一个笔记列表示例说明：ViewModel 如何在后台线程加载数据并把结果保存为可观察状态，页面如何只在可见期间接收状态并刷新界面，以及 LiveData 与 StateFlow 的区别。协程、挂起和 `launch` 的基础概念见[Kotlin 协程与 suspend](../language/kotlin-coroutines-and-suspend.md)，ViewModel 跨配置变化存活的规则见[ViewModel 如何跨配置变化保留状态](activity-lifecycle-and-state.md#viewmodel-如何跨配置变化保留状态)。
 
 ## StateFlow 与 MutableStateFlow
 
@@ -116,6 +116,23 @@ lifecycleScope.launch {
 旋转屏幕时，旧 Activity 被销毁，旧 Activity 的外层协程和内层协程都被取消。新 Activity 再次执行收集代码，进入 `STARTED` 状态后立即从同一个 `NotesViewModel` 得到当前列表，所以旋转不会引起重复的网络请求。
 
 UIKit 中的近似做法是：在 `viewWillAppear` 中用 `sink` 订阅发布者，在 `viewDidDisappear` 中取消订阅。`repeatOnLifecycle` 根据生命周期自动开始和取消收集，开发者只需在一处编写收集代码。
+
+## LiveData 与 StateFlow
+
+LiveData 是 Jetpack 提供的可观察数据容器。页面调用 `liveData.observe(lifecycleOwner) { ... }` 注册观察者，传入的 `lifecycleOwner` 通常是 Activity 或 Fragment 的视图生命周期。LiveData 根据 `lifecycleOwner` 的状态通知观察者：
+
+- 页面处于 `STARTED` 或 `RESUMED` 状态时，值变化后通知观察者。
+- 页面处于后台时不通知；页面重新可见后，观察者收到最新值。
+- 页面销毁时，LiveData 自动移除观察者。
+
+| 对比项 | LiveData | StateFlow |
+| --- | --- | --- |
+| 来源 | Jetpack 的 Android 库 | Kotlin 协程库，不依赖 Android |
+| 感知生命周期 | `observe()` 自带 | 自身不感知，由 `repeatOnLifecycle` 控制收集时机 |
+| 初始值 | 可以没有初始值 | 必须有初始值 |
+| 数据变换 | 提供 `map`、`switchMap` 等少量变换 | 可以使用 Flow 的全部操作符，例如 `debounce`、`combine` |
+
+两者都能把 ViewModel 中的状态交给页面。LiveData 用 `observe()` 一步完成生命周期绑定；StateFlow 配合协程和 Flow 操作符，可以在 ViewModel 中组合更复杂的数据流，所以新的 Kotlin 代码多用 StateFlow。
 
 [相关笔记：Android 页面生命周期与状态保存](activity-lifecycle-and-state.md)
 
