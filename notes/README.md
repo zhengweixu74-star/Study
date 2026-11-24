@@ -80,7 +80,7 @@
 | 文档 | 内容范围 |
 | --- | --- |
 | [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；HTTP 方法与文件上传、请求正文格式、gzip；URLSession、会话配置、重定向与 URLCache；Alamofire 的请求与响应模型 |
-| [本机网络路径：网卡、路由表、网关、系统代理与 VPN](network-and-storage/local-network-path-and-vpn.md) | 物理网卡、虚拟网卡与网络服务；子网掩码、路由表与最长前缀匹配；默认网关、路由器与网关的区别；系统代理、例外列表、代理环境变量与代理客户端模式；TUN 模式的数据流、DNS 污染与 DNS 绕过虚拟网卡；VPN 隧道封装、VPN 网关与全局隧道绕行；代理叠加 VPN 的路径、出口 IP 地区判定与延迟测量 |
+| [本机网络路径：网卡、路由表、网关、系统代理与 VPN](network-and-storage/local-network-path-and-vpn.md) | 物理网卡、虚拟网卡与网络服务；子网掩码、路由表与最长前缀匹配；默认网关、路由器与网关的区别；系统代理、例外列表、代理环境变量与代理客户端模式；系统代理模式与 TUN 模式的区别；TUN 模式的数据流、虚拟 DNS 地址、DNS 污染与 DNS 绕过虚拟网卡；出口审查的三种拦截方式与代理绕行；VPN 隧道封装、VPN 网关与全局隧道绕行；代理叠加 VPN 的路径、出口 IP 地区判定与延迟测量 |
 | [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份规则 |
 | [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件、Keychain、SQLite、Core Data 与 SwiftData；数据库事务、ACID 与崩溃恢复；SQLite 建表约束、参数绑定、WAL 并发和数据库迁移 |
 | [数据库索引与 B+ 树](network-and-storage/database-index-and-btree.md) | 索引与全表扫描、B+ 树与 B 树、InnoDB 与自适应哈希索引、聚簇索引与回表、覆盖索引、联合索引与最左前缀、索引下推、索引失效、查询计划与深分页 |
