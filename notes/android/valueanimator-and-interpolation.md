@@ -12,12 +12,14 @@ ValueAnimator 按动画时间计算数值，并在每一帧调用更新回调，
 ValueAnimator 计算时间进度
 → 调用插值器的 getInterpolation(timeFraction)
 → 保存计算结果，供 animatedFraction 读取
-→ 根据起终点计算 animatedValue
+→ TypeEvaluator 根据动画进度和起终点计算 animatedValue
 → 调用 addUpdateListener 注册的更新回调
 → 业务代码读取结果并更新视图
 ```
 
-使用默认浮点评估方式时：动画值 = 起点 + (终点 − 起点) × 动画进度。回调次数和间隔由帧调度决定，相邻两次回调之间动画值的增量通常不相等。
+`ofFloat()` 创建的动画默认使用 FloatEvaluator：动画值 = 起点 + (终点 − 起点) × 动画进度。TypeEvaluator 的职责见下文[TypeEvaluator 与颜色渐变](#typeevaluator-与颜色渐变)。
+
+回调次数和间隔由帧调度决定，相邻两次回调之间动画值的增量通常不相等。
 
 ## 插值器对象与 animatedFraction 的区别
 
@@ -45,6 +47,55 @@ LinearInterpolator 使用线性规则：输入 0.25，输出也是 0.25，动画
 animatedValue 返回当前计算出的动画值。对于 ValueAnimator.ofFloat(0F, 1F) 的默认浮点评估方式，animatedValue 与 animatedFraction 的数值相同。对于 ValueAnimator.ofFloat(100F, 300F)，animatedFraction 为 0.5 时，animatedValue 为 200F。animatedFraction 是比例，animatedValue 是按起终点换算后的数值。
 
 插值器的输出可以超出 0 到 1。带回弹或越过目标效果的插值器，可能输出大于 1 或小于 0 的数值。下面的滚动示例使用 LinearInterpolator，动画进度始终在 0 到 1 之间；换用其他插值器时，要重新确认输出范围。
+
+## TypeEvaluator 与颜色渐变
+
+TypeEvaluator 是把动画进度换算成动画值的接口，只有一个方法：
+
+```kotlin
+fun evaluate(fraction: Float, startValue: T, endValue: T): T
+```
+
+ValueAnimator 每帧调用 `evaluate()`，传入本帧的动画进度、起点和终点，`evaluate()` 返回本帧的动画值。
+
+插值器和 TypeEvaluator 负责每帧计算中前后相邻的两步：
+
+| 对象 | 输入 | 输出 | 决定什么 |
+| --- | --- | --- | --- |
+| 插值器 | 时间进度 | 动画进度 | 动画的快慢节奏；不知道起点和终点 |
+| TypeEvaluator | 动画进度、起点、终点 | 动画值 | 进度如何换算成具体值 |
+
+`ofFloat()` 默认使用 FloatEvaluator，`ofInt()` 默认使用 IntEvaluator。两者都按“起点 + (终点 − 起点) × 动画进度”计算，IntEvaluator 再把结果取整。
+
+例如 `ValueAnimator.ofFloat(100F, 300F)` 的时长为 1000 ms，播放到第 250 ms：
+
+1. 时间进度 = 250 ÷ 1000 = 0.25。
+2. 插值器计算动画进度。使用 LinearInterpolator 时，动画进度为 0.25；使用默认的 AccelerateDecelerateInterpolator 时，动画进度约为 0.146。
+3. FloatEvaluator 计算动画值。动画进度为 0.25 时，动画值 = 100 + 200 × 0.25 = 150；动画进度为 0.146 时，动画值约为 129。
+
+### 颜色为什么需要 ArgbEvaluator
+
+Android 用一个 Int 保存颜色。颜色由透明度 A、红 R、绿 G、蓝 B 四个通道组成，每个通道取值 0 到 255，四个通道按 A、R、G、B 的顺序拼成一个 Int。例如红色是 `0xFFFF0000`（A=255、R=255、G=0、B=0），蓝色是 `0xFF0000FF`（A=255、R=0、G=0、B=255）。
+
+用 IntEvaluator 让颜色从红色变到蓝色时，IntEvaluator 把两个颜色当作两个普通整数插值。动画进度为 0.5 时，结果拆回四个通道是 A=255、R=127、G=128、B=128，显示为灰色。原因是整数插值把四个通道当作一个整体计算：红通道差值 255 的一半是 127.5，小数部分 0.5 按位权折算进绿通道，绿通道从 0 变成了 128。
+
+ArgbEvaluator 是颜色专用的 TypeEvaluator，每帧按三步计算：
+
+1. 把起点颜色和终点颜色各拆成 A、R、G、B 四个通道。
+2. 每个通道分别按“起点 + (终点 − 起点) × 动画进度”插值。进度为 0.5 时，R 从 255 到 0 约得 128，G 保持 0，B 从 0 到 255 约得 128。
+3. 把四个通道拼回一个 Int，得到 R≈128、G=0、B≈128 的紫色。
+
+Android 8.0 及以上的 ArgbEvaluator 先把通道值转换到线性亮度空间再插值，中间色的数值偏亮，色相仍是紫色。
+
+```kotlin
+val animator = ValueAnimator.ofObject(ArgbEvaluator(), Color.RED, Color.BLUE).apply {
+    duration = 1000L
+    addUpdateListener { view.setBackgroundColor(it.animatedValue as Int) }
+}
+animator.start()
+```
+
+`ofObject()` 的第一个参数指定 TypeEvaluator，ValueAnimator 每帧用这个 TypeEvaluator 计算动画值。`ValueAnimator.ofArgb(Color.RED, Color.BLUE)` 是等效的简写，内部使用 ArgbEvaluator。
 
 ## 把动画进度转换成滚动距离
 

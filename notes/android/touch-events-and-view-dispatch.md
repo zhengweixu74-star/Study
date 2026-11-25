@@ -2,7 +2,7 @@
 
 [返回 Android 分类目录](README.md)
 
-本文说明传统 Android View 体系中的触摸事件、ACTION_DOWN 的用途，OnTouchListener 与 onTouchEvent() 的调用关系，以及 ViewGroup 如何拦截子 View 的触摸事件。View 与 ViewGroup 的基础职责见 [Android View、ViewGroup 与 XML 布局](view-system-and-layout.md)。
+本文说明传统 Android View 体系中的触摸事件、ACTION_DOWN 的用途，OnTouchListener 与 onTouchEvent() 的调用关系，ViewGroup 如何拦截子 View 的触摸事件，以及一次触摸从窗口到 View 的完整分发路径。View 与 ViewGroup 的基础职责见 [Android View、ViewGroup 与 XML 布局](view-system-and-layout.md)。
 
 ## MotionEvent 与触摸序列
 
@@ -78,7 +78,7 @@ OnTouchListener 返回 false，表示监听器没有消费当前事件，Android
 
 ## ViewGroup 拦截事件：onInterceptTouchEvent
 
-触摸事件从 Activity 的 Window 开始，沿 View 树从父 View 向子 View 逐层传递。ViewGroup 收到事件后，先调用自己的 `onInterceptTouchEvent(event)` 决定是否拦截：
+触摸事件从 Activity 的 Window 开始，沿 View 树从父 View 向子 View 逐层传递，完整路径见下文[一次触摸的完整分发路径](#一次触摸的完整分发路径)。ViewGroup 收到事件后，先调用自己的 `onInterceptTouchEvent(event)` 决定是否拦截：
 
 ```text
 ViewGroup.dispatchTouchEvent(event)
@@ -101,6 +101,61 @@ ViewGroup 在手指已经按在子 View 上之后才开始拦截时，系统先�
 
 UIKit 中，滚动视图与按钮之间的冲突通过手势识别器的识别和取消规则解决，见[UIKit 触摸事件、手势与键盘输入](../ios/touch-events-and-gestures.md)。
 
+## 一次触摸的完整分发路径
+
+以 Activity → DecorView → 内容区域 → LinearLayout → Button 的结构为例，手指按下按钮时，ACTION_DOWN 按以下顺序传递：
+
+```text
+系统按触摸坐标和窗口层级选出 Activity 的窗口，把事件交给窗口
+→ DecorView 把事件交给 Activity.dispatchTouchEvent()
+   （Activity 可以在这里处理整个页面的触摸）
+→ Activity 把事件交回窗口，DecorView 以 ViewGroup 身份开始分发
+→ 每个 ViewGroup 的 dispatchTouchEvent() 依次执行三步：
+     ① 调用 onInterceptTouchEvent()，返回 false 表示不拦截
+     ② 从最上层的子 View 开始，查找触摸坐标落在哪个子 View 范围内
+     ③ 调用这个子 View 的 dispatchTouchEvent()
+   DecorView → 内容区域 → LinearLayout 都执行这三步
+→ Button.dispatchTouchEvent() 按上文的监听器与 onTouchEvent() 规则处理，
+   Button 的 onTouchEvent() 显示按下状态并返回 true
+```
+
+手指抬起时，Button 的 `onTouchEvent()` 判定一次完整点击，调用 `OnClickListener`。窗口的作用见[窗口的作用：显示、输入与窗口规则](activity-fragment-and-navigation.md#窗口的作用显示输入与窗口规则)。
+
+目标 View 不处理事件时，事件从子 View 向父 View 逐层退回。例如把 Button 换成不可点击的 TextView：
+
+1. TextView 的 `onTouchEvent()` 返回 false。
+2. LinearLayout 的 `dispatchTouchEvent()` 收到 false，转而调用 LinearLayout 自己的 `onTouchEvent()`。
+3. LinearLayout 也返回 false 时，再交给 LinearLayout 的父 View，依次向上。
+4. 所有 View 都不处理时，最后调用 `Activity.onTouchEvent()`。
+
+ACTION_DOWN 决定整个触摸序列的接收者。ViewGroup 记录在 ACTION_DOWN 时返回 true 的子 View；同一序列后续的 ACTION_MOVE 和 ACTION_UP 不再按坐标查找子 View，直接交给记录的子 View。所以手指按在按钮上再滑出按钮范围，ACTION_MOVE 仍然交给按钮。父 ViewGroup 每次转发后续事件前仍会调用 `onInterceptTouchEvent()`，中途拦截的规则见上文。ACTION_DOWN 时没有任何子 View 返回 true，同一序列的后续事件就不再分发给这些子 View。
+
+### onInterceptTouchEvent 与 onTouchEvent 的分工
+
+`onTouchEvent()` 的返回值决定 View 是否处理当前事件。`onInterceptTouchEvent()` 决定 ViewGroup 是否把事件留给自己、不再交给子 View；ViewGroup 拦截后，是否处理事件仍由 ViewGroup 自己的 `onTouchEvent()` 决定。
+
+| 方法 | 所属对象 | 回答的问题 | 返回 true | 返回 false |
+| --- | --- | --- | --- | --- |
+| `onInterceptTouchEvent()` | 只有 ViewGroup | 事件还要不要交给子 View？ | 不再交给子 View，改为调用自己的 `onTouchEvent()` | 继续交给触摸位置下的子 View |
+| `onTouchEvent()` | 所有 View | 当前 View 是否处理事件？ | 处理事件，事件不再向上退回 | 不处理，事件交回父 View 的 `onTouchEvent()` |
+
+例如某个自定义容器在 ACTION_DOWN 时让 `onInterceptTouchEvent()` 返回 true，同时自己的 `onTouchEvent()` 返回 false：
+
+1. 容器拦截事件，容器内的子 View 收不到这次触摸。
+2. 容器的 `onTouchEvent()` 不处理事件。
+3. 事件交回容器的父 View，由父 View 的 `onTouchEvent()` 决定是否处理。
+
 ## 与 UIKit 触摸回调的对照
 
 按单指触摸的阶段类比，ACTION_DOWN 接近 UIKit 的 touchesBegan，ACTION_MOVE 接近 touchesMoved，ACTION_UP 接近 touchesEnded，ACTION_CANCEL 接近 touchesCancelled。两端只在开始、移动、结束和取消四个阶段上对应，事件分发和多指处理规则各不相同。
+
+两端分发规则的对照如下，UIKit 的命中测试和响应链见[UIKit 触摸事件、手势与键盘输入](../ios/touch-events-and-gestures.md)：
+
+| 对比项 | UIKit | Android |
+| --- | --- | --- |
+| 查找目标视图 | 先用 `hitTest(_:with:)` 从窗口一次找到最深的视图，再投递事件 | 没有单独的查找阶段；ACTION_DOWN 逐层分发，分发过程中确定目标 |
+| 表示已处理 | `touchesBegan` 中不再调用 `super` | `onTouchEvent()` 返回 true |
+| 未处理的事件 | 沿响应链交给父视图、控制器、窗口、`UIApplication` | 交回父 View 的 `onTouchEvent()`，最后到 `Activity.onTouchEvent()` |
+| 按下时由父视图接收 | 父视图重写 `hitTest(_:with:)` 返回自己 | 父 ViewGroup 在 ACTION_DOWN 时让 `onInterceptTouchEvent()` 返回 true |
+| 父视图中途接管 | 手势识别器识别成功后取消视图的触摸，视图收到 `touchesCancelled` | 父 ViewGroup 在后续事件中让 `onInterceptTouchEvent()` 返回 true，子 View 收到 ACTION_CANCEL |
+| 手势识别 | 系统的 `UIGestureRecognizer` 先于视图收到触摸 | 没有系统级手势识别器；`GestureDetector` 是工具类，需要在 `onTouchEvent()` 中手动传入事件 |

@@ -44,6 +44,27 @@ MainActivity（Activity，不是 View）
 
 UIViewController 也不是 UIView，UIViewController 通过 `view` 属性持有根视图。Activity 与根视图之间多了一层 Window，所以 `Activity.findViewById()` 通过 Window 在整棵 View 树中查找，见[从资源 ID 获取内容](resources-and-r-class.md#从资源-id-获取内容)。
 
+## 窗口的作用：显示、输入与窗口规则
+
+屏幕上通常同时存在多个窗口，按层级上下叠放：
+
+```text
+上层   系统状态栏窗口
+       Dialog 的窗口（正在显示时）
+       Activity 的窗口（DecorView 和整棵 View 树挂在这里）
+下层   壁纸窗口
+```
+
+系统以窗口为单位完成三件事：
+
+1. **显示**：每个窗口有一块独立的绘图缓冲区 Surface。View 树每帧把内容画进所属窗口的 Surface，系统的合成服务（SurfaceFlinger）再按窗口层级把所有窗口的画面叠成屏幕上的一帧。
+2. **输入**：用户触摸屏幕时，系统根据触摸坐标和窗口层级选出目标窗口，把事件交给这个窗口，事件再进入窗口里的 View 树，分发路径见[Android 触摸事件与 View 事件处理](touch-events-and-view-dispatch.md#一次触摸的完整分发路径)。按键和输入法输入交给当前获得焦点的窗口。
+3. **窗口规则**：每个窗口带一组显示规则，例如背景是否透明、软键盘弹出时窗口如何调整（`windowSoftInputMode`）、是否全屏、屏幕方向。这些规则写在清单的 `<activity>` 声明或 Activity 使用的主题中。
+
+例如页面上弹出 Dialog 时，Dialog 拥有自己的窗口，叠在 Activity 窗口上方。用户点击时，系统把事件交给 Dialog 的窗口，Activity 窗口中的按钮收不到这次点击。
+
+Fragment 没有自己的窗口，显示、输入和窗口规则都使用宿主 Activity 的窗口。iOS 中与窗口对应的是 `UIWindow`；iOS 应用通常只有一个主窗口，页面切换发生在同一个窗口内，Android 的每个常规 Activity 都有自己的窗口。
+
 ## 页面如何组合与切换
 
 系统负责管理 Activity 的窗口，应用负责用 Fragment 组织页面，两件事互相独立。Activity 提供宿主环境，Fragment 划分页面逻辑。多个 Fragment 可以轮流显示，也可以同时组成一个界面。
@@ -59,6 +80,49 @@ UIViewController 也不是 UIView，UIViewController 通过 `view` 属性持有�
 FragmentManager 负责添加、移除和替换 Fragment，并负责 Fragment 的状态恢复和返回栈。返回栈记录用户按返回键时需要撤销的页面变更。切换 Fragment 时无需启动新的 Activity。嵌套的 Fragment 由父 Fragment 的子 FragmentManager 管理。
 
 例如，邮件列表和邮件详情分别由两个 Fragment 管理。手机上，MainActivity 在两个 Fragment 之间切换；平板上，同一个 Activity 同时展示两个 Fragment。两种设备复用的是 Fragment 的页面职责和代码，具体布局仍要按屏幕可用空间分别配置。
+
+### 创建 Fragment 并放进 Activity
+
+Fragment 在 `onCreateView()` 中创建自己的根视图，在 `onViewCreated()` 中配置控件：
+
+```kotlin
+class CommentFragment : Fragment() {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View = inflater.inflate(R.layout.fragment_comment, container, false)
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        view.findViewById<TextView>(R.id.title).text = "评论"
+    }
+}
+```
+
+`inflater.inflate()` 读取 XML 布局文件，按文件内容创建 View 对象，返回布局的根视图。
+
+宿主 Activity 通过 FragmentManager 把 Fragment 放进布局中的容器：
+
+```kotlin
+class DetailActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_detail)
+        if (savedInstanceState == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.comment_container, CommentFragment())
+                .commit()
+        }
+    }
+}
+```
+
+1. `setContentView()` 加载 Activity 的布局，布局中有 id 为 `comment_container` 的空容器。
+2. `beginTransaction()` 开始一次事务。事务是 FragmentManager 中一组一起提交的 Fragment 变更。
+3. `replace()` 登记变更：把 `comment_container` 中的内容换成新的 `CommentFragment`。
+4. `commit()` 提交事务。FragmentManager 随后调用 `CommentFragment` 的 `onCreateView()`，把返回的根视图放进 `comment_container`。
+
+Activity 因配置变化重建时，`savedInstanceState` 不为 null，FragmentManager 自动恢复原来的 Fragment，代码不再重复添加。Fragment 实例与 Fragment 视图的两套生命周期见[Fragment 与其视图的生命周期](activity-lifecycle-and-state.md#fragment-与其视图的生命周期)。
 
 ## AndroidManifest.xml 为什么要声明 Activity
 
@@ -126,6 +190,60 @@ Task 的行为类似 `UINavigationController` 的导航栈。区别是 Task 由�
 | `singleInstance` | 目标 Activity 独占一个 Task，这个 Task 中不放其他 Activity。 |
 
 例如栈中依次是首页、列表页、详情页，首页的启动模式是 `singleTask`。在详情页启动首页时，系统结束详情页和列表页，栈中只剩首页，首页的 `onNewIntent()` 收到新的 Intent。
+
+## 从外部入口打开内页后的返回目标
+
+内页指首页之外的页面，例如帖子详情页。用户点击通知直接打开内页后，按返回键回到哪里，取决于内页下方的 Task 中有没有其他 Activity。栈空时，系统回到桌面；应用进程通常仍留在后台，用户看到的效果是离开了应用。
+
+| 点击通知时的状态 | Task 变化 | 按返回键的结果 |
+| --- | --- | --- |
+| 应用在后台，首页仍在 Task 中 | `[MainActivity]` → `[MainActivity, DetailActivity]` | 回到首页 |
+| 应用没有运行，通知只启动详情页 | `[]` → `[DetailActivity]` | Task 变空，回到桌面 |
+
+让冷启动打开的内页返回首页，常用三种做法：
+
+1. **通知一次放入两个 Activity。** `PendingIntent` 是交给系统保存的启动请求，用户点击通知时，系统按这个请求启动组件。用 `TaskStackBuilder` 生成 `PendingIntent`，可以让一次点击放入多个 Activity：
+
+   ```kotlin
+   val pendingIntent = TaskStackBuilder.create(context)
+       .addNextIntent(Intent(context, MainActivity::class.java))
+       .addNextIntent(detailIntent)
+       .getPendingIntent(0, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+   ```
+
+   点击后 Task 是 `[MainActivity, DetailActivity]`。系统先只创建栈顶的 DetailActivity，用户按返回键时才创建 MainActivity。
+
+2. **通知先打开首页，再由首页启动内页。** MainActivity 收到通知携带的参数后调用 `startActivity()` 打开 DetailActivity，Task 同样是 `[MainActivity, DetailActivity]`。
+
+3. **内页在返回时自行判断。** `isTaskRoot` 表示当前 Activity 是否位于 Task 最底部：
+
+   ```kotlin
+   if (isTaskRoot) {
+       startActivity(Intent(this, MainActivity::class.java))
+   }
+   finish()
+   ```
+
+## 页面用 Activity 还是 Fragment
+
+页面是产品概念，一个页面可以由 Activity 实现，也可以由 Fragment 实现。两者的区别在于谁管理页面切换：Activity 由系统启动、分配窗口并放入 Task；Fragment 由应用通过 FragmentManager 在 Activity 内部添加、替换和回退，系统只看到宿主 Activity。
+
+以“首页 → 详情页”为例：
+
+| 实现方式 | 打开详情页 | 按返回键 |
+| --- | --- | --- |
+| 每个页面一个 Activity | `startActivity()`，系统创建 DetailActivity 和新窗口，压入 Task | 系统结束 DetailActivity，显示 MainActivity |
+| 一个 Activity、每个页面一个 Fragment | FragmentManager 用 `replace()` 把 HomeFragment 换成 DetailFragment，并用 `addToBackStack()` 记入返回栈 | MainActivity 收到返回事件，交给 FragmentManager 撤销替换，HomeFragment 重新显示 |
+
+只有 Activity 具备以下能力，页面需要其中任意一项时使用 Activity：
+
+| 需求 | 原因 |
+| --- | --- |
+| 从桌面图标、通知、外部链接、其他应用的分享直接打开 | 系统只能启动清单中声明的组件，Fragment 不在清单中 |
+| 独立的 Task 行为，例如在最近任务中单独显示、画中画、通过 `launchMode` 控制实例数量 | 系统按 Activity 管理 Task 和多任务行为 |
+| 与其他页面不同的窗口规则，例如透明背景、横屏、禁止截屏、不同的软键盘调整方式 | 规则作用在整个窗口上，写在 Activity 声明中，进出页面时系统自动切换。Fragment 也能在运行时修改宿主窗口，但离开时要手动恢复，所以这一项推荐使用 Activity |
+
+不需要以上能力的应用内部切换，例如底部 Tab 切换、设置页的多级菜单，可以在同一个 Activity 内用 Fragment 完成。外部入口打开的 Activity 内部也可以继续用 Fragment 显示页面内容。
 
 ## 与 UIViewController 的类比边界
 
