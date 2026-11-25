@@ -2,7 +2,7 @@
 
 [返回 Android 分类目录](README.md)
 
-本文说明系统如何通过测量、布局、绘制三步确定 View 的尺寸、位置和内容，View 如何请求重新布局和重绘，以及屏幕刷新信号如何驱动每一帧的工作。View 与 ViewGroup 的父子关系见[Android View、ViewGroup 与 XML 布局](view-system-and-layout.md)。
+本文说明系统如何通过测量、布局、绘制三步确定 View 的尺寸、位置和内容，View 如何请求重新布局和重绘，硬件加速下 RenderNode 如何缓存绘制结果，滚动偏移如何移动内容，以及屏幕刷新信号如何驱动每一帧的工作。View 与 ViewGroup 的父子关系见[Android View、ViewGroup 与 XML 布局](view-system-and-layout.md)。
 
 ## 测量、布局与绘制
 
@@ -40,6 +40,45 @@ MeasureSpec 是测量阶段父 View 传给子 View 的尺寸约束，由“模�
 尺寸可能变化的修改（例如 TextView 的文字变长）需要重新测量，所以要请求布局；只改变外观的修改（例如改变颜色）只需要重绘。系统控件在属性变化时会自己调用这两个方法；自定义 View 修改影响尺寸或外观的属性后，要自己调用对应的方法。
 
 两个方法都只做标记，不会立即执行测量或绘制。同一帧内多次调用会合并为一次工作。
+
+## 硬件加速与 RenderNode
+
+硬件加速指由 GPU 执行 View 的绘制工作。Android 4.0 起，应用默认开启硬件加速。开启硬件加速后，每个 View 都有一个 RenderNode。
+
+RenderNode 是 View 在硬件加速下的绘制记录，包含两部分：
+
+- 绘制指令列表：`onDraw()` 中调用 `Canvas` 的每一步，例如“在 (0, 0) 画一个 200×100 的红色矩形”“在 (20, 40) 画文字‘你好’”。开启硬件加速后，`Canvas` 的方法只把指令记进列表，不直接画出像素。
+- 显示参数：`translationX/Y`、`scaleX/Y`、`rotation`、`alpha`，以及 View 在父 View 中的位置。
+
+每一帧，主线程把有变化的 RenderNode 交给 RenderThread。RenderThread 是负责与 GPU 通信的系统线程。GPU 按每个 RenderNode 的显示参数，把绘制指令列表重新执行一遍，画到屏幕上。
+
+绘制指令列表缓存了 `onDraw()` 的结果：View 内容没变时，主线程不再执行 `onDraw()`，GPU 直接复用旧列表。所以修改 View 属性的开销，取决于这次修改要重做哪一步：
+
+| 修改内容 | 例子 | 主线程要做的工作 | 开销 |
+| --- | --- | --- | --- |
+| 显示参数 | 改 `translationY`、`scaleX`、`alpha` | 只更新 RenderNode 的显示参数，复用绘制指令列表 | 小 |
+| 绘制内容 | 改背景色、改文字颜色 | `invalidate()` → 重新执行 `onDraw()`，重新记录绘制指令列表 | 中 |
+| 尺寸或位置规则 | 改宽高、改 margin | `requestLayout()` → 重新测量、布局，结果变化时再重绘 | 大 |
+
+修改背景色必须调用 `invalidate()`：绘制指令列表里记录的仍是旧颜色，只修改颜色字段时，GPU 仍按旧指令画旧颜色。`invalidate()` 把 View 的绘制指令列表标记为过期，下一帧主线程重新执行 `onDraw()`，用新颜色重新记录指令。
+
+iOS 中相近的对应关系：修改 `transform` 对应修改 RenderNode 显示参数，`setNeedsDisplay()` 对应 `invalidate()`。两者缓存的内容不同：CALayer 缓存绘制好的位图，RenderNode 缓存绘制指令。View 设置 `LAYER_TYPE_HARDWARE` 后，Android 也把 View 的绘制结果缓存为一张纹理。
+
+## 滚动偏移：scrollTo 与 scrollBy
+
+滚动偏移是容器内容相对容器自身移动的距离，保存在 View 的 `scrollX`、`scrollY` 中。`scrollTo(x, y)` 把滚动偏移设为指定值，`scrollBy(dx, dy)` 在当前偏移上再加 `dx`、`dy`。iOS 中对应的是 `UIScrollView` 的 `contentOffset`，即 `bounds.origin`。
+
+滚动偏移不属于 RenderNode 的显示参数。容器绘制时，系统在容器自己的绘制指令列表开头记录一条“画布平移 (−scrollX, −scrollY)”指令，再记录子 View 的绘制。所以 `scrollTo()` 修改偏移后调用 `invalidate()`，下一帧只重新记录容器自己的这份短列表。子 View 的绘制指令列表原样复用，也不重新测量和布局。
+
+例如 ScrollView 内有一个高 3000 px 的 LinearLayout，执行 `scrollView.scrollTo(0, 500)`：
+
+1. ScrollView 的 `scrollY` 变为 500，ScrollView 调用 `invalidate()`。
+2. 下一帧，ScrollView 重新记录自己的绘制指令：先“画布平移 (0, −500)”，再“绘制 LinearLayout 的 RenderNode”。
+3. LinearLayout 及其子 View 的绘制指令列表没有变化，GPU 直接复用，内容整体上移 500 px。
+
+`translationY = -500` 移动的是 ScrollView 自身：ScrollView 的背景和裁剪区域会一起移走，内容不会在 ScrollView 的范围内滚动。所以滚动内容时修改滚动偏移。
+
+RecyclerView 的 `scrollBy()` 采用另一种方式，直接移动每一行的位置，见[RecyclerView 的滚动过程](listview-recyclerview-and-viewholder.md#recyclerview-的滚动过程回收填充与平移)。
 
 ## VSYNC 与 Choreographer
 

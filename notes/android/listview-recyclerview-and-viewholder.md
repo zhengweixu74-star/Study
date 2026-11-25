@@ -129,4 +129,40 @@ RecyclerView（ViewGroup）
 
 `notifyItemChanged` 通知的是整个列表项的内容变化，Adapter 默认会重新绑定这一项的全部内容。只想更新部分内容时，可以传入 payload。payload 是随更新通知一起传递的变化说明，Adapter 在带 payload 参数的 `onBindViewHolder` 中读取 payload，只更新对应控件。
 
+提交数据和创建行 View 发生在不同时刻。调用 `submitList()` 或 `notifyDataSetChanged()` 后，Adapter 只保存新数据，并通知 RecyclerView 在下一帧重新布局。到下一帧布局时，RecyclerView 才为可见位置调用 `onCreateViewHolder` 和 `onBindViewHolder`。所以提交数据后立即查询某一行的 ViewHolder，结果可能是 `null`；要读取行的位置和高度，需等下一次布局完成，例如在 `doOnPreDraw` 回调中读取。`doOnPreDraw` 在 View 下一次绘制前调用传入的代码，这时布局已经完成。
+
 ViewHolder 规范了列表项的管理，并减少重复的控件查找；复用机制减少视图创建。布局计算、图片解码、绑定逻辑和动画仍然有开销，所以 RecyclerView 并非在所有场景下都比 ListView 快。
+
+## RecyclerView 的滚动过程：回收、填充与平移
+
+RecyclerView 只为可见位置准备行 View，所以滚动时不能只修改一个滚动偏移，还要拆掉移出屏幕的行、补上新露出的行。`recyclerView.scrollBy(0, dy)` 的工作由 LayoutManager 完成；竖直排列的 `LinearLayoutManager` 在 `scrollVerticallyBy()` 中按顺序做三步：
+
+1. 回收：按“移动 dy 之后”的位置判断，把完全移出列表顶部的行从 RecyclerView 上拆下，放进缓存。
+2. 填充：给底部新露出的空位补行。先从缓存取出或调用 `onCreateViewHolder` 新建行 View，再调用 `onBindViewHolder` 绑定数据，最后测量并布局这一行。
+3. 平移：对每一行调用 `offsetTopAndBottom(-dy)`，把行的 top 和 bottom 各减去 dy。
+
+`offsetTopAndBottom()` 只更新这一行 RenderNode 中的位置，不重新测量、布局或执行 `onDraw()`，开销与修改 `translationY` 同级。RenderNode 见[硬件加速与 RenderNode](view-drawing-and-frame-refresh.md#硬件加速与-rendernode)。
+
+例如列表高 1000 px，每行高 200 px，第 0～4 行刚好填满列表。执行 `scrollBy(0, 150)`：
+
+| 步骤 | 结果 |
+| --- | --- |
+| 回收 | 第 0 行移动后为 top −150、bottom 50，仍露出 50 px，不回收 |
+| 填充 | 底部空出 850～1000，补上第 5 行，布局在 top 1000、bottom 1200 |
+| 平移 | 第 0～5 行全部上移 150 px，第 5 行变为 top 850、bottom 1050 |
+
+下一帧再滚 100 px 时，第 0 行的 bottom 变为 −50，整行不可见，第 0 行的 View 进入缓存，之后可以复用给其他位置。
+
+三步中填充最耗时：绑定数据执行业务代码，测量和布局还要遍历这一行的 View 树。所以滚动开销主要取决于这一帧有多少新行露出。上例每滚过 200 px 补一行，连续滚动 2000 px 约绑定并布局 10 行。
+
+## 跳转到指定位置：scrollToPositionWithOffset
+
+`LinearLayoutManager.scrollToPositionWithOffset(position, offset)` 不带动画，把第 `position` 项直接排到距离列表顶部 `offset` 像素的位置。调用时列表不会立即移动：LayoutManager 记下目标位置，下一次布局时从第 `position` 项开始摆放。
+
+例如屏幕上显示第 0～4 行，调用 `scrollToPositionWithOffset(50, 400)`。下一次布局后，第 50 行的 top 为 400，第 48、49 行排在上方，第 51、52 行排在下方；第 5～47 行不创建，也不绑定。
+
+目标行不在屏幕上时，RecyclerView 没有目标行的 View，查询目标行 ViewHolder 的结果是 `null`，代码读不到目标行的位置，也就算不出平滑滚动的距离。从第 0 行平滑滚到第 50 行还要逐行完成填充，行高不一时总距离也无法预先算出。常见做法是：
+
+1. 调用 `scrollToPositionWithOffset()`，把目标行先排到附近。
+2. 等下一次布局完成，例如在 `doOnPreDraw` 回调中执行后续代码。
+3. 读取目标行的 top 和高度，计算剩余距离，再播放平滑滚动动画。

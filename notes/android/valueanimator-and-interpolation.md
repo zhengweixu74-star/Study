@@ -80,3 +80,17 @@ scrollTo() 接收目标滚动坐标，即累计距离；scrollBy() 接收本次�
 ofFloat() 创建动画并设定数值范围，start() 启动动画。更新 UI 的动画在主线程运行。ValueAnimator 不监听用户触摸；用户触摸需要打断自动滚动时，业务代码在触摸按下事件中调用 animator.cancel()。
 
 cancel() 让动画停在当前值。已启动的动画被取消时，先触发 onAnimationCancel()，再触发 onAnimationEnd()。所以动画被取消和正常播完都会触发 onAnimationEnd()；要判断是否正常到达终点，需要结合 onAnimationCancel() 是否被调用。end() 把动画值直接推进到终点，再结束动画。
+
+## ValueAnimator、ObjectAnimator 与 ViewPropertyAnimator
+
+三种动画方式都由 Choreographer 每帧驱动，区别在于动画值如何写到 View 上：
+
+| 方式 | 写法 | 如何修改 View |
+| --- | --- | --- |
+| ValueAnimator | `ValueAnimator.ofFloat(0F, 1F)` 加更新回调 | 只计算数值，业务代码在回调中自己修改任意属性 |
+| ObjectAnimator | `ObjectAnimator.ofFloat(view, "translationY", 0F, 300F)` | ValueAnimator 的子类，按属性名通过反射找到 `setTranslationY()`，每帧调用 |
+| ViewPropertyAnimator | `view.animate().translationY(300F)` | 直接修改 View 的显示参数，不经过反射；同时修改多个属性时共用一个动画 |
+
+性能主要取决于动画修改的是哪种属性，与选用哪个动画类关系不大。修改 `translationY`、`scaleX`、`alpha` 等显示参数时，每帧只更新 RenderNode；修改背景色时每帧都要 `invalidate()` 并重新执行 `onDraw()`；修改宽高时每帧都要重新测量和布局。三类修改的开销见[硬件加速与 RenderNode](view-drawing-and-frame-refresh.md#硬件加速与-rendernode)。
+
+例如用 ValueAnimator 在回调中设置 `view.translationY = value`，与用 ViewPropertyAnimator 执行 `view.animate().translationY(300F)`，每帧做的工作都是更新 RenderNode 的显示参数，开销同级。ViewPropertyAnimator 省去了反射和回调的少量开销，适合只改 View 显示参数的动画；滚动距离、绘制颜色这类不属于显示参数的值，需要用 ValueAnimator 在回调中自己写入。
