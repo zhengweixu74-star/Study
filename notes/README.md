@@ -2,14 +2,14 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 62 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 63 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
 | 分类 | 文档数 |
 | --- | --- |
 | [语言与运行时](#语言与运行时) | 11 |
-| [iOS 界面、事件与调度](#ios-界面事件与调度) | 13 |
+| [iOS 界面、事件与调度](#ios-界面事件与调度) | 14 |
 | [Android 应用开发](android/README.md) | 14 |
 | [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
@@ -43,7 +43,8 @@
 | [iOS 应用生命周期、启动与窗口](ios/app-lifecycle-and-events.md) | 应用运行状态与生命周期回调、Scene 生命周期、启动到首帧、LaunchScreen 与自定义启动页、main 之前的 dyld 工作、启动计时与启动优化、动态库数量与地址修正；多个 UIWindow 与关键窗口 |
 | [iOS 后台执行机制](ios/background-execution.md) | 挂起与后台执行的前提、beginBackgroundTask、后台模式、BGTaskScheduler、后台 URLSession、静默推送，以及与 Android 后台执行方式的对照 |
 | [UIKit 触摸事件、手势与键盘输入](ios/touch-events-and-gestures.md) | 触摸事件分发路径、局部坐标与 bounds、hitTest 命中测试、事件穿透、扩大点击区域；响应链与触摸回调；手势同时识别、点击与长按协调、长按状态；屏幕键盘与第一响应者 |
-| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 控制器初始化与视图加载、push 与 present、sheet 样式、viewDidLayoutSubviews、UIButton 与 tintColor；frame 与 Auto Layout、transform、autoresizingMask、固有内容尺寸与优先级、约束复用；视图层级与前后顺序、子视图回调、容器控制器、分栏界面；UITableView 重用、Cell 倒计时、行删除与批量更新、UICollectionView；Cell ViewModel、MVVM、长列表性能与高度缓存、reload 后定位 |
+| [UIKit 布局、列表与 MVVM](ios/uikit-layout-and-mvvm.md) | 控制器初始化与视图加载、push 与 present、sheet 样式、viewDidLayoutSubviews、UIButton 与 tintColor；frame 与 Auto Layout、transform、autoresizingMask、固有内容尺寸与优先级、约束复用；视图层级与前后顺序、子视图回调、容器控制器、分栏界面；UITableView 重用、Cell 倒计时、行删除与批量更新；Cell ViewModel、MVVM、长列表性能与高度缓存、reload 后定位 |
+| [UICollectionView 与布局](ios/uicollectionview-and-layouts.md) | UICollectionView 的分工与复用、分区与 IndexPath、数据源与代理回调；FlowLayout 的按行排列与滚动方向、行间距与项目间距、分区边距、布局代理回调；CompositionalLayout 的 item、group 与 section 组合 |
 | [响应式编程与事件通知](ios/reactive-programming.md) | NotificationCenter；OpenCombine 的 Subject、@Published、CurrentValueSubject、receive(on:)、removeDuplicates；CombineX 的订阅关系；RxSwift 的 Observable、debounce、distinctUntilChanged、observe(on:)、flatMapLatest 与 flatMap |
 | [iOS 线程、GCD 与同步](ios/threads-and-scheduling.md) | 进程与线程、逻辑 CPU 与线程状态、线程接口与任务调度接口；数据竞争、i++ 与线程安全方式、CAS 与 ABA、锁的分类与等待方式、优先级反转；GCD 的 sync 与 async、barrier 单写多读、死锁；DispatchGroup 与 DispatchSemaphore；OperationQueue 的依赖、取消与异步任务限流 |
 | [RunLoop、Timer 与 CADisplayLink](ios/runloop-timer-and-displaylink.md) | RunLoop 与运行模式、Source0 与 Source1、Timer 的调度与重复触发、倒计时与单调时钟、CADisplayLink 的回调时机与动画进度、Timer 与 CADisplayLink 的停止与引用、弱引用代理 |

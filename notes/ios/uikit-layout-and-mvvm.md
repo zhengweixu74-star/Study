@@ -34,10 +34,6 @@
   - [Cell 中的倒计时与可见性](#cell-中的倒计时与可见性)
   - [预取与重用数量](#预取与重用数量)
 - [UITableView 的行删除与批量更新](#uitableview-的行删除与批量更新)
-- [UICollectionView 的职责与复用](#uicollectionview-的职责与复用)
-  - [分区、项目与分区边距](#分区项目与分区边距)
-  - [数据源与代理的五个重点回调](#数据源与代理的五个重点回调)
-  - [代理协议的继承与布局回调](#代理协议的继承与布局回调)
 - [页面、列表与 Cell ViewModel](#页面列表与-cell-viewmodel)
 - [MVVM 的输入、状态输出与界面刷新](#mvvm-的输入状态输出与界面刷新)
 - [长列表性能与异步图片复用](#长列表性能与异步图片复用)
@@ -587,6 +583,8 @@ splitViewController.setViewController(detailB, for: .secondary)
 
 UITableView 会保留已经创建的 UITableViewCell，需要显示另一行时，重新配置这个 Cell 来显示新的内容，从而少创建 Cell 和子视图。Cell 是显示一行内容的视图，不固定对应某一条数据。数据模型保存内容和状态；数据 ID 是稳定标识一条数据的值；IndexPath 由 section 和 row 组成，表示当前位置，插入、删除或重排后会改变。
 
+UICollectionView 的数据组织、布局和回调见 [UICollectionView 与布局](uicollectionview-and-layouts.md)。
+
 ### 注册、获取与重新配置
 
 reuseIdentifier 是区分不同种类 Cell 的字符串。注册 Cell 类、注册 nib 文件或在 Storyboard 中配置原型 Cell，都是告诉表格在没有可重用的 Cell 时如何创建。注册只是登记创建方式，不会立即创建 Cell。
@@ -788,74 +786,6 @@ tableView.performBatchUpdates({
 ```
 
 更新后数据源的行数，必须等于更新前的行数加上插入数、减去删除数，否则会崩溃。`reloadData()` 让表格重新读取全部分区、行数和可见行，没有删除动画，也不修改模型。用 `deleteRows(at:with:)` 或批量更新删除时，不要在同一次更新中再调用 `reloadData()`。
-
-## UICollectionView 的职责与复用
-
-UICollectionView 显示一组可滚动的内容。各部分分工如下：Cell 显示一项内容；DataSource 提供数量和配置好的 Cell；Delegate 处理点击等交互；Layout 提供每一项的位置和尺寸。数据按 section／item 组织，IndexPath 只表示当前位置，不能当作数据的唯一标识。
-
-使用流程：创建并设置布局 → 注册 Cell → 设置数据源和代理 → 按需取出并配置 Cell → 按布局显示。滚动时重用 Cell，不会为所有数据一次性创建视图；每次配置都要设置全部状态，避免残留旧内容。
-
-SnapKit 负责 UICollectionView 在页面中的位置，以及 Cell 内部控件的约束；Cell 在列表中怎么排列，由 UICollectionViewLayout 负责，例如 FlowLayout、CompositionalLayout 或自定义 Layout。
-
-### 分区、项目与分区边距
-
-分区（section）是对数据的一层分组；项目（item）是分区中的一项数据，Cell 是显示这个项目的可重用视图。一个分区可以显示多行 Cell，可以有头部、尾部，也可以没有。
-
-例如，同一个图片列表可以把“今天”和“昨天”各作为一个分区：
-
-```text
-同一个 UICollectionView
-├─ section 0：今天
-│  ├─ Header：今天（可选）
-│  ├─ 第一行：[item 0] [item 1] [item 2]
-│  ├─ 第二行：[item 3] [item 4]
-│  └─ Footer（可选）
-└─ section 1：昨天
-   ├─ Header：昨天（可选）
-   └─ 第一行：[item 0] [item 1]
-```
-
-每个分区的 item 索引独立从 0 开始。IndexPath(item: 1, section: 0) 表示第一个分区中的第二项，不是整个列表的第二行。
-
-使用垂直滚动的 UICollectionViewFlowLayout 时，Cell 从左往右排，一行放不下就换到下一行。所以一个分区可以有多行，分区和行是两回事。
-
-sectionInset 是分区内容四周的边距。在垂直布局中，top 是头部与第一行 Cell 之间的留白，bottom 是最后一行 Cell 与尾部之间的留白，left 和 right 是两侧的留白。没有头部或尾部时，top 和 bottom 就是分区的上下边缘留白。
-
-```swift
-layout.sectionInset = UIEdgeInsets(top: 10, left: 16, bottom: 10, right: 16)
-```
-
-这里的 layout 是 UICollectionViewFlowLayout。边距从哪里算起，还受 sectionInsetReference 影响。行与行之间的间距由 minimumLineSpacing 控制，同一行中相邻项目的最小间距由 minimumInteritemSpacing 控制，这两个与 sectionInset 是不同的设置。
-
-### 数据源与代理的五个重点回调
-
-数据源向 UICollectionView 提供数量和配置好的 Cell；代理接收点击、显示变化等通知，也可以通过部分方法的返回值做出决定（例如是否允许选中）。下表是直接实现 UICollectionViewDataSource 时最常用的方法。
-
-| 方法 | 所属协议 | 使用场景 |
-| --- | --- | --- |
-| collectionView(_:numberOfItemsInSection:) | UICollectionViewDataSource | 返回指定分区的项目数，例如当前分区有 20 张图片就返回 20 |
-| collectionView(_:cellForItemAt:) | UICollectionViewDataSource | 获取复用 Cell，根据 indexPath 对应的数据设置图片、标题及其他展示状态，再返回 Cell |
-| collectionView(_:didSelectItemAt:) | UICollectionViewDelegate | 用户选中项目后，读取对应数据并执行选择动作，例如打开详情 |
-| collectionView(_:didEndDisplaying:forItemAt:) | UICollectionViewDelegate | Cell 结束显示时，停止该 Cell 的动画等显示相关工作 |
-| scrollViewDidScroll(_:) | UIScrollViewDelegate | 滚动位置变化时读取 contentOffset，例如按位置调整导航栏透明度 |
-
-前两个方法是 UICollectionViewDataSource 的必需方法。多个分区还需要通过 numberOfSections(in:) 提供分区数量；未实现该可选方法时，默认按一个分区处理。
-
-cellForItemAt 只是准备 Cell，用户不一定看到了；UIKit 可能为了预取提前调用它，所以不能在这里统计曝光。willDisplay 表示 Cell 即将显示，也不能说明可见面积和停留时间已经达到曝光标准。
-
-didEndDisplaying 传入的是结束显示的 Cell。此时数据可能已经插入、删除或重排，要找到对应的数据，应使用 Cell 上保存的数据 ID，而不是按 indexPath 读取当前数组。
-
-用户拖动、松手后的减速滚动、代码修改滚动位置，都会触发 scrollViewDidScroll。contentOffset 是当前的滚动偏移。这个回调调用非常频繁，里面只能做轻量的界面更新。
-
-### 代理协议的继承与布局回调
-
-UICollectionViewDelegate 继承 UIScrollViewDelegate，所以 collectionView.delegate 指向的对象，可以同时实现选中回调和滚动回调，不需要另外设置滚动代理。
-
-UICollectionViewDelegateFlowLayout 又继承 UICollectionViewDelegate。使用 UICollectionViewFlowLayout 时，可以实现 sizeForItemAt 为每一项提供不同的尺寸，或实现 insetForSectionAt 为每个分区提供不同的边距。所有项目尺寸和边距都一样时，直接设置 layout 的 itemSize 和 sectionInset 即可。
-
-这些回调只对 UICollectionViewFlowLayout 有效，其他布局用各自的接口配置。以上代理协议中的方法都是可选的，按需实现即可。
-
-协议继承的通用规则见[Swift 基础语法与类型系统中的协议继承](../language/swift-basics.md#协议继承与类继承的区别)。
 
 ## 页面、列表与 Cell ViewModel
 
