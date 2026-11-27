@@ -2,7 +2,7 @@
 
 [返回 Android 分类目录](README.md)
 
-本文说明 Android 主线程的规则、主线程如何靠消息循环运行、Handler 如何把代码投递到指定线程，以及主线程被阻塞时系统如何判定 ANR。
+本文说明 Android 主线程的规则、主线程如何靠消息循环运行、Handler 如何把代码投递到指定线程、协程如何回到主线程，以及主线程被阻塞时系统如何判定 ANR。
 
 ## 主线程规则
 
@@ -45,7 +45,47 @@ thread {                                            // 创建并启动一个子�
 
 `mainHandler.post {}` 的作用相当于 iOS 的 `DispatchQueue.main.async {}`。`Handler.postDelayed(代码块, 1000)` 把消息的执行时间设为 1 秒后，Looper 到时间才取出这条消息。
 
-Kotlin 协程在 Android 上的 `Dispatchers.Main` 也通过主线程的 Handler 投递任务。协程切换到 `Dispatchers.Main` 时，最终同样是往主线程的 `MessageQueue` 放入一条消息。协程的基本概念见[Kotlin 协程与 suspend](../language/kotlin-coroutines-and-suspend.md)，ViewModel 中用协程加载数据的写法见[ViewModel 状态暴露与页面收集](stateflow-and-lifecycle-collection.md)。
+## 协程回到主线程：Dispatchers.Main 与 Dispatchers.Main.immediate
+
+调度器决定协程在哪个线程上执行，以及怎样把协程交给这个线程。协程的基本概念见[Kotlin 协程与 suspend](../language/kotlin-coroutines-and-suspend.md)。Android 提供两个主线程调度器：
+
+| 调度器 | 协程需要开始或继续执行时 |
+| --- | --- |
+| `Dispatchers.Main` | 不论当前在哪个线程，都通过主线程的 Handler 把任务投递到主线程 `MessageQueue` 的末尾，排队等待执行 |
+| `Dispatchers.Main.immediate` | 先判断当前线程：已经在主线程时，不投递，当场执行；在其他线程时，与 `Dispatchers.Main` 一样投递到主线程的消息队列 |
+
+两者只在调用方已经位于主线程时表现不同。下面在按钮的点击回调中启动协程，点击回调本身运行在主线程：
+
+```kotlin
+button.setOnClickListener {
+    println("1 点击回调开始")
+    lifecycleScope.launch(Dispatchers.Main) {
+        println("协程开始")
+    }
+    println("2 点击回调结束")
+}
+```
+
+1. 主线程执行点击回调，打印“1 点击回调开始”。
+2. `launch` 把协程代码投递到主线程消息队列的末尾，然后立即返回。
+3. 主线程继续执行点击回调，打印“2 点击回调结束”，点击回调结束。
+4. Looper 取出排队的协程任务，打印“协程开始”。
+
+输出顺序是：1 点击回调开始 → 2 点击回调结束 → 协程开始。
+
+把 `Dispatchers.Main` 换成 `Dispatchers.Main.immediate` 后，第 2 步发现当前已在主线程，当场执行协程代码，直到协程结束或第一次挂起才返回。输出顺序变为：1 点击回调开始 → 协程开始 → 2 点击回调结束。
+
+与 iOS 对照：`Dispatchers.Main` 相当于 `DispatchQueue.main.async {}`，即使已在主线程也排队执行。`Dispatchers.Main.immediate` 相当于下面的判断：
+
+```swift
+if Thread.isMainThread {
+    work()                                    // 已在主线程：当场执行
+} else {
+    DispatchQueue.main.async(execute: work)   // 不在主线程：排队执行
+}
+```
+
+`lifecycleScope` 和 `viewModelScope` 默认使用 `Dispatchers.Main.immediate`，所以在这两个作用域中调用 `launch(Dispatchers.Main.immediate)` 与省略调度器参数效果相同。两个作用域的用法见[ViewModel 状态暴露与页面收集](stateflow-and-lifecycle-collection.md)。
 
 ## 消息队列为空时线程休眠
 

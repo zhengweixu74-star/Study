@@ -20,6 +20,7 @@ GC 能回收互相引用、但从 GC Roots 走不到的对象，所以在 Androi
 | Handler 发送延迟消息 | 主线程 `MessageQueue` → `Message` → Handler → Activity | 页面销毁时调用 `handler.removeCallbacksAndMessages(null)` 移除消息 |
 | 注册监听后没有注销 | 系统服务或全局对象 → 监听器 → Activity | 在对称的生命周期方法中注销，例如 `onStart()` 注册、`onStop()` 注销 |
 | 后台线程或长时间运行的协程引用页面 | 正在运行的线程 → 代码块 → Activity | 使用随页面取消的作用域，例如 `lifecycleScope`、`viewModelScope` |
+| 无限重复的动画没有取消 | 主线程 → AnimationHandler → ValueAnimator → 更新回调 → Activity | 页面销毁时调用 `animator.cancel()`，见[运行中的动画与页面回收](valueanimator-and-interpolation.md#运行中的动画与页面回收) |
 
 以单例为例：
 

@@ -31,6 +31,24 @@ Fragment 实例和 Fragment 创建的 View 层级各有一套生命周期。View
 
 Fragment 的生命周期由宿主和 FragmentManager 管理。页面是否可见、视图是否存在、Fragment 实例是否存在，是三个独立的状态。
 
+### Fragment 中操作视图的协程使用 viewLifecycleOwner.lifecycleScope
+
+Fragment 中有两个可以启动协程的 `lifecycleScope`，分别绑定两套生命周期。`lifecycleScope` 在所绑定的生命周期进入销毁状态时，取消其中所有协程。
+
+| 写法 | 绑定的生命周期 | 协程被取消的时机 |
+| --- | --- | --- |
+| `lifecycleScope.launch { ... }` | Fragment 实例的生命周期 | `onDestroy()` |
+| `viewLifecycleOwner.lifecycleScope.launch { ... }` | 当前这一次视图生命周期 | `onDestroyView()` |
+
+协程代码读写视图时，使用 `viewLifecycleOwner.lifecycleScope`。下面沿用上文“替换并加入返回栈”的场景，说明使用 Fragment 实例的 `lifecycleScope` 会出现的问题。假设 Fragment 用 `lateinit var binding` 保存视图引用，并在每次 `onCreateView()` 中给 `binding` 赋新值；协程每隔 50 ms 读取一次 `binding.list`：
+
+1. 协程用 `lifecycleScope` 启动，正在循环等待。
+2. Fragment 被替换，框架调用 `onDestroyView()`，旧视图销毁。Fragment 实例还在，所以协程没有被取消。
+3. 用户返回前，`binding` 仍指向旧视图。协程继续读取和修改已经不显示的旧视图，旧视图也因为被协程使用而无法回收。
+4. 用户返回后，`onCreateView()` 把 `binding` 换成新视图。旧协程带着按旧视图算出的状态去修改新视图，结果可能出错。
+
+改用 `viewLifecycleOwner.lifecycleScope` 后，第 2 步视图一销毁，协程就被取消，第 3、4 步不会发生。协程只处理数据、不使用视图时，才使用 Fragment 实例的 `lifecycleScope`。
+
 [相关笔记：Activity、Fragment 与页面组织](activity-fragment-and-navigation.md)
 
 ## Activity 重建与 UIKit 旋转的区别

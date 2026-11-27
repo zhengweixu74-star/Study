@@ -80,6 +80,21 @@ iOS 中相近的对应关系：修改 `transform` 对应修改 RenderNode 显示
 
 RecyclerView 的 `scrollBy()` 采用另一种方式，直接移动每一行的位置，见[RecyclerView 的滚动过程](listview-recyclerview-and-viewholder.md#recyclerview-的滚动过程回收填充与平移)。
 
+### 屏幕坐标与目标滚动位置
+
+`view.getLocationOnScreen(location)` 读取 View 左上角在整个屏幕上的坐标。调用方传入长度为 2 的 `IntArray`，方法把 x 写入 `location[0]`，把 y 写入 `location[1]`。屏幕左上角是 (0, 0)，往右 x 增大，往下 y 增大。
+
+屏幕坐标已经包含了容器当前的滚动偏移。例如 ScrollView 的 `scrollY` 为 500，ScrollView 内某个 View 距离内容顶部 3860 px。这个 View 的屏幕 y 坐标是 3860 − 500 = 3360。
+
+要让这个 View 滚到屏幕上 y = 960 的位置，有两个不同的量：
+
+| 量 | 含义 | 计算 | 例子 |
+| --- | --- | --- | --- |
+| 滚动距离 | 从现在起还要再滚多少 | 当前屏幕坐标 − 目标屏幕坐标 | 3360 − 960 = 2400 |
+| 目标滚动位置 | 滚完后 `scrollY` 应等于多少 | 当前 `scrollY` + 滚动距离 | 500 + 2400 = 2900 |
+
+`scrollTo()` 需要目标滚动位置，`scrollBy()` 需要滚动距离。动画每帧调用 `scrollTo()` 时，传入的值从 500 逐步变到 2900。判断目标是否超出某个滚动范围，或把结果限制为不小于 0 时，也要用目标滚动位置比较，因为 `scrollY` 的取值范围是按位置定义的。
+
 ## VSYNC 与 Choreographer
 
 VSYNC 是屏幕每次准备刷新画面时发出的同步信号。60 Hz 的屏幕每秒刷新 60 次，每隔约 16.6 ms 发出一次 VSYNC 信号。

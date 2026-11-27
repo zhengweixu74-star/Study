@@ -2,7 +2,7 @@
 
 [返回笔记目录](../README.md)
 
-Kotlin 是 Android 开发的主要语言，运行在 Java 虚拟机和 Android 的 ART 虚拟机上，可以直接调用 Java 代码。本文按 Swift 开发者的视角说明 Kotlin 的变量与常量、空安全、数组与集合、类与继承、特殊的类声明、函数与 lambda、`when` 和作用域函数。协程见[Kotlin 协程与 suspend](kotlin-coroutines-and-suspend.md)。
+Kotlin 是 Android 开发的主要语言，运行在 Java 虚拟机和 Android 的 ART 虚拟机上，可以直接调用 Java 代码。本文按 Swift 开发者的视角说明 Kotlin 的变量与常量、空安全、数字字面量与除法、数组与集合、类与继承、Java 属性访问、特殊的类声明、对象表达式、函数与 lambda、`when` 和作用域函数。协程见[Kotlin 协程与 suspend](kotlin-coroutines-and-suspend.md)。
 
 ## 变量与空安全
 
@@ -44,6 +44,19 @@ let user = User()
 user.name = "Jerry"   // 可以：user 指向的实例没变，只修改了实例的属性
 user = User()         // 编译报错：let 不能重新赋值
 ```
+
+### 数字字面量与除法
+
+数字字面量的后缀决定类型：`100` 是 `Int`，`100L` 是 `Long`，`100f` 或 `100F` 是 `Float`，`100.0` 是 `Double`。Kotlin 的整数字面量不会根据上下文变成浮点数，`val x: Float = 100` 会编译报错。Swift 的 `let x: Float = 100` 可以编译，因为 Swift 的字面量类型由上下文推断。
+
+除法结果的类型由两边的类型决定：
+
+| 表达式 | 结果类型 | 结果 |
+| --- | --- | --- |
+| `100 / 440` | `Int` | `0`，整数除法舍去小数部分 |
+| `100f / 440` | `Float` | 约 `0.227` |
+
+所以需要小数结果时，至少一边要写成浮点数。
 
 ## 数组与集合：Array、List 与 MutableList
 
@@ -91,6 +104,7 @@ class NoteViewModel(private val api: NotesApi) : ViewModel() {
 - Kotlin 的类默认是 `final`，不能被继承；加 `open` 后才能被继承。Swift 的类默认可以被继承，加 `final` 才禁止继承。
 - 重写父类方法时必须写 `override`，与 Swift 相同。
 - 创建对象时直接写 `NoteViewModel(api)`，不写 `new`。
+- 调用 Java 类时，Java 的 `getXxx()` 方法可以写成读取属性 `xxx`，`setXxx(value)` 可以写成给属性 `xxx` 赋值。例如 `recyclerView.context` 调用的是 `recyclerView.getContext()`，`titleView.text = "标题"` 调用的是 `titleView.setText("标题")`。
 
 ## data class、object、companion object 与 sealed class
 
@@ -102,6 +116,36 @@ class NoteViewModel(private val api: NotesApi) : ViewModel() {
 | `sealed class LoadState` | 带关联值的 `enum` | 所有子类在编译时已知，配合 `when` 可以做穷尽判断 |
 
 data class 是引用类型，Swift 的 `struct` 是值类型：把一个 `Note` 对象赋给另一个变量，两个变量指向同一个对象。需要修改部分字段时，用 `note.copy(title = "新标题")` 创建新对象。
+
+### 对象表达式：创建匿名子类的对象
+
+`object` 也可以写在表达式中，称为对象表达式。对象表达式当场定义一个没有名字的子类，并立即创建这个子类的一个对象：
+
+```kotlin
+val listener = object : RecyclerView.OnScrollListener() {
+    override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+        println(newState)
+    }
+}
+```
+
+- `object` 表示在这里创建一个对象。
+- `: RecyclerView.OnScrollListener()` 表示这个无名子类继承 `OnScrollListener`，括号表示调用父类的构造函数，有参数时写在括号中。
+- 花括号中是子类的内容，例如重写的方法。
+
+上面的代码等价于先声明有名字的子类，再创建对象：
+
+```kotlin
+class PrintStateListener : RecyclerView.OnScrollListener() {
+    override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+        println(newState)
+    }
+}
+
+val listener = PrintStateListener()
+```
+
+子类只在一处使用时，对象表达式省去了起名字。每次执行对象表达式都会创建一个新对象，这一点与 `object ImageCache { ... }` 这种单例声明不同。Swift 没有对应写法，需要先声明有名字的子类。
 
 ## 函数、扩展函数与 lambda
 
@@ -117,6 +161,7 @@ val double = { x: Int -> x * 2 }               // lambda，相当于 Swift 的 {
 button.setOnClickListener { titleView.text = "已点击" }
 ```
 
+- 函数体只有一个返回值表达式时，可以用 `=` 代替 `{ return ... }`，称为单表达式函数。`fun String.isEmail(): Boolean = contains("@")` 与 `fun String.isEmail(): Boolean { return contains("@") }` 等价。
 - 扩展函数的作用与 Swift 的 `extension` 相同。扩展函数内部的 `this` 指被扩展的对象，上例中 `contains("@")` 就是 `this.contains("@")`。
 - 函数的最后一个参数是 lambda 时，lambda 可以写在括号外；括号中没有其他参数时，括号可以省略。`setOnClickListener { ... }` 就是这种写法，与 Swift 的尾随闭包相同。
 - lambda 只有一个参数时，可以不声明参数名，用 `it` 指代这个参数，例如 `notes.filter { it.title.isNotEmpty() }`。

@@ -166,3 +166,84 @@ RecyclerView 只为可见位置准备行 View，所以滚动时不能只修改�
 1. 调用 `scrollToPositionWithOffset()`，把目标行先排到附近。
 2. 等下一次布局完成，例如在 `doOnPreDraw` 回调中执行后续代码。
 3. 读取目标行的 top 和高度，计算剩余距离，再播放平滑滚动动画。
+
+第 3 步要读取目标行的实际位置，因为 LayoutManager 会修正请求的位置：按请求摆放后列表底部会留出空白时，`LinearLayoutManager` 把所有行整体下移，用上方的行填满空白。例如列表高 1800 px，共 50 行，目标是最后一行第 49 行，行高 200 px：
+
+1. 调用 `scrollToPositionWithOffset(49, 760)`，按请求摆放时第 49 行的 top 为 760、bottom 为 960。
+2. 第 49 行下方没有更多行，960～1800 之间会空出 840 px。
+3. `LinearLayoutManager` 把所有行下移 840 px，第 49 行的 top 实际为 1600。
+
+所以计算时使用布局完成后读出的位置。读取 View 在屏幕上的位置见[屏幕坐标与目标滚动位置](view-drawing-and-frame-refresh.md#屏幕坐标与目标滚动位置)。
+
+## 滚动状态：IDLE、DRAGGING 与 SETTLING
+
+RecyclerView 用滚动状态描述列表是否在滚动、由谁驱动：
+
+| 常量 | 含义 | 例子 |
+| --- | --- | --- |
+| `SCROLL_STATE_IDLE` | 列表静止 | 没有触摸，也没有自动滚动 |
+| `SCROLL_STATE_DRAGGING` | 手指按在列表上拖动列表 | 用户正在拖动 |
+| `SCROLL_STATE_SETTLING` | 手指已经离开，列表自己继续滚向停止位置 | 抛动后的惯性滑动、`smoothScrollToPosition()` 的自动滚动 |
+
+列表处于 `SETTLING` 时用户按下手指，RecyclerView 切换到 `DRAGGING`，并停止正在进行的惯性滑动或自动滚动。
+
+RecyclerView 通过 `OnScrollListener` 通知滚动状态的变化。需要在滚动停下后执行代码时，在状态变为 `IDLE` 时执行：
+
+```kotlin
+recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+    override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+            // 滚动已经停下
+        }
+    }
+})
+```
+
+## 平滑滚动到指定位置：smoothScrollToPosition
+
+`recyclerView.smoothScrollToPosition(position)` 让列表带动画滚到第 `position` 项。开始滚动时，目标行通常还没有 View，中间各行的高度也没有测量过，所以 RecyclerView 不知道目标行有多远。iOS 的 `UITableView.scrollToRow(at:at:animated:)` 用预估行高计算未显示行的位置；RecyclerView 改用“先朝目标方向滚，看到目标行后再精确停下”的方式。
+
+### 执行过程
+
+`LinearSmoothScroller` 是负责逐帧滚向目标行的对象。例如屏幕上显示第 0～4 行，调用 `smoothScrollToPosition(30)`：
+
+1. `LinearLayoutManager` 创建一个 `LinearSmoothScroller`，把目标设为第 30 项并启动，列表进入 `SETTLING` 状态。
+2. 找目标阶段：`LinearSmoothScroller` 比较 30 与屏幕上第一行的位置 0，判断目标在下方，开始向下匀速滚动，每帧推进一段。
+3. 每帧滚动都经历回收、填充、平移三步，见上文[RecyclerView 的滚动过程](#recyclerview-的滚动过程回收填充与平移)。每填充一行，`LinearSmoothScroller` 检查新行是不是第 30 项。
+4. 第 30 项被布局出来时，系统调用 `LinearSmoothScroller` 的 `onTargetFound()`。这时第 30 项已有真实位置，`LinearSmoothScroller` 算出剩余的精确距离。
+5. `LinearSmoothScroller` 用减速插值器滚完剩余距离，列表停下，状态回到 `IDLE`。
+
+`smoothScrollToPosition()` 由 LayoutManager 驱动，滚动的是 RecyclerView 自身的内容。外层还有滚动容器、需要外层和列表按同一进度接力时，可以先用上文的 `scrollToPositionWithOffset()` 排好目标行，再用一个 ValueAnimator 分配两层的滚动距离，见[把动画进度转换成滚动距离](valueanimator-and-interpolation.md#把动画进度转换成滚动距离)。
+
+### 默认停靠位置
+
+`LinearSmoothScroller` 的 `getVerticalSnapPreference()` 决定目标行最后停在哪里。默认实现按滚动方向返回：
+
+| 情况 | 返回值 | 目标行停靠的位置 |
+| --- | --- | --- |
+| 目标在下方，向下找到目标 | `SNAP_TO_END` | 目标行刚好完整出现在列表底部 |
+| 目标在上方，向上找到目标 | `SNAP_TO_START` | 目标行停在列表顶部 |
+| 开始时目标行已经布局出来 | `SNAP_TO_ANY` | 已完整显示时不滚动；部分显示时只滚动到刚好完整显示 |
+
+例如从第 0 行滚到第 30 行，默认结果是第 30 行贴着列表底边显示。
+
+### 滚动速度与自定义
+
+`LinearSmoothScroller` 的 `calculateSpeedPerPixel(displayMetrics)` 返回滚过 1 px 需要的毫秒数。默认值是 `25 ÷ densityDpi`，即每滚过 1 英寸用 25 ms。`densityDpi` 与 `DisplayMetrics` 见[尺寸单位：px、dp 与 sp](view-system-and-layout.md#尺寸单位pxdp-与-sp)。例如 `densityDpi` 为 440 时，找目标阶段滚过 3000 px 约 6.8 英寸，用时约 170 ms，所以长距离的平滑滚动看起来很快。
+
+要改变停靠位置或速度，创建 `LinearSmoothScroller` 的子类并交给 LayoutManager 启动。`object : 父类(...) { ... }` 的写法见[对象表达式](../language/kotlin-basics.md#对象表达式创建匿名子类的对象)。
+
+```kotlin
+val scroller = object : LinearSmoothScroller(recyclerView.context) {
+    // 目标行总是停在列表顶部
+    override fun getVerticalSnapPreference(): Int = SNAP_TO_START
+
+    // 每滚过 1 英寸用 100 ms，比默认值慢 4 倍
+    override fun calculateSpeedPerPixel(displayMetrics: DisplayMetrics): Float =
+        100f / displayMetrics.densityDpi
+}
+scroller.targetPosition = 30
+recyclerView.layoutManager?.startSmoothScroll(scroller)
+```
+
+`smoothScrollToPosition(30)` 内部做的是同样的事，只是使用默认的 `LinearSmoothScroller`。

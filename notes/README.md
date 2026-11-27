@@ -32,7 +32,7 @@
 | [Swift / Objective-C 运行时与方法派发](language/swift-objc-runtime.md) | 分类与类扩展、自动释放池、+load 与 +initialize、关联对象、实例布局与类型元数据、isa、静态派发与虚方法表、内联与编译优化选项、协议见证表、Selector 与 IMP、消息转发、Method Swizzling、@objcMembers、KVC 与 KVO |
 | [TypeScript、JavaScript 与 Worker 线程通信](language/typescript-javascript-and-workers.md) | Node.js 与浏览器、类型标注与推断、number 与 Int／Double、接口与泛型、类型擦除、事件循环与异步、Worker 消息通信及回调执行位置 |
 | [C++ 静态存储期对象与初始化](language/cpp-static-storage-and-initialization.md) | 静态存储期、静态数据成员、构造函数、全局对象与静态局部对象的初始化时机 |
-| [Kotlin 基础语法与 Swift 对照](language/kotlin-basics.md) | 变量与空安全、val 与 const val、Swift let 对照、Array／List／MutableList 与引用语义、类与继承、data class、object、companion object、sealed class、函数、扩展函数与 lambda、when 表达式、作用域函数 |
+| [Kotlin 基础语法与 Swift 对照](language/kotlin-basics.md) | 变量与空安全、val 与 const val、Swift let 对照、数字字面量与整数除法、Array／List／MutableList 与引用语义、类与继承、Java getter／setter 的属性写法、data class、object、companion object、sealed class、对象表达式、函数、单表达式函数、扩展函数与 lambda、when 表达式、作用域函数 |
 | [Kotlin 协程与 suspend](language/kotlin-coroutines-and-suspend.md) | 协程与挂起函数、启动与执行顺序、挂起与阻塞，以及与 Swift Task、async、await 的对应关系 |
 
 ## iOS 界面、事件与调度

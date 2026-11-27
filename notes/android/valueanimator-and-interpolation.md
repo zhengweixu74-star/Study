@@ -132,6 +132,66 @@ ofFloat() 创建动画并设定数值范围，start() 启动动画。更新 UI �
 
 cancel() 让动画停在当前值。已启动的动画被取消时，先触发 onAnimationCancel()，再触发 onAnimationEnd()。所以动画被取消和正常播完都会触发 onAnimationEnd()；要判断是否正常到达终点，需要结合 onAnimationCancel() 是否被调用。end() 把动画值直接推进到终点，再结束动画。
 
+## AnimationHandler：每帧调用动画的对象
+
+AnimationHandler 是 Android 动画框架中负责在每一帧调用正在运行的动画的类。每个线程最多有一个 AnimationHandler 实例，同一线程上的所有 ValueAnimator 共用这个实例。AnimationHandler 内部保存一个列表，记录当前正在运行的 ValueAnimator。
+
+一个动画从启动到结束，AnimationHandler 的工作顺序如下：
+
+```text
+调用 animator.start()
+→ ValueAnimator 把自己加入当前线程 AnimationHandler 的列表
+→ 列表原本为空时，AnimationHandler 向 Choreographer 登记下一帧回调
+
+每次 VSYNC 到达
+→ Choreographer 调用 AnimationHandler 登记的回调
+→ AnimationHandler 遍历列表，每个 ValueAnimator 计算本帧的值并调用更新回调
+→ 列表不为空时，AnimationHandler 再向 Choreographer 登记下一帧
+
+动画播完，或调用 animator.cancel()
+→ ValueAnimator 把自己从列表中移除
+→ 列表为空时，AnimationHandler 不再登记下一帧
+```
+
+Choreographer 每帧只调用 AnimationHandler 一次，再由 AnimationHandler 分发给所有正在运行的动画。屏幕上同时有 5 个动画时，5 个 ValueAnimator 不需要各自向 Choreographer 登记。Choreographer 见[VSYNC 与 Choreographer](view-drawing-and-frame-refresh.md#vsync-与-choreographer)。
+
+### 运行中的动画与页面回收
+
+动画运行期间存在一条引用链：
+
+```text
+主线程 → AnimationHandler → 列表 → ValueAnimator → 更新回调 → 回调中使用的页面对象
+```
+
+运行中的线程属于 GC Roots，所以这条链上的页面对象在动画结束前无法被 GC 回收。GC Roots 与内存泄漏的判断见[Android 内存泄漏与 OOM](memory-leaks-and-oom.md#泄漏来自仍然可达的引用链)。
+
+页面关闭时没有调用 `cancel()`，结果取决于动画会不会自己结束：
+
+| 动画 | 页面关闭后发生什么 | 结果 |
+| --- | --- | --- |
+| 有固定时长。例如时长 700 ms，在第 200 ms 时关闭页面 | 再过 500 ms 动画播完，ValueAnimator 离开 AnimationHandler 的列表，引用链断开 | 页面晚 500 ms 才能回收，不算泄漏；这 500 ms 里更新回调仍在修改已离开屏幕的 View |
+| 无限重复。例如 `repeatCount = ValueAnimator.INFINITE` | 动画永远不会结束，ValueAnimator 一直留在列表中 | 页面和整棵 View 树一直无法回收，形成内存泄漏 |
+
+所以页面销毁时要调用 `cancel()`。Fragment 中修改视图的动画，在 `onDestroyView()` 中取消。
+
+### cancel() 与 CADisplayLink 的 invalidate()
+
+`ValueAnimator.cancel()` 与 iOS 中 `CADisplayLink.invalidate()` 的作用相同：停止每帧回调，并从“每帧负责调用自己的对象”中移除自己。`invalidate()` 的规则见[RunLoop 的持有与 invalidate](../ios/runloop-timer-and-displaylink.md#runloop-的持有与-invalidate)。
+
+| 职责 | iOS | Android |
+| --- | --- | --- |
+| 提供每帧时机 | 屏幕刷新驱动 RunLoop 回调 | VSYNC 驱动 Choreographer |
+| 持有每帧要调用的对象 | RunLoop | AnimationHandler |
+| 每帧被调用的对象 | CADisplayLink | ValueAnimator |
+| 引用页面的位置 | `target`（例如控制器） | 更新回调 |
+| 停止 | `displayLink.invalidate()` | `animator.cancel()` |
+
+两者有三处区别：
+
+- `invalidate()` 释放 CADisplayLink 对 `target` 的强引用；`cancel()` 只把 ValueAnimator 移出 AnimationHandler 的列表，ValueAnimator 仍保存更新回调。原因是两端回收内存的规则不同。ARC 按引用计数回收，“控制器 → CADisplayLink → 控制器”这样的引用环要主动断开；GC 按可达性回收，“页面 → ValueAnimator → 更新回调 → 页面”这样的环从 GC Roots 走不到时，整个环一起回收。两种规则见[ARC 与 Android GC](../language/swift-memory-and-references.md#arc-与-android-gc引用计数可达性与引用环)。
+- 失效的 CADisplayLink 不能重新启动，需要时重新创建；被取消的 ValueAnimator 可以再次调用 `start()`。
+- `cancel()` 会触发 `onAnimationCancel()` 和 `onAnimationEnd()`；`invalidate()` 不调用任何结束回调。
+
 ## ValueAnimator、ObjectAnimator 与 ViewPropertyAnimator
 
 三种动画方式都由 Choreographer 每帧驱动，区别在于动画值如何写到 View 上：

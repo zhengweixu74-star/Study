@@ -84,6 +84,16 @@ Android 设备的屏幕密度差别很大。屏幕密度是每英寸的物理像
 
 例如 `16dp` 的边距，在 160 dpi 的屏幕上是 16 px，在 480 dpi 的屏幕上是 48 px，两块屏幕上看起来的物理长度相同。用户在系统设置中把字号调大到 1.3 倍时，`18sp` 的文字在 480 dpi 屏幕上显示为 18 × 3 × 1.3 ≈ 70 px。
 
+代码通过 `DisplayMetrics` 读取屏幕尺寸和密度。`DisplayMetrics` 是描述当前屏幕参数的类，通常用 `context.resources.displayMetrics` 获取。常用字段：
+
+| 字段 | 含义 | 例子 |
+| --- | --- | --- |
+| `widthPixels`、`heightPixels` | 屏幕宽、高的像素数 | 1080、2400 |
+| `densityDpi` | 屏幕密度，即每英寸的像素数 | 440 |
+| `density` | `densityDpi ÷ 160`，把 dp 换算成 px 的倍数 | 2.75 |
+
+例如 `densityDpi` 为 440 时，屏幕上 1 英寸长对应 440 px。按“毫秒数 ÷ `densityDpi`”计算每像素耗时，可以让动画在不同密度的屏幕上滚过相同物理长度时用时相同。
+
 ## Android 布局编辑器的示例数据来自哪里
 
 Android Studio 的 Layout Editor 根据 XML 布局、资源和设计时属性显示视图。查看常规 XML 布局时，开发者通常无需运行 Activity 的业务流程。预览自定义视图时，Layout Editor 会执行自定义视图的构造和绘制代码。

@@ -86,7 +86,7 @@ lifecycleScope.launch {
 
 `adapter` 是示例中的 `ListAdapter`，`submitList()` 把新列表交给 Adapter 刷新列表，见[局部更新与性能边界](listview-recyclerview-and-viewholder.md#局部更新与性能边界)。
 
-- `lifecycleScope` 是 Activity 和 Fragment 自带的协程作用域。在 `lifecycleScope` 中启动的协程默认在主线程执行。生命周期进入销毁状态时，`lifecycleScope` 取消其中的协程。`repeatOnLifecycle` 和 `collect` 都是挂起函数，需要在协程中调用，因此先用 `lifecycleScope.launch` 启动协程。
+- `lifecycleScope` 是 Activity 和 Fragment 自带的协程作用域。在 `lifecycleScope` 中启动的协程默认使用 `Dispatchers.Main.immediate`，在主线程执行，见[协程回到主线程](main-thread-and-handler.md#协程回到主线程dispatchersmain-与-dispatchersmainimmediate)。生命周期进入销毁状态时，`lifecycleScope` 取消其中的协程。Fragment 中操作视图的协程使用 `viewLifecycleOwner.lifecycleScope`，见[Fragment 中操作视图的协程](activity-lifecycle-and-state.md#fragment-中操作视图的协程使用-viewlifecycleownerlifecyclescope)。`repeatOnLifecycle` 和 `collect` 都是挂起函数，需要在协程中调用，因此先用 `lifecycleScope.launch` 启动协程。
 - `Lifecycle.State.STARTED` 表示 Activity 的 `onStart()` 已调用、`onStop()` 尚未调用的状态。处于该状态时，页面至少部分可见。
 - `repeatOnLifecycle(state) { ... }` 在生命周期达到 `state` 时启动新协程执行代码块，在生命周期低于 `state` 时取消该协程，再次达到 `state` 时重新启动新协程，从头执行代码块。
 
