@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 65 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 67 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
@@ -13,10 +13,10 @@
 | [Android 应用开发](android/README.md) | 14 |
 | [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
-| [网络与存储](#网络与存储) | 11 |
+| [网络与存储](#网络与存储) | 12 |
 | [实验与统计](#实验与统计) | 1 |
 | [AI 辅助开发](#ai-辅助开发) | 2 |
-| [数据结构](data-structures/README.md) | 1 |
+| [数据结构](data-structures/README.md) | 2 |
 | [操作系统基础](operating-systems/README.md) | 3 |
 
 ## 语言与运行时
@@ -83,6 +83,7 @@
 | [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；HTTP 方法与文件上传、请求正文格式、gzip；URLSession、会话配置、重定向与 URLCache；Alamofire 的请求与响应模型 |
 | [本机网络路径：网卡、路由表、网关、系统代理与 VPN](network-and-storage/local-network-path-and-vpn.md) | 物理网卡、虚拟网卡与网络服务；子网掩码、路由表与最长前缀匹配；默认网关、路由器与网关的区别；系统代理、例外列表、代理环境变量与代理客户端模式；系统代理模式与 TUN 模式的区别；TUN 模式的数据流、虚拟 DNS 地址、DNS 污染与 DNS 绕过虚拟网卡；出口审查的三种拦截方式与代理绕行；VPN 隧道封装、VPN 网关与全局隧道绕行；代理叠加 VPN 的路径、出口 IP 地区判定与延迟测量 |
 | [HTTP/1.1、HTTP/2 与流式响应：chunked、SSE 与 WebSocket](network-and-storage/http-versions-and-streaming.md) | HTTP/1.1 的文本格式与单请求连接、HTTP/2 的二进制帧、stream、多路复用与头部压缩；Content-Length、分块传输编码、DATA 帧与 END_STREAM；SSE 的消息格式与消息边界、WebSocket 握手与双向通信；大模型回复的流式输出 |
+| [长连接：建立、心跳保活、断开检测与重连](network-and-storage/long-connection-lifecycle.md) | 长连接的建立与鉴权；心跳与 NAT 映射、探活与心跳间隔；关闭的发起方、服务端空闲超时、正常关闭顺序与 HTTP 连接复用；异常断开、RST 与写入超时；NWPathMonitor 等网络状态判断；指数退避与抖动、网络切换重连、消息序号补齐；WebSocket 心跳与重连示例 |
 | [移动端远程推送：APNs、FCM 与厂商通道](network-and-storage/mobile-push-delivery.md) | 系统推送通道与 NAT、推送链路角色、device token 注册、服务端调用推送服务器、长连接与心跳；iOS 与 Android 的通知展示、通知消息与透传消息；点击后启动应用、PendingIntent 与 Activity；deeplink 路由与冷启动；两端差异汇总 |
 | [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份规则 |
 | [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件、Keychain、SQLite、Core Data 与 SwiftData；数据库事务、ACID 与崩溃恢复；SQLite 建表约束、参数绑定、WAL 并发和数据库迁移 |
@@ -107,7 +108,10 @@
 
 ## 数据结构
 
-[HashMap 的结构与实现原理](data-structures/hash-map.md)：键值映射、哈希与相等规则、冲突链、插入查找删除、负载因子、扩容与复杂度。
+| 文档 | 内容范围 |
+| --- | --- |
+| [HashMap 的结构与实现原理](data-structures/hash-map.md) | 键值映射、哈希与相等规则、冲突链、插入查找删除、负载因子、扩容与复杂度 |
+| [LRU 缓存：哈希表与双向链表](data-structures/lru-cache.md) | LRU 淘汰规则、哈希表与双向链表的分工、前驱指针、节点中的键与哨兵节点、Swift 实现与执行示例 |
 
 ## 操作系统基础
 
