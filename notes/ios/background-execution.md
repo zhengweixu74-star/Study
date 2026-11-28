@@ -68,7 +68,7 @@ UIApplication.shared.endBackgroundTask(taskID)   // 工作完成，通知系统�
 
 静默推送是不向用户显示内容、只用于唤醒应用的远程推送。应用需要声明 `remote-notification` 后台模式；服务端在推送的 `aps` 中设置 `"content-available": 1`。
 
-系统收到静默推送后，在后台唤醒应用，调用 `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`，应用有大约 30 秒拉取数据。系统会限制静默推送的唤醒频率，所以静默推送不能保证每条都唤醒应用。
+系统收到静默推送后，在后台唤醒应用，调用 `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`，应用有大约 30 秒拉取数据。系统会限制静默推送的唤醒频率，所以静默推送不能保证每条都唤醒应用。远程推送从服务端到设备的完整链路见[移动端远程推送：APNs、FCM 与厂商通道](../network-and-storage/mobile-push-delivery.md)。
 
 ## 与 Android 后台执行方式的对照
 

@@ -2,7 +2,7 @@
 
 [返回 Study](../README.md)
 
-按 10 个主题整理的 63 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
+按 10 个主题整理的 65 篇学习笔记，内容限于通用概念、工作机制和独立示例。每篇笔记开头有本文目录，可以直接跳到具体章节。
 
 ## 分类目录
 
@@ -13,7 +13,7 @@
 | [Android 应用开发](android/README.md) | 14 |
 | [跨平台与宿主通信](#跨平台与宿主通信) | 3 |
 | [软件设计与工程工具](#软件设计与工程工具) | 5 |
-| [网络与存储](#网络与存储) | 9 |
+| [网络与存储](#网络与存储) | 11 |
 | [实验与统计](#实验与统计) | 1 |
 | [AI 辅助开发](#ai-辅助开发) | 2 |
 | [数据结构](data-structures/README.md) | 1 |
@@ -82,6 +82,8 @@
 | --- | --- |
 | [网络请求与代理](network-and-storage/network-and-proxy.md) | 连接与超时、幂等重试、TCP、代理、HTTPS 抓包与证书信任；HTTP 方法与文件上传、请求正文格式、gzip；URLSession、会话配置、重定向与 URLCache；Alamofire 的请求与响应模型 |
 | [本机网络路径：网卡、路由表、网关、系统代理与 VPN](network-and-storage/local-network-path-and-vpn.md) | 物理网卡、虚拟网卡与网络服务；子网掩码、路由表与最长前缀匹配；默认网关、路由器与网关的区别；系统代理、例外列表、代理环境变量与代理客户端模式；系统代理模式与 TUN 模式的区别；TUN 模式的数据流、虚拟 DNS 地址、DNS 污染与 DNS 绕过虚拟网卡；出口审查的三种拦截方式与代理绕行；VPN 隧道封装、VPN 网关与全局隧道绕行；代理叠加 VPN 的路径、出口 IP 地区判定与延迟测量 |
+| [HTTP/1.1、HTTP/2 与流式响应：chunked、SSE 与 WebSocket](network-and-storage/http-versions-and-streaming.md) | HTTP/1.1 的文本格式与单请求连接、HTTP/2 的二进制帧、stream、多路复用与头部压缩；Content-Length、分块传输编码、DATA 帧与 END_STREAM；SSE 的消息格式与消息边界、WebSocket 握手与双向通信；大模型回复的流式输出 |
+| [移动端远程推送：APNs、FCM 与厂商通道](network-and-storage/mobile-push-delivery.md) | 系统推送通道与 NAT、推送链路角色、device token 注册、服务端调用推送服务器、长连接与心跳；iOS 与 Android 的通知展示、通知消息与透传消息；点击后启动应用、PendingIntent 与 Activity；deeplink 路由与冷启动；两端差异汇总 |
 | [iOS 文件存储](network-and-storage/ios-file-storage.md) | Documents、Application Support、Caches 和 tmp 的用途、清理与备份规则 |
 | [iOS 数据持久化](network-and-storage/ios-data-persistence.md) | UserDefaults、文件、Keychain、SQLite、Core Data 与 SwiftData；数据库事务、ACID 与崩溃恢复；SQLite 建表约束、参数绑定、WAL 并发和数据库迁移 |
 | [数据库索引与 B+ 树](network-and-storage/database-index-and-btree.md) | 索引与全表扫描、B+ 树与 B 树、InnoDB 与自适应哈希索引、聚簇索引与回表、覆盖索引、联合索引与最左前缀、索引下推、索引失效、查询计划与深分页 |
@@ -94,7 +96,7 @@
 
 | 文档 | 内容范围 |
 | --- | --- |
-| [A/B 实验与统计](statistics/ab-testing.md) | 显著性、p 值与有效样本量；使用人数少时的功能上线判断；客户端精准曝光实验与服务端实验；实验参与范围、统计分母、绝对提升与相对提升 |
+| [A/B 实验与统计](statistics/ab-testing.md) | 显著性、p 值与有效样本量；使用人数少时的功能上线判断；客户端精准曝光实验与服务端实验；实验参与范围、统计分母、绝对提升与相对提升；随机分组归因、组合指标的去重与灵敏度、总指标与过程指标；正交、互斥与交互效应；指标口径、数据上下游与指标血缘、埋点下线后的口径对齐、统一收口事件与离散事件聚合 |
 
 ## AI 辅助开发
 

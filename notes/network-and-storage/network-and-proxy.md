@@ -377,7 +377,7 @@ HTTPS 表示受到安全传输保护的 HTTP 通信；HTTP/3 是 HTTP 的一个�
 | HTTPS 使用 HTTP/1.1 或 HTTP/2 | HTTP → TLS → TCP → IP |
 | HTTPS 使用 HTTP/3 | HTTP/3 → QUIC → UDP → IP；QUIC 集成 TLS 1.3 的握手与密钥协商 |
 
-在 QUIC 中，TLS 1.3 负责身份验证和密钥协商，QUIC 用协商出的密钥直接保护数据包，应用数据不再封装成传统的 TLS 记录。HTTP/3 同样使用 `https://` 地址，所以只看地址前缀，无法判断连接使用 TCP 还是 QUIC。QUIC 也可以承载 HTTP/3 之外的应用协议。
+在 QUIC 中，TLS 1.3 负责身份验证和密钥协商，QUIC 用协商出的密钥直接保护数据包，应用数据不再封装成传统的 TLS 记录。HTTP/3 同样使用 `https://` 地址，所以只看地址前缀，无法判断连接使用 TCP 还是 QUIC。QUIC 也可以承载 HTTP/3 之外的应用协议。HTTP/1.1 与 HTTP/2 的传输格式差异见[HTTP/1.1、HTTP/2 与流式响应](http-versions-and-streaming.md)。
 
 ## 代理连接与 HTTPS 隧道
 
